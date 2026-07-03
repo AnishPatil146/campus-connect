@@ -1,0 +1,21 @@
+{
+  "name": "campus-connect",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Campus Connect - Monorepo",
+  "packageManager": "pnpm@9.5.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "clean": "turbo clean"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.14",
+    "typescript": "^5.5.3"
+  }
+}

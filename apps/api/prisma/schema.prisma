@@ -1,0 +1,158 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  SUPER_ADMIN
+  COLLEGE_ADMIN
+  TEACHER
+  STUDENT
+}
+
+model EducationGroup {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  colleges  College[]
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@map("education_groups")
+}
+
+model College {
+  id               String          @id @default(uuid())
+  name             String          @unique
+  educationGroupId String          @map("education_group_id")
+  educationGroup   EducationGroup  @relation(fields: [educationGroupId], references: [id], onDelete: Cascade)
+  departments      Department[]
+  users            User[]
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  @@map("colleges")
+}
+
+model Department {
+  id        String    @id @default(uuid())
+  name      String
+  collegeId String    @map("college_id")
+  college   College   @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  courses   Course[]
+  teachers  Teacher[] @relation("TeacherDepartments")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@unique([name, collegeId])
+  @@map("departments")
+}
+
+model Course {
+  id               String            @id @default(uuid())
+  name             String
+  departmentId     String            @map("department_id")
+  department       Department        @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  academicSessions AcademicSession[]
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  @@unique([name, departmentId])
+  @@map("courses")
+}
+
+model AcademicSession {
+  id        String     @id @default(uuid())
+  name      String     // e.g., "2026-27"
+  courseId  String     @map("course_id")
+  course    Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  semesters Semester[]
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  @@unique([name, courseId])
+  @@map("academic_sessions")
+}
+
+model Semester {
+  id                String          @id @default(uuid())
+  name              String          // e.g., "Semester 1"
+  academicSessionId String          @map("academic_session_id")
+  academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id], onDelete: Cascade)
+  divisions         Division[]
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  @@unique([name, academicSessionId])
+  @@map("semesters")
+}
+
+model Division {
+  id         String    @id @default(uuid())
+  name       String    // e.g., "Division A"
+  semesterId String    @map("semester_id")
+  semester   Semester  @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  students   Student[]
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@unique([name, semesterId])
+  @@map("divisions")
+}
+
+model User {
+  id             String          @id @default(uuid())
+  email          String          @unique
+  passwordHash   String          @map("password_hash")
+  name           String
+  role           Role
+  collegeId      String?         @map("college_id")
+  college        College?        @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+  studentProfile Student?
+  teacherProfile Teacher?
+  activityLogs   ActivityLog[]
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model Student {
+  id         String   @id @default(uuid())
+  userId     String   @unique @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  divisionId String   @map("division_id")
+  division   Division @relation(fields: [divisionId], references: [id], onDelete: Restrict)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("students")
+}
+
+model Teacher {
+  id          String       @id @default(uuid())
+  userId      String       @unique @map("user_id")
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  departments Department[] @relation("TeacherDepartments")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  @@map("teachers")
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  timestamp DateTime @default(now())
+  userId    String?  @map("user_id")
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userName  String   @map("user_name")
+  role      String
+  action    String
+  details   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("activity_logs")
+}
