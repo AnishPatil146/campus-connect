@@ -1,0 +1,7 @@
+Day,Time Slot,Course,Division,Subject Code,Subject Name,Teacher Name,Classroom
+Monday,09:00 AM - 10:30 AM,BSc IT,Division A,CS-401,Database Management Systems,Dr. Sarah Jenkins,Room 301
+Monday,09:00 AM - 10:30 AM,BSc IT,Division B,CS-402,Operating Systems,Prof. Amit Patil,Room 301
+Monday,09:00 AM - 10:30 AM,BSc IT,Division B,CS-403,Python Web Lab,Dr. Sarah Jenkins,Room 302
+Monday,09:00 AM - 10:30 AM,BSc IT,Division A,CS-404,Discrete Mathematics,Prof. Amit Patil,Room 303
+Tuesday,11:00 AM - 12:30 PM,BSc IT,Division A,CS-403,Python Web Lab,Prof. Amit Patil,Room 301
+Wednesday,02:00 PM - 03:30 PM,BSc IT,Division A,MATH-405,Discrete Mathematics,Dr. Sarah Jenkins,Room 303

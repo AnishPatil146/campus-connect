@@ -14,7 +14,8 @@ import {
   Link as LinkIcon, 
   Calendar,
   UploadCloud,
-  ChevronRight
+  ChevronRight,
+  BookOpen
 } from 'lucide-react';
 
 export default function NotesPage() {
@@ -112,7 +113,7 @@ export default function NotesPage() {
   });
 
   return (
-    <DashboardLayout title="📚 Study Notes Hub">
+    <DashboardLayout title="Study Notes Hub" icon={<BookOpen className="h-6 w-6" />}>
       <div className="space-y-6">
         
         {/* Top bar controls */}
@@ -436,7 +437,7 @@ export default function NotesPage() {
         <Modal
           isOpen={isUploadOpen}
           onClose={() => setIsUploadOpen(false)}
-          title="📚 Mock Upload Study Notes (Teacher Mode)"
+          title="Mock Upload Study Notes (Teacher Mode)"
           size="md"
         >
           <form onSubmit={handleUploadSubmit} className="space-y-4">

@@ -1,4 +1,4 @@
-export type UserRole = 'STUDENT' | 'TEACHER' | 'ADMIN' | 'SUPER_ADMIN';
+export type UserRole = 'STUDENT' | 'TEACHER' | 'ADMIN';
 
 export type CollegeId = 'college-a' | 'college-b' | 'college-c';
 
@@ -36,7 +36,7 @@ export interface Teacher extends User {
 }
 
 export interface Admin extends User {
-  role: 'ADMIN' | 'SUPER_ADMIN';
+  role: 'ADMIN';
   department?: string;
 }
 

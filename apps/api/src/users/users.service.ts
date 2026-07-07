@@ -6,29 +6,56 @@ export class UsersService {
   constructor(private prisma: PrismaService) {}
 
   async findAllUsers() {
-    return await this.prisma.user.findMany({
+    const users = await this.prisma.user.findMany({
       select: {
         id: true,
         email: true,
         name: true,
-        role: true,
         collegeId: true,
         createdAt: true,
         updatedAt: true,
+        userRoles: {
+          select: {
+            role: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
       },
     });
+
+    return users.map((u) => ({
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      role: u.userRoles[0]?.role.name || null,
+      roles: u.userRoles.map((ur) => ur.role.name),
+      collegeId: u.collegeId,
+      createdAt: u.createdAt,
+      updatedAt: u.updatedAt,
+    }));
   }
 
   async findAllStudents() {
-    return await this.prisma.student.findMany({
+    const students = await this.prisma.student.findMany({
       include: {
         user: {
           select: {
             id: true,
             email: true,
             name: true,
-            role: true,
             collegeId: true,
+            userRoles: {
+              select: {
+                role: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
+            },
           },
         },
         division: {
@@ -45,6 +72,23 @@ export class UsersService {
           },
         },
       },
+    });
+
+    return students.map((s) => {
+      const u = s.user;
+      return {
+        ...s,
+        user: u
+          ? {
+              id: u.id,
+              email: u.email,
+              name: u.name,
+              role: u.userRoles[0]?.role.name || null,
+              roles: u.userRoles.map((ur) => ur.role.name),
+              collegeId: u.collegeId,
+            }
+          : null,
+      };
     });
   }
 }

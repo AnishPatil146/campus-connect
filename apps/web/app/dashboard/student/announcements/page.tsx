@@ -38,7 +38,7 @@ export default function AnnouncementsPage() {
   });
 
   return (
-    <DashboardLayout title="📢 Announcements">
+    <DashboardLayout title="Announcements" icon={<Megaphone className="h-6 w-6" />}>
       <div className="space-y-6">
         
         {/* Filter controls */}

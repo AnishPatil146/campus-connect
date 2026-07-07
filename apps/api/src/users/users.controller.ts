@@ -18,7 +18,7 @@ export class UsersController {
   ) {}
 
   @Get('users')
-  @Roles(Role.SUPER_ADMIN, Role.COLLEGE_ADMIN)
+  @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Retrieve list of all users' })
   async getUsers(@Req() req: any) {
     const data = await this.usersService.findAllUsers();
@@ -40,7 +40,7 @@ export class UsersController {
   }
 
   @Get('students')
-  @Roles(Role.SUPER_ADMIN, Role.COLLEGE_ADMIN, Role.TEACHER)
+  @Roles(Role.ADMIN, Role.TEACHER)
   @ApiOperation({ summary: 'Retrieve list of all students' })
   async getStudents(@Req() req: any) {
     const data = await this.usersService.findAllStudents();

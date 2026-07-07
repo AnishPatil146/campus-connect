@@ -1,4 +1,4 @@
-import { PrismaClient, Role } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -10,6 +10,11 @@ async function main() {
   await prisma.activityLog.deleteMany({});
   await prisma.student.deleteMany({});
   await prisma.teacher.deleteMany({});
+  await prisma.task.deleteMany({});
+  await prisma.userRole.deleteMany({});
+  await prisma.refreshToken.deleteMany({});
+  await prisma.loginHistory.deleteMany({});
+  await prisma.roleModel.deleteMany({});
   await prisma.user.deleteMany({});
   await prisma.division.deleteMany({});
   await prisma.semester.deleteMany({});
@@ -19,36 +24,67 @@ async function main() {
   await prisma.college.deleteMany({});
   await prisma.educationGroup.deleteMany({});
 
-  // 2. Create Education Group
+  // 2. Create Roles with Permissions
+  const adminRole = await prisma.roleModel.create({
+    data: {
+      name: 'ADMIN',
+      permissions: [
+        'student.create',
+        'student.update',
+        'student.delete',
+        'teacher.create',
+        'teacher.update',
+        'teacher.delete',
+        'events.create',
+        'announcements.create',
+      ],
+    },
+  });
+
+  const teacherRole = await prisma.roleModel.create({
+    data: {
+      name: 'TEACHER',
+      permissions: ['notes.upload', 'events.create', 'announcements.create'],
+    },
+  });
+
+  const studentRole = await prisma.roleModel.create({
+    data: {
+      name: 'STUDENT',
+      permissions: ['notes.read'],
+    },
+  });
+
+  // 3. Create Education Group
   const educationGroup = await prisma.educationGroup.create({
     data: {
       name: 'Balasaheb Mhatre Education Group',
     },
   });
 
-  // 3. Create Colleges
+  // 4. Create Colleges
   await prisma.college.create({
     data: {
-      name: "Pushpalata Mhatre Women's College",
+      name: "Pushpalata Mhatre Women's College of Arts, Commerce & Science",
       educationGroupId: educationGroup.id,
     },
   });
 
   await prisma.college.create({
     data: {
-      name: 'Balasaheb Mhatre Junior College',
+      name: 'Balasaheb Mhatre College of Science (Junior)',
       educationGroupId: educationGroup.id,
     },
   });
 
   const seniorCollege = await prisma.college.create({
     data: {
-      name: 'Balasaheb Mhatre Senior College',
+      name: 'Balasaheb Mhatre College of Science (Senior)',
       educationGroupId: educationGroup.id,
     },
   });
 
-  // 4. Create hierarchy in Balasaheb Mhatre Senior College
+  // 5. Create hierarchy in Balasaheb Mhatre Senior College
   const department = await prisma.department.create({
     data: {
       name: 'Computer Science',
@@ -87,36 +123,39 @@ async function main() {
   // Passwords
   const defaultPasswordHash = bcrypt.hashSync('password123', 10);
 
-  // 5. Create Users
-  // Super Admin
-  const superAdminUser = await prisma.user.create({
+  // 6. Create Users and Assign Roles
+  // Admin for Balasaheb Mhatre Senior College
+  const adminUser = await prisma.user.create({
     data: {
-      email: 'superadmin@campusconnect.com',
+      email: 'anish@college.edu',
       passwordHash: defaultPasswordHash,
-      name: 'System Super Admin',
-      role: Role.SUPER_ADMIN,
-    },
-  });
-
-  // College Admin for Balasaheb Mhatre Senior College
-  await prisma.user.create({
-    data: {
-      email: 'collegeadmin@college.edu',
-      passwordHash: defaultPasswordHash,
-      name: 'Balasaheb Admin',
-      role: Role.COLLEGE_ADMIN,
+      name: 'Anish Patil',
+      status: 'ACTIVE',
       collegeId: seniorCollege.id,
+      userRoles: {
+        create: {
+          roleId: adminRole.id,
+        },
+      },
     },
   });
 
-  // Teacher Profile
+  // Teacher + College Admin (Multi-role User)
   const teacherUser = await prisma.user.create({
     data: {
       email: 'teacher@college.edu',
       passwordHash: defaultPasswordHash,
       name: 'Dr. Sarah Jenkins',
-      role: Role.TEACHER,
+      status: 'ACTIVE',
       collegeId: seniorCollege.id,
+      userRoles: {
+        createMany: {
+          data: [
+            { roleId: teacherRole.id },
+            { roleId: adminRole.id },
+          ],
+        },
+      },
     },
   });
 
@@ -135,8 +174,13 @@ async function main() {
       email: 'student@college.edu',
       passwordHash: defaultPasswordHash,
       name: 'Alex Rivera',
-      role: Role.STUDENT,
+      status: 'ACTIVE',
       collegeId: seniorCollege.id,
+      userRoles: {
+        create: {
+          roleId: studentRole.id,
+        },
+      },
     },
   });
 
@@ -144,17 +188,27 @@ async function main() {
     data: {
       userId: studentUser.id,
       divisionId: division.id,
+      rollNumber: 'CS-2026-089',
+      admissionNumber: 'ADM-902341',
+      gender: 'Male',
+      dateOfBirth: new Date('2005-05-15'),
+      mobile: '+91 9876543210',
+      address: '102, Shanti Nagar, Sector 4, Thane, Maharashtra',
+      profilePhoto: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150',
+      parentName: 'Ramesh Rivera',
+      parentMobile: '+91 9876543211',
+      isActive: true,
     },
   });
 
   // Seed initial log
   await prisma.activityLog.create({
     data: {
-      userId: superAdminUser.id,
-      userName: superAdminUser.name,
-      role: superAdminUser.role,
+      userId: adminUser.id,
+      userName: adminUser.name,
+      role: 'ADMIN',
       action: 'Seeded initial database successfully',
-      details: 'Created education group, colleges, departments, users, and students.',
+      details: 'Created education group, colleges, departments, users, roles and students.',
     },
   });
 

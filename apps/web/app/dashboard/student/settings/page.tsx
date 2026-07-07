@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, Toast } from '@campus-connect/ui';
-import { Bell, EyeOff } from 'lucide-react';
+import { Bell, EyeOff, Settings } from 'lucide-react';
 
 export default function SettingsPage() {
   const [emailAlerts, setEmailAlerts] = useState(true);
@@ -20,7 +20,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <DashboardLayout title="⚙️ Preferences & Settings">
+    <DashboardLayout title="Preferences & Settings" icon={<Settings className="h-6 w-6" />}>
       <div className="max-w-3xl mx-auto space-y-6">
         
         {/* Notifications Section */}

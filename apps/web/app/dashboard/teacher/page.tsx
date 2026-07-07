@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../../../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, Button, Input } from '@campus-connect/ui';
 import { useAuth } from '../../../components/AuthProvider';
-import { Clock, User, CheckCircle2 } from 'lucide-react';
+import { Clock, User, CheckCircle2, ClipboardCheck } from 'lucide-react';
+import { api, TaskRecord } from '../../../utils/api';
 
 interface StudentGradeRecord {
   id: string;
@@ -56,6 +57,39 @@ export default function TeacherDashboard() {
   };
 
   const selectedStudent = students.find(s => s.id === selectedStudentId);
+
+  // Task Center State
+  const [assignedTasks, setAssignedTasks] = useState<TaskRecord[]>([]);
+  const [isTasksLoading, setIsTasksLoading] = useState(true);
+
+  const fetchAssignedTasks = async () => {
+    setIsTasksLoading(true);
+    try {
+      const resp = await api.getAssignedTasks();
+      setAssignedTasks(resp.data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsTasksLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAssignedTasks();
+  }, []);
+
+  const handleToggleTask = async (task: TaskRecord) => {
+    const newStatus = task.status === 'PENDING' ? 'COMPLETED' : 'PENDING';
+    try {
+      await api.updateTaskStatus(task.id, newStatus);
+      fetchAssignedTasks();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const pendingTasks = assignedTasks.filter(t => t.status === 'PENDING');
+  const completedTasks = assignedTasks.filter(t => t.status === 'COMPLETED');
 
   return (
     <DashboardLayout title="Teacher Control Panel">
@@ -206,6 +240,70 @@ export default function TeacherDashboard() {
                   Save Record
                 </Button>
               </form>
+            </CardContent>
+          </Card>
+
+          {/* Task Center Checklist Panel */}
+          <Card className="border-amber-100/70 dark:border-amber-900/30 shadow-sm">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ClipboardCheck className="h-4 w-4 text-amber-500" />
+                  <CardTitle className="text-slate-900 dark:text-white">My Tasks</CardTitle>
+                </div>
+                <span className="text-[10px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 px-2.5 py-1 rounded-lg border border-amber-100 dark:border-amber-900">
+                  {pendingTasks.length} Pending
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">Tasks assigned by the admin</p>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {isTasksLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="h-6 w-6 border-2 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
+                </div>
+              ) : assignedTasks.length === 0 ? (
+                <div className="text-center py-8">
+                  <CheckCircle2 className="h-8 w-8 text-slate-200 mx-auto mb-2" />
+                  <p className="text-xs text-slate-400 font-medium">No tasks assigned yet</p>
+                </div>
+              ) : (
+                <>
+                  {pendingTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex items-start gap-3 p-3.5 bg-amber-50/40 dark:bg-amber-950/10 border border-amber-100/60 dark:border-amber-900/30 rounded-xl hover:bg-amber-50/70 dark:hover:bg-amber-950/20 transition-colors cursor-pointer group"
+                      onClick={() => handleToggleTask(task)}
+                    >
+                      <div className="h-5 w-5 rounded-full border-2 border-amber-300 dark:border-amber-700 group-hover:border-emerald-400 transition-colors shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">{task.title}</span>
+                        {task.description && (
+                          <span className="text-[10px] text-slate-400 line-clamp-1 block mt-0.5">{task.description}</span>
+                        )}
+                        <span className="text-[10px] text-amber-500 font-medium flex items-center gap-1 mt-1.5">
+                          <Clock className="h-3 w-3" />
+                          Due {new Date(task.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+
+                  {completedTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex items-start gap-3 p-3 bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/60 dark:border-slate-800/40 rounded-xl opacity-60 cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => handleToggleTask(task)}
+                    >
+                      <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-semibold text-slate-500 line-through block">{task.title}</span>
+                        <span className="text-[10px] text-slate-400">Completed</span>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

@@ -11,12 +11,12 @@ export const Badge = ({ className, variant = 'primary', ...props }: BadgeProps) 
       className={cn(
         'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
         {
-          'bg-blue-50 text-blue-700 border border-blue-200': variant === 'primary',
-          'bg-slate-100 text-slate-800 border border-slate-200': variant === 'secondary',
-          'bg-emerald-50 text-emerald-700 border border-emerald-200': variant === 'success',
-          'bg-amber-50 text-amber-700 border border-amber-200': variant === 'warning',
-          'bg-red-50 text-red-700 border border-red-200': variant === 'danger',
-          'bg-sky-50 text-sky-700 border border-sky-200': variant === 'info',
+          'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/50': variant === 'primary',
+          'bg-slate-100 text-slate-800 border border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700': variant === 'secondary',
+          'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50': variant === 'success',
+          'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/50': variant === 'warning',
+          'bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900/50': variant === 'danger',
+          'bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-950/40 dark:text-sky-400 dark:border-sky-900/50': variant === 'info',
         },
         className
       )}

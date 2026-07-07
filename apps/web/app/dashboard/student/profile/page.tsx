@@ -4,7 +4,7 @@ import React from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@campus-connect/ui';
 import { useAuth } from '../../../../components/AuthProvider';
-import { Mail, Calendar, School, GraduationCap } from 'lucide-react';
+import { Mail, Calendar, School, GraduationCap, User } from 'lucide-react';
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -15,13 +15,13 @@ export default function ProfilePage() {
     department: 'Computer Science & Engineering',
     email: user?.email || 'anish.kumar@campusconnect.edu',
     dob: 'August 14, 2005',
-    college: "Pushpalata Women's College",
+    college: "Pushpalata Mhatre Women's College of Arts, Commerce & Science",
     division: 'Division A',
     semester: 'Semester 4'
   };
 
   return (
-    <DashboardLayout title="👤 Student Profile">
+    <DashboardLayout title="Student Profile" icon={<User className="h-6 w-6" />}>
       <div className="max-w-3xl mx-auto space-y-6">
         
         {/* Profile Card Header */}

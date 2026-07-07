@@ -174,7 +174,10 @@ export default function StudentDashboard() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle>📚 Recently Added Notes</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <span>Recently Added Notes</span>
+                  </CardTitle>
                   <p className="text-xs text-slate-500">Newly uploaded resource study hubs for your courses</p>
                 </div>
                 <Link href="/dashboard/student/notes" className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1">
@@ -215,7 +218,10 @@ export default function StudentDashboard() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle>📖 Today's Schedule</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <span>Today's Schedule</span>
+                  </CardTitle>
                   <p className="text-xs text-slate-500">Your upcoming lectures for today</p>
                 </div>
                 <Link href="/dashboard/student/timetable" className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1">

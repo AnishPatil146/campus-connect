@@ -5,15 +5,17 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from './AuthProvider';
 import { useTheme } from './ThemeProvider';
-import { getCollegeName } from '@campus-connect/utils';
-import { LogOut, User as UserIcon, Settings, ShieldAlert, GraduationCap, BookOpen, Menu, X, Bell, Sun, Moon, LayoutDashboard, LineChart, Calendar, Clock, Sparkles, Megaphone } from 'lucide-react';
+import { getCollegeName, getCollegeLogo } from '@campus-connect/utils';
+import { LogOut, User as UserIcon, Settings, GraduationCap, BookOpen, Menu, X, Bell, Sun, Moon, LayoutDashboard, LineChart, Calendar, Clock, Sparkles, Megaphone, Users, Building2, Activity, FolderInput } from 'lucide-react';
+import { CommandPalette } from './CommandPalette';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
   title: string;
+  icon?: React.ReactNode;
 }
 
-export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) => {
+export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, icon }) => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
@@ -49,11 +51,19 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
     );
   } else if (user.role === 'ADMIN') {
     sidebarItems.push(
-      { name: 'Dashboard', path: '/dashboard/admin', icon: <ShieldAlert className="h-5 w-5" /> }
-    );
-  } else if (user.role === 'SUPER_ADMIN') {
-    sidebarItems.push(
-      { name: 'Dashboard', path: '/dashboard/super-admin', icon: <ShieldAlert className="h-5 w-5" /> }
+      { name: 'Dashboard', path: '/dashboard/admin', icon: <LayoutDashboard className="h-5 w-5" /> },
+      { name: 'Student Management', path: '/dashboard/admin/students', icon: <GraduationCap className="h-5 w-5" /> },
+      { name: 'Teacher Management', path: '/dashboard/admin/teachers', icon: <Users className="h-5 w-5" /> },
+      { name: 'Academic Management', path: '/dashboard/admin/academic', icon: <Building2 className="h-5 w-5" /> },
+      { name: 'Timetable Management', path: '/dashboard/admin/timetable', icon: <Clock className="h-5 w-5" /> },
+      { name: 'Learning Center', path: '/dashboard/admin/learning-center', icon: <BookOpen className="h-5 w-5" /> },
+      { name: 'Event Management', path: '/dashboard/admin/events', icon: <Sparkles className="h-5 w-5" /> },
+      { name: 'Announcement Center', path: '/dashboard/admin/announcements', icon: <Megaphone className="h-5 w-5" /> },
+      { name: 'Reports & Analytics', path: '/dashboard/admin/reports', icon: <LineChart className="h-5 w-5" /> },
+      { name: 'Notification Center', path: '/dashboard/admin/notifications', icon: <Bell className="h-5 w-5" /> },
+      { name: 'Import / Export Center', path: '/dashboard/admin/import', icon: <FolderInput className="h-5 w-5" /> },
+      { name: 'Audit Logs', path: '/dashboard/admin/audit-logs', icon: <Activity className="h-5 w-5" /> },
+      { name: 'College Settings', path: '/dashboard/admin/settings', icon: <Settings className="h-5 w-5" /> }
     );
   }
 
@@ -68,8 +78,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans text-slate-850 dark:text-slate-100 transition-colors duration-300">
+      <CommandPalette />
       {/* Top Header */}
-      <header className="h-16 border-b border-slate-100 dark:border-slate-900 bg-white dark:bg-slate-905 sticky top-0 z-30 px-6 flex items-center justify-between transition-colors duration-300">
+      <header className="h-16 border-b border-slate-100 dark:border-slate-900 bg-white dark:bg-slate-900 sticky top-0 z-30 px-6 flex items-center justify-between transition-colors duration-300">
         <div className="flex items-center gap-3">
           <button 
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -79,8 +90,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
           </button>
           
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm">
-              C
+            <div className="h-8 w-8 rounded-lg overflow-hidden flex items-center justify-center bg-white border border-slate-200/60 dark:border-slate-800 p-0.5 shadow-sm">
+              <img 
+                src={getCollegeLogo(user.collegeId)} 
+                alt="College Logo" 
+                className="w-full h-full object-contain rounded-md"
+              />
             </div>
             <span className="font-display font-bold text-lg text-slate-900 dark:text-white hidden sm:inline">
               CampusConnect
@@ -135,7 +150,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
       {/* Main Workspace Body */}
       <div className="flex-1 flex relative">
         {/* Sidebar Left Navigation (Desktop) */}
-        <aside className="w-64 border-r border-slate-100 dark:border-slate-900 bg-white dark:bg-slate-905 hidden md:flex flex-col p-4 shrink-0 transition-colors duration-305">
+        <aside className="w-64 border-r border-slate-100 dark:border-slate-900 bg-white dark:bg-slate-900 hidden md:flex flex-col p-4 shrink-0 transition-colors duration-300">
           <nav className="space-y-1.5 flex-1">
             {sidebarItems.map((item) => {
               const isActive = pathname === item.path;
@@ -206,8 +221,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
         {/* Dynamic Inner Page Content */}
         <main className="flex-1 p-6 md:p-8 overflow-y-auto max-w-7xl mx-auto w-full transition-colors duration-300">
           <div className="mb-6 flex flex-col gap-1.5">
-            <h1 className="font-display font-extrabold text-2xl md:text-3xl text-slate-900 dark:text-white tracking-tight">
-              {title}
+            <h1 className="font-display font-extrabold text-2xl md:text-3xl text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
+              {icon && <span className="text-blue-600 dark:text-blue-400 shrink-0">{icon}</span>}
+              <span>{title}</span>
             </h1>
           </div>
           {children}

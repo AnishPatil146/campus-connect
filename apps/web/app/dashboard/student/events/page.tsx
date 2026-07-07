@@ -27,7 +27,7 @@ export default function EventsPage() {
   };
 
   return (
-    <DashboardLayout title="🎉 Campus Events">
+    <DashboardLayout title="Campus Events" icon={<Sparkles className="h-6 w-6" />}>
       <div className="space-y-6">
         
         {/* Banner */}

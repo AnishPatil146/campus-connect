@@ -8,8 +8,7 @@ generator client {
 }
 
 enum Role {
-  SUPER_ADMIN
-  COLLEGE_ADMIN
+  ADMIN
   TEACHER
   STUDENT
 }
@@ -104,44 +103,219 @@ model Division {
 }
 
 model User {
-  id             String          @id @default(uuid())
-  email          String          @unique
-  passwordHash   String          @map("password_hash")
-  name           String
-  role           Role
-  collegeId      String?         @map("college_id")
-  college        College?        @relation(fields: [collegeId], references: [id], onDelete: SetNull)
-  studentProfile Student?
-  teacherProfile Teacher?
-  activityLogs   ActivityLog[]
-  createdAt      DateTime        @default(now()) @map("created_at")
-  updatedAt      DateTime        @updatedAt @map("updated_at")
+  id                  String          @id @default(uuid())
+  email               String          @unique
+  passwordHash        String          @map("password_hash")
+  name                String          @map("full_name")
+  collegeId           String?         @map("college_id")
+  college             College?        @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+  status              String          @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED, PENDING_VERIFICATION
+  mustChangePassword  Boolean         @default(false) @map("must_change_password")
+  failedLoginAttempts Int             @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime?       @map("locked_until")
+  otpCode             String?         @map("otp_code")
+  otpExpiresAt        DateTime?       @map("otp_expires_at")
+  studentProfile      Student?
+  teacherProfile      Teacher?
+  activityLogs        ActivityLog[]
+  importHistories     ImportHistory[]
+  assignedTasks       Task[]          @relation("TeacherTasks")
+  createdTasks        Task[]          @relation("CreatedTasks")
+  userRoles           UserRole[]
+  refreshTokens       RefreshToken[]
+  loginHistories      LoginHistory[]
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
 
   @@map("users")
 }
 
+model RoleModel {
+  id          String     @id @default(uuid())
+  name        Role       @unique
+  permissions String[]   // e.g. ["student.create", "student.update"]
+  userRoles   UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  userId String    @map("user_id")
+  roleId String    @map("role_id")
+  user   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   RoleModel @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  device    String?
+  browser   String?
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("refresh_tokens")
+}
+
+model LoginHistory {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  loginTime  DateTime  @default(now()) @map("login_time")
+  logoutTime DateTime? @map("logout_time")
+  ipAddress  String?   @map("ip_address")
+  device     String?
+  browser    String?
+  status     String    // e.g., "SUCCESS" | "FAILED"
+
+  @@map("login_history")
+}
+
 model Student {
-  id         String   @id @default(uuid())
-  userId     String   @unique @map("user_id")
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  divisionId String   @map("division_id")
-  division   Division @relation(fields: [divisionId], references: [id], onDelete: Restrict)
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id                String             @id @default(uuid())
+  userId            String             @unique @map("user_id")
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Display ID (auto-generated, e.g. STU-2026-0001)
+  studentIdNo       String?            @unique @map("student_id_no")
+
+  // Linked class / division
+  divisionId        String             @map("division_id")
+  division          Division           @relation(fields: [divisionId], references: [id], onDelete: Restrict)
+
+  // ── Basic Information ──
+  firstName         String?            @map("first_name")
+  middleName        String?            @map("middle_name")
+  lastName          String?            @map("last_name")
+  gender            String?
+  dateOfBirth       DateTime?          @map("date_of_birth")
+  bloodGroup        String?            @map("blood_group")
+  profilePhoto      String?            @map("profile_photo")
+
+  // ── Contact Information ──
+  mobile            String?
+  parentName        String?            @map("parent_name")
+  parentMobile      String?            @map("parent_mobile")
+  parentEmail       String?            @map("parent_email")
+  currentAddress    String?            @map("current_address")
+  permanentAddress  String?            @map("permanent_address")
+  emergencyContact  String?            @map("emergency_contact")
+  emergencyPhone    String?            @map("emergency_phone")
+
+  // ── Academic Information ──
+  admissionNumber   String?            @map("admission_number")
+  rollNumber        String?            @map("roll_number")
+  academicYear      String?            @map("academic_year")
+  batch             String?
+  courseType        String?            @map("course_type")   // "11" | "12" | "DEGREE"
+  stream            String?                                   // Science / Commerce / Arts / IT
+  section           String?
+  subjects          String[]           @default([])
+
+  // ── Extra / Health ──
+  medicalConditions String?            @map("medical_conditions")
+  allergies         String?
+  transportRoute    String?            @map("transport_route")
+  hostelInfo        String?            @map("hostel_info")
+
+  // ── Sensitive (admin-only in API responses) ──
+  aadhaarNumber     String?            @map("aadhaar_number")
+
+  isActive          Boolean            @default(true)  @map("is_active")
+  deletedAt         DateTime?          @map("deleted_at")
+  createdAt         DateTime           @default(now())  @map("created_at")
+  updatedAt         DateTime           @updatedAt       @map("updated_at")
+
+  documents         StudentDocument[]
 
   @@map("students")
 }
 
 model Teacher {
-  id          String       @id @default(uuid())
-  userId      String       @unique @map("user_id")
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  departments Department[] @relation("TeacherDepartments")
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
+  id              String            @id @default(uuid())
+  userId          String            @unique @map("user_id")
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  departments     Department[]      @relation("TeacherDepartments")
+
+  // Display ID (auto-generated, e.g. TCH-2026-0001)
+  employeeIdNo    String?           @unique @map("employee_id_no")
+
+  // ── Basic Information ──
+  firstName       String?           @map("first_name")
+  lastName        String?           @map("last_name")
+  gender          String?
+  dateOfBirth     DateTime?         @map("date_of_birth")
+  profilePhoto    String?           @map("profile_photo")
+
+  // ── Contact ──
+  mobile          String?
+  emergencyContact String?          @map("emergency_contact")
+  emergencyPhone  String?           @map("emergency_phone")
+  address         String?
+
+  // ── Professional Information ──
+  employeeId      String?           @unique @map("employee_id")
+  designation     String?
+  qualification   String?
+  experience      String?           // e.g. "5 years"
+  joiningDate     DateTime?         @map("joining_date")
+  employmentType  String?           @map("employment_type") // Full-time / Part-time / Contract
+
+  // ── Subject & Class Assignment ──
+  subjectsTaught    String[]        @default([]) @map("subjects_taught")
+  assignedClasses   String[]        @default([]) @map("assigned_classes")
+  assignedSections  String[]        @default([]) @map("assigned_sections")
+  classTeacherOf    String?         @map("class_teacher_of")
+
+  // ── Leave ──
+  leaveBalance    Int               @default(20) @map("leave_balance")
+
+  // ── Sensitive (admin-only in API responses) ──
+  aadhaarPan      String?           @map("aadhaar_pan")
+
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt      @map("updated_at")
+
+  documents       TeacherDocument[]
 
   @@map("teachers")
 }
+
+// ── Documents (admin-only) ──────────────────────────────────────
+
+model StudentDocument {
+  id              String    @id @default(uuid())
+  studentId       String    @map("student_id")
+  student         Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  docType         String    @map("doc_type")   // "AADHAAR" | "BIRTH_CERT" | "TC" | "MARKSHEET" | "ID_CARD" | "PASSPORT_PHOTO"
+  fileUrl         String    @map("file_url")
+  fileName        String?   @map("file_name")
+  uploadedByAdminId String? @map("uploaded_by_admin_id")
+  uploadedAt      DateTime  @default(now()) @map("uploaded_at")
+
+  @@map("student_documents")
+}
+
+model TeacherDocument {
+  id              String    @id @default(uuid())
+  teacherId       String    @map("teacher_id")
+  teacher         Teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  docType         String    @map("doc_type")   // "AADHAAR" | "DEGREE" | "EXPERIENCE" | "RESUME" | "JOINING_LETTER"
+  fileUrl         String    @map("file_url")
+  fileName        String?   @map("file_name")
+  uploadedByAdminId String? @map("uploaded_by_admin_id")
+  uploadedAt      DateTime  @default(now()) @map("uploaded_at")
+
+  @@map("teacher_documents")
+}
+
+// ────────────────────────────────────────────────────────────────
 
 model ActivityLog {
   id        String   @id @default(uuid())
@@ -155,4 +329,36 @@ model ActivityLog {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("activity_logs")
+}
+
+model ImportHistory {
+  id           String   @id @default(uuid())
+  filename     String
+  importType   String   @map("import_type") // "STUDENT" | "TEACHER"
+  totalRows    Int      @map("total_rows")
+  successRows  Int      @map("success_rows")
+  failedRows   Int      @map("failed_rows")
+  status       String   // "COMPLETED" | "PARTIAL" | "FAILED"
+  errorReport  String?  @map("error_report")
+  importedById String   @map("imported_by_id")
+  importedBy   User     @relation(fields: [importedById], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("import_histories")
+}
+
+model Task {
+  id           String   @id @default(uuid())
+  title        String
+  description  String?
+  dueDate      DateTime @map("due_date")
+  status       String   @default("PENDING") // "PENDING" | "COMPLETED"
+  assignedToId String   @map("assigned_to_id")
+  assignedTo   User     @relation("TeacherTasks", fields: [assignedToId], references: [id], onDelete: Cascade)
+  createdById  String   @map("created_by_id")
+  createdBy    User     @relation("CreatedTasks", fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt      @map("updated_at")
+
+  @@map("tasks")
 }

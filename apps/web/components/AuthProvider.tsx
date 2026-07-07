@@ -7,54 +7,13 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, collegeId: CollegeId, role: UserRole) => Promise<boolean>;
+  login: (email: string, collegeId: CollegeId, role: UserRole, password?: string) => Promise<boolean>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const MOCK_USERS: Record<string, User & { password?: string }> = {
-  'student@collegea.edu': {
-    id: 'usr-001',
-    email: 'student@collegea.edu',
-    name: 'Anish',
-    role: 'STUDENT',
-    collegeId: 'college-a',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    password: 'password123',
-  },
-  'teacher@collegeb.edu': {
-    id: 'usr-002',
-    email: 'teacher@collegeb.edu',
-    name: 'Dr. Sarah Jenkins',
-    role: 'TEACHER',
-    collegeId: 'college-b',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    password: 'password123',
-  },
-  'admin@collegec.edu': {
-    id: 'usr-003',
-    email: 'admin@collegec.edu',
-    name: 'Dean Marcus Vance',
-    role: 'ADMIN',
-    collegeId: 'college-c',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    password: 'password123',
-  },
-  'super@campusconnect.com': {
-    id: 'usr-004',
-    email: 'super@campusconnect.com',
-    name: 'Super Administrator',
-    role: 'SUPER_ADMIN',
-    collegeId: 'college-a',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    password: 'password123',
-  },
-};
+export const MOCK_USERS: Record<string, User & { password?: string }> = {};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -72,14 +31,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string, collegeId: CollegeId, role: UserRole): Promise<boolean> => {
+  const login = async (email: string, collegeId: CollegeId, role: UserRole, password?: string): Promise<boolean> => {
     setIsLoading(true);
+
+    // Try authenticating with the NestJS API
+    try {
+      const res = await fetch('http://localhost:4000/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: password || 'password123' })
+      });
+      if (res.ok) {
+        const payload = await res.json();
+        if (payload.success && payload.data && !payload.data.needsWorkspaceSelection) {
+          const apiUser = payload.data.user;
+          const loggedUser: User = {
+            id: apiUser.id,
+            email: apiUser.email,
+            name: apiUser.name,
+            role: (apiUser.role === 'COLLEGE_ADMIN' || apiUser.role === 'ADMIN') ? 'ADMIN' : apiUser.role,
+            collegeId: collegeId, // Keep visual selected collegeId for asset logo mapping
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          setUser(loggedUser);
+          localStorage.setItem('cc_user', JSON.stringify(loggedUser));
+          localStorage.setItem('cc_token', payload.data.accessToken);
+          setIsLoading(false);
+          return true;
+        }
+      }
+    } catch (e) {
+      console.warn('API login failed, falling back to local mocks:', e);
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 800));
 
     const matchedUser = MOCK_USERS[email.toLowerCase()];
     if (matchedUser && matchedUser.collegeId === collegeId && matchedUser.role === role) {
       setUser(matchedUser);
       localStorage.setItem('cc_user', JSON.stringify(matchedUser));
+      localStorage.setItem('cc_token', 'mock-token-12345');
       setIsLoading(false);
       return true;
     }
@@ -91,6 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setUser(null);
     localStorage.removeItem('cc_user');
+    localStorage.removeItem('cc_token');
   };
 
   return (

@@ -27,11 +27,11 @@ export function cn(...inputs: ClassValue[]): string {
 export function getCollegeName(id: CollegeId): string {
   switch (id) {
     case 'college-a':
-      return "Pushpalata Women's College";
+      return "Pushpalata Mhatre Women's College of Arts, Commerce & Science";
     case 'college-b':
-      return 'Balasaheb Jr College';
+      return 'Balasaheb Mhatre College of Science (Junior)';
     case 'college-c':
-      return 'Balasaheb Sr College';
+      return 'Balasaheb Mhatre College of Science (Senior)';
     default:
       return 'Unknown College';
   }
@@ -49,6 +49,20 @@ export function getCollegeColor(id: CollegeId): string {
       return 'gray';
   }
 }
+
+export function getCollegeLogo(id: CollegeId): string {
+  switch (id) {
+    case 'college-a':
+      return '/logos/pmwc-logo.jpg';
+    case 'college-b':
+      return '/logos/bmjc-logo.jpg';
+    case 'college-c':
+      return '/logos/bmcs-logo.jpg';
+    default:
+      return '/logos/pmwc-logo.jpg';
+  }
+}
+
 
 export function formatDate(dateString: string): string {
   const options: Intl.DateTimeFormatOptions = {
