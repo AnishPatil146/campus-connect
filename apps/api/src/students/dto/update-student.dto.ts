@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsDateString, IsBoolean } from 'class-validator';
+import { IsOptional, IsString, IsDateString, IsNumber } from 'class-validator';
 
 export class UpdateStudentDto {
   @IsString()
@@ -7,7 +7,27 @@ export class UpdateStudentDto {
 
   @IsString()
   @IsOptional()
+  collegeId?: string;
+
+  @IsString()
+  @IsOptional()
+  departmentId?: string;
+
+  @IsString()
+  @IsOptional()
+  courseId?: string;
+
+  @IsString()
+  @IsOptional()
+  semesterId?: string;
+
+  @IsString()
+  @IsOptional()
   divisionId?: string;
+
+  @IsString()
+  @IsOptional()
+  academicSessionId?: string;
 
   @IsString()
   @IsOptional()
@@ -15,7 +35,36 @@ export class UpdateStudentDto {
 
   @IsString()
   @IsOptional()
-  admissionNumber?: string;
+  admissionNo?: string;
+
+  @IsString()
+  @IsOptional()
+  registrationNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  admissionDate?: string;
+
+  @IsNumber()
+  @IsOptional()
+  currentYear?: number;
+
+  @IsString()
+  @IsOptional()
+  status?: string;
+
+  // Profile Details
+  @IsString()
+  @IsOptional()
+  firstName?: string;
+
+  @IsString()
+  @IsOptional()
+  middleName?: string;
+
+  @IsString()
+  @IsOptional()
+  lastName?: string;
 
   @IsString()
   @IsOptional()
@@ -27,25 +76,104 @@ export class UpdateStudentDto {
 
   @IsString()
   @IsOptional()
-  mobile?: string;
+  bloodGroup?: string;
 
   @IsString()
   @IsOptional()
-  address?: string;
+  religion?: string;
 
   @IsString()
   @IsOptional()
-  profilePhoto?: string;
+  nationality?: string;
 
   @IsString()
   @IsOptional()
-  parentName?: string;
+  aadharNumber?: string;
 
   @IsString()
   @IsOptional()
-  parentMobile?: string;
+  passportNumber?: string;
 
-  @IsBoolean()
+  @IsString()
   @IsOptional()
-  isActive?: boolean;
+  photoUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  // Guardian Details
+  @IsString()
+  @IsOptional()
+  fatherName?: string;
+
+  @IsString()
+  @IsOptional()
+  motherName?: string;
+
+  @IsString()
+  @IsOptional()
+  guardianName?: string;
+
+  @IsString()
+  @IsOptional()
+  guardianRelationship?: string;
+
+  @IsString()
+  @IsOptional()
+  guardianOccupation?: string;
+
+  @IsString()
+  @IsOptional()
+  guardianPhone?: string;
+
+  @IsString()
+  @IsOptional()
+  guardianEmail?: string;
+
+  @IsNumber()
+  @IsOptional()
+  guardianAnnualIncome?: number;
+
+  // Address Details
+  @IsString()
+  @IsOptional()
+  addressLine?: string;
+
+  @IsString()
+  @IsOptional()
+  city?: string;
+
+  @IsString()
+  @IsOptional()
+  state?: string;
+
+  @IsString()
+  @IsOptional()
+  country?: string;
+
+  @IsString()
+  @IsOptional()
+  postalCode?: string;
+
+  @IsString()
+  @IsOptional()
+  addressType?: string;
+
+  // Medical Details
+  @IsString()
+  @IsOptional()
+  allergies?: string;
+
+  @IsString()
+  @IsOptional()
+  medicalNotes?: string;
+
+  @IsString()
+  @IsOptional()
+  disability?: string;
+
+  @IsString()
+  @IsOptional()
+  insurance?: string;
 }

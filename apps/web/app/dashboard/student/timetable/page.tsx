@@ -90,7 +90,7 @@ export default function TimetablePage() {
           </CardHeader>
           <CardContent>
             
-            <Tabs defaultValue="monday" onValueChange={setActiveDayTab}>
+            <Tabs defaultValue="monday">
               <TabsList className="mb-6 flex overflow-x-auto pb-1 max-w-full">
                 {days.map((day) => (
                   <TabsTrigger key={day.value} value={day.value} className="text-xs px-3">

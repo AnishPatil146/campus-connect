@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { RedisService } from '../redis/redis.service';
 import { LoginDto } from './dto/login.dto';
 import { SelectRoleDto } from './dto/select-role.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -22,6 +23,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private redis: RedisService,
   ) {}
 
   // Password Validation helper matching example password requirements
@@ -84,20 +86,35 @@ export class AuthService {
 
     if (!user) {
       // Return a general unauthorized error to avoid user enumeration
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException({
+        message: 'Invalid credentials',
+        errorCode: 'AUTH_001',
+      });
     }
 
     // 2. Check if account is locked
     const now = new Date();
     if (user.lockedUntil && user.lockedUntil > now) {
       const waitTime = Math.ceil((user.lockedUntil.getTime() - now.getTime()) / 60000);
-      throw new UnauthorizedException(`Account is temporarily locked. Try again in ${waitTime} minutes.`);
+      throw new UnauthorizedException({
+        message: `Account is temporarily locked. Try again in ${waitTime} minutes.`,
+        errorCode: 'AUTH_002',
+      });
     }
 
     // 3. Check user account status
-    // Only ACTIVE accounts can log in
+    if (user.status === 'PENDING_VERIFICATION') {
+      throw new UnauthorizedException({
+        message: 'Email not verified. Please verify your email.',
+        errorCode: 'AUTH_004',
+      });
+    }
+
     if (user.status !== 'ACTIVE') {
-      throw new UnauthorizedException(`Your account is ${user.status.toLowerCase().replace('_', ' ')}. Please contact your administrator.`);
+      throw new UnauthorizedException({
+        message: `Your account is ${user.status.toLowerCase().replace('_', ' ')}. Please contact your administrator.`,
+        errorCode: 'AUTH_003',
+      });
     }
 
     // 4. Verify password
@@ -141,10 +158,16 @@ export class AuthService {
       );
 
       if (lockedUntil) {
-        throw new UnauthorizedException(`Account locked due to too many failed attempts. Try again in ${this.lockDurationMinutes} minutes.`);
+        throw new UnauthorizedException({
+          message: `Account locked due to too many failed attempts. Try again in ${this.lockDurationMinutes} minutes.`,
+          errorCode: 'AUTH_002',
+        });
       }
 
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException({
+        message: 'Invalid credentials',
+        errorCode: 'AUTH_001',
+      });
     }
 
     // Reset login failures on successful password verification
@@ -261,10 +284,19 @@ export class AuthService {
 
   // Create session Helper
   private async createSession(userId: string, role: string, ipAddress?: string, userAgent?: string) {
+    if (role === Role.TEACHER) {
+      const teacher = await this.prisma.teacher.findUnique({
+        where: { userId },
+      });
+      if (teacher && teacher.status === 'RETIRED') {
+        throw new UnauthorizedException('Teacher is retired. Login is blocked.');
+      }
+    }
+
     const { browser, device } = this.parseUserAgent(userAgent || '');
 
     // Set expiry
-    // Access token: 30 minutes. Refresh token: 7 days (or 30 days if remember me is handled, we support 7 days by default, or configurable).
+    // Access token: 30 minutes. Refresh token: 7 days
     const accessTokenExpiry = '30m';
     const refreshTokenExpiry = '7d';
 
@@ -281,6 +313,25 @@ export class AuthService {
         browser,
         ipAddress,
       },
+    });
+
+    // Create active Session record
+    await this.prisma.session.create({
+      data: {
+        userId,
+        sessionToken: session.id,
+        browser: browser || 'Unknown',
+        os: device || 'Unknown',
+        ipAddress: ipAddress || 'Unknown',
+        expiresAt: sessionExpiresAt,
+        isActive: true,
+      },
+    });
+
+    // Update last login on user
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { lastLogin: new Date() },
     });
 
     // Sign Refresh Token
@@ -328,6 +379,17 @@ export class AuthService {
       `Session created. Browser: ${browser}, Device: ${device}.`,
     );
 
+    // Cache session payload in Redis for fast lookups
+    await this.redis.setSession(userId, session.id, {
+      userId,
+      sessionId: session.id,
+      role,
+      browser,
+      device,
+      ipAddress: ipAddress || null,
+      createdAt: new Date().toISOString(),
+    });
+
     return {
       accessToken,
       refreshToken,
@@ -356,6 +418,7 @@ export class AuthService {
     if (!session || session.expiresAt < new Date()) {
       if (session) {
         await this.prisma.refreshToken.delete({ where: { id: sessionId } });
+        await this.prisma.session.deleteMany({ where: { sessionToken: sessionId } });
       }
       throw new UnauthorizedException('Session expired or revoked');
     }
@@ -365,6 +428,7 @@ export class AuthService {
     if (!isHashValid) {
       // Security Alert: Potential token theft. Revoke all sessions of the user.
       await this.prisma.refreshToken.deleteMany({ where: { userId } });
+      await this.prisma.session.deleteMany({ where: { userId } });
       throw new UnauthorizedException('Security breach detected. Revoking all sessions.');
     }
 
@@ -377,6 +441,7 @@ export class AuthService {
     // 4. Generate new tokens (Rotate Refresh Token)
     // Delete old session
     await this.prisma.refreshToken.delete({ where: { id: sessionId } });
+    await this.prisma.session.deleteMany({ where: { sessionToken: sessionId } });
 
     // Create new session
     const newSessionTokens = await this.createSession(userId, role, session.ipAddress || undefined, session.browser ? `Mozilla/5.0 (${session.device}) ${session.browser}` : undefined);
@@ -394,6 +459,9 @@ export class AuthService {
       await this.prisma.refreshToken.delete({
         where: { id: sessionId },
       });
+      await this.prisma.session.deleteMany({
+        where: { sessionToken: sessionId },
+      });
     }
 
     // Record audit log
@@ -405,12 +473,18 @@ export class AuthService {
       `Session revoked. Session ID: ${sessionId}`,
     );
 
+    // Remove session from Redis cache
+    await this.redis.deleteSession(userId, sessionId);
+
     return true;
   }
 
   // Logout All Sessions for a user
   async logoutAll(userId: string, userName: string, role: string) {
     await this.prisma.refreshToken.deleteMany({
+      where: { userId },
+    });
+    await this.prisma.session.deleteMany({
       where: { userId },
     });
 
@@ -422,6 +496,11 @@ export class AuthService {
       'Logged Out All Devices',
       `All active refresh tokens cleared.`,
     );
+
+    // Clear all cached sessions from Redis for this user
+    // Note: Since we can't wildcard-delete by pattern in cache-manager, we
+    // rely on TTL expiry for remaining Redis session keys after DB is cleared.
+    // Individual sessions are removed on next access attempt via validateSession.
 
     return true;
   }
@@ -445,11 +524,12 @@ export class AuthService {
     const otp = this.generateOtp();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-    await this.prisma.user.update({
-      where: { id: user.id },
+    await this.prisma.otpCode.create({
       data: {
-        otpCode: otp,
-        otpExpiresAt: expiresAt,
+        userId: user.id,
+        otp,
+        purpose: 'PASSWORD_RESET',
+        expiresAt,
       },
     });
 
@@ -488,17 +568,28 @@ This code will expire in 10 minutes.
       where: { email: email.toLowerCase() },
     });
 
-    if (!user || !user.otpCode || !user.otpExpiresAt) {
+    if (!user) {
       throw new BadRequestException('No password recovery request exists for this account');
     }
 
-    if (user.otpExpiresAt < new Date()) {
+    const otpRecord = await this.prisma.otpCode.findFirst({
+      where: { userId: user.id, otp, purpose: 'PASSWORD_RESET', used: false },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!otpRecord) {
+      throw new BadRequestException('Invalid or expired OTP code');
+    }
+
+    if (otpRecord.expiresAt < new Date()) {
       throw new BadRequestException('OTP has expired');
     }
 
-    if (user.otpCode !== otp) {
-      throw new BadRequestException('Invalid OTP code');
-    }
+    // Mark as used
+    await this.prisma.otpCode.update({
+      where: { id: otpRecord.id },
+      data: { used: true },
+    });
 
     // Generate short-lived JWT token valid for 15 minutes to authorize the actual reset
     const tempResetToken = jwt.sign(
@@ -548,8 +639,6 @@ This code will expire in 10 minutes.
       where: { id: userId },
       data: {
         passwordHash,
-        otpCode: null,
-        otpExpiresAt: null,
         mustChangePassword: false,
         failedLoginAttempts: 0,
         lockedUntil: null,
@@ -646,33 +735,36 @@ If you did not make this change, please contact support immediately.
 
   // Fetch active sessions
   async getActiveSessions(userId: string, currentSessionId?: string) {
-    const sessions = await this.prisma.refreshToken.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
+    const sessions = await this.prisma.session.findMany({
+      where: { userId, isActive: true },
+      orderBy: { loginAt: 'desc' },
     });
 
     return sessions.map((s) => ({
-      id: s.id,
-      device: s.device || 'Unknown Device',
+      id: s.sessionToken,
+      device: s.os || 'Unknown Device',
       browser: s.browser || 'Unknown Browser',
       ipAddress: s.ipAddress || 'Unknown IP',
-      loginTime: s.createdAt,
-      isCurrent: s.id === currentSessionId,
+      loginTime: s.loginAt,
+      isCurrent: s.sessionToken === currentSessionId,
     }));
   }
 
   // Revoke active session by id
   async revokeSession(sessionId: string, userId: string) {
-    const session = await this.prisma.refreshToken.findFirst({
-      where: { id: sessionId, userId },
+    const session = await this.prisma.session.findFirst({
+      where: { sessionToken: sessionId, userId },
     });
 
     if (!session) {
       throw new NotFoundException('Session not found or unauthorized');
     }
 
-    await this.prisma.refreshToken.delete({
-      where: { id: sessionId },
+    await this.prisma.refreshToken.deleteMany({
+      where: { id: sessionId, userId },
+    });
+    await this.prisma.session.deleteMany({
+      where: { sessionToken: sessionId, userId },
     });
 
     return {
@@ -695,12 +787,16 @@ If you did not make this change, please contact support immediately.
     const passwordHash = bcrypt.hashSync(dto.password, 10);
 
     return await this.prisma.$transaction(async (tx) => {
+      // Concatenate full name for User record
+      const fullLastName = dto.lastName || dto.surname || '';
+      const fullName = dto.firstName ? `${dto.firstName} ${fullLastName}`.trim() : dto.name;
+
       // 1. Create User
       const user = await tx.user.create({
         data: {
           email: emailLower,
           passwordHash,
-          name: dto.name,
+          name: fullName,
           status: 'ACTIVE',
           collegeId: dto.collegeId,
           userRoles: {
@@ -713,15 +809,22 @@ If you did not make this change, please contact support immediately.
         },
       });
 
+      let resolvedDeptId = 'N/A';
+
       // 2. Create profile based on role
       if (dto.role === Role.STUDENT) {
         // Resolve dynamic division ID safely
         let targetDivisionId = dto.divisionId;
         if (!targetDivisionId || targetDivisionId === 'div-a' || targetDivisionId === 'div-b') {
-          // Find first division belonging to this college
-          const firstDiv = await tx.division.findFirst({
+          const divName = dto.classroom || 'Division A';
+          const semName = dto.semester || 'Semester 1';
+
+          // Try to find matching division in college
+          const matchingDiv = await tx.division.findFirst({
             where: {
+              name: { contains: divName, mode: 'insensitive' },
               semester: {
+                name: { contains: semName, mode: 'insensitive' },
                 academicSession: {
                   course: {
                     department: {
@@ -732,37 +835,120 @@ If you did not make this change, please contact support immediately.
               },
             },
           });
-          if (firstDiv) {
-            targetDivisionId = firstDiv.id;
+
+          if (matchingDiv) {
+            targetDivisionId = matchingDiv.id;
           } else {
-            throw new BadRequestException('No class/division found for the selected college');
+            // Fallback: Find first division belonging to this college
+            const firstDiv = await tx.division.findFirst({
+              where: {
+                semester: {
+                  academicSession: {
+                    course: {
+                      department: {
+                        collegeId: dto.collegeId,
+                      },
+                    },
+                  },
+                },
+              },
+            });
+            if (firstDiv) {
+              targetDivisionId = firstDiv.id;
+            } else {
+              throw new BadRequestException('No class/division found for the selected college');
+            }
           }
         }
+
+        const division = await tx.division.findUnique({
+          where: { id: targetDivisionId },
+          include: {
+            semester: {
+              include: {
+                academicSession: {
+                  include: {
+                    course: {
+                      include: {
+                        department: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        if (!division) {
+          throw new BadRequestException('Target division not found');
+        }
+
+        const collegeId = division.semester.academicSession.course.department.collegeId;
+        const departmentId = division.semester.academicSession.course.departmentId;
+        const courseId = division.semester.academicSession.courseId;
+        const semesterId = division.semesterId;
+        const academicSessionId = division.semester.academicSessionId;
 
         await tx.student.create({
           data: {
             userId: user.id,
+            collegeId,
+            departmentId,
+            courseId,
+            semesterId,
             divisionId: targetDivisionId,
-            rollNumber: dto.rollNumber || null,
-            admissionNumber: dto.admissionNumber || null,
-            gender: dto.gender || null,
-            dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : null,
-            mobile: dto.mobile || null,
-            address: dto.address || null,
-            parentName: dto.parentName || null,
-            parentMobile: dto.parentMobile || null,
-            isActive: true,
+            academicSessionId,
+            rollNumber: dto.rollNumber || `ROLL-${Date.now()}`,
+            admissionNo: dto.admissionNumber || `ADM-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            admissionDate: new Date(),
+            currentYear: 1,
+            status: 'ACTIVE',
+            profile: {
+              create: {
+                firstName: dto.firstName || dto.name,
+                middleName: null,
+                lastName: dto.lastName || dto.surname || 'Profile',
+                gender: dto.gender || 'MALE',
+                dob: dto.dateOfBirth ? new Date(dto.dateOfBirth) : new Date(),
+                phone: dto.mobile || null,
+                email: user.email,
+              },
+            },
+            guardians: {
+              create: {
+                fatherName: dto.fatherName || null,
+                motherName: dto.motherName || null,
+                guardianName: dto.parentName || null,
+                phone: dto.parentMobile || null,
+              },
+            },
+            addresses: {
+              create: {
+                addressLine: dto.address || 'N/A',
+                city: 'Thane',
+                state: 'Maharashtra',
+                country: 'India',
+                postalCode: '400601',
+                addressType: 'CURRENT',
+              },
+            },
           },
         });
       } else if (dto.role === Role.TEACHER) {
-        const teacher = await tx.teacher.create({
-          data: {
-            userId: user.id,
-          },
-        });
-
         // Resolve dynamic department ID safely
         let targetDeptId = dto.departmentId;
+        if (targetDeptId && targetDeptId !== 'dept-id') {
+          const deptByName = await tx.department.findFirst({
+            where: {
+              collegeId: dto.collegeId,
+              name: { contains: targetDeptId, mode: 'insensitive' },
+            },
+          });
+          if (deptByName) {
+            targetDeptId = deptByName.id;
+          }
+        }
         if (!targetDeptId || targetDeptId === 'dept-id') {
           const firstDept = await tx.department.findFirst({
             where: { collegeId: dto.collegeId },
@@ -772,24 +958,108 @@ If you did not make this change, please contact support immediately.
           }
         }
 
-        if (targetDeptId) {
-          await tx.teacher.update({
-            where: { id: teacher.id },
-            data: {
-              departments: {
-                connect: { id: targetDeptId },
+        resolvedDeptId = targetDeptId || 'N/A';
+
+        const year = new Date().getFullYear();
+        const count = await tx.teacher.count();
+        const countStr = String(count + 1).padStart(4, '0');
+        const employeeId = `TCH-${year}-${countStr}`;
+
+        await tx.teacher.create({
+          data: {
+            userId: user.id,
+            employeeId,
+            collegeId: dto.collegeId,
+            departmentId: resolvedDeptId,
+            designation: 'Lecturer',
+            joiningDate: new Date(),
+            employmentType: 'FULL_TIME',
+            status: 'ACTIVE',
+            profile: {
+              create: {
+                firstName: dto.firstName || dto.name,
+                lastName: dto.lastName || dto.surname || 'Profile',
+                gender: dto.gender || 'MALE',
+                dob: dto.dateOfBirth ? new Date(dto.dateOfBirth) : new Date(),
+                email: user.email,
+                phone: dto.mobile || null,
               },
             },
-          });
-        }
+            departments: resolvedDeptId !== 'N/A' ? {
+              create: {
+                departmentId: resolvedDeptId,
+                primaryDepartment: true,
+              },
+            } : undefined,
+            qualifications: dto.degree ? {
+              create: {
+                degree: dto.degree,
+                university: 'Mumbai University',
+                passingYear: new Date().getFullYear() - 5,
+                percentage: 75.0,
+              },
+            } : undefined,
+          },
+        });
       }
+
+      // Notify the Admin (console representation of notification service dispatch)
+      console.log(`
+================================================================================
+🔔 ADMIN NOTIFICATION: NEW PROFILE CREATED
+To: System Administrators
+Subject: Account Registration Alert - New ${dto.role} Created
+Content:
+A new campus member profile has been registered in the database:
+- Role: ${dto.role}
+- Full Name: ${fullName}
+- Email/Gmail: ${user.email}
+- College ID: ${dto.collegeId}
+- Created At: ${new Date().toLocaleString()}
+${dto.role === Role.STUDENT ? `
+Student-specific Details:
+- Classroom: ${dto.classroom || 'Default Division'}
+- Roll Number: ${dto.rollNumber || 'N/A'}
+- Semester: ${dto.semester || 'Semester 1'}
+- Subjects/Degree: ${dto.courseType === 'DEGREE' ? dto.degree : (dto.subjects?.join(', ') || 'None')}
+` : `
+Teacher-specific Details:
+- Degree/Qualification: ${dto.degree || 'N/A'}
+- Department ID/Name: ${resolvedDeptId}
+`}
+Action Required: Please review credentials or allocate schedules accordingly.
+================================================================================
+      `);
+
+      // Send profile confirmation email to the student/teacher gmail (console representation)
+      console.log(`
+================================================================================
+📧 EMAIL NOTIFICATION: PROFILE REGISTRATION CONFIRMATION
+To: ${user.email}
+Subject: Welcome to Campus Connect - Profile Registered!
+Content:
+Dear ${fullName},
+
+Your Campus Connect profile has been successfully created.
+- Account Role: ${dto.role}
+- Registered Email: ${user.email}
+- Account Status: ACTIVE (Ready to log in)
+
+You can now use these credentials to log in to the Campus Connect platform.
+
+If you did not register this account, please contact the IT Helpdesk immediately.
+
+Best regards,
+The Campus Connect Team
+================================================================================
+      `);
 
       await this.audit.log(
         user.id,
         user.name,
         dto.role,
         'User Registered',
-        `User ${user.email} self-registered as a ${dto.role.toLowerCase()}`,
+        `User ${user.email} self-registered as a ${dto.role.toLowerCase()}. Name: ${fullName}, Admin notified.`,
       );
 
       return {

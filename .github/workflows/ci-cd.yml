@@ -1,0 +1,183 @@
+name: Campus Connect CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  validate-and-test:
+    name: Validate, Lint & Test
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+          POSTGRES_DB: campus-connect
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.5.0
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Linter
+        run: pnpm run lint
+
+      - name: Prisma Generate & Migrate (Integration Setup)
+        env:
+          DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/campus-connect
+        run: |
+          pnpm --filter @campus-connect/api prisma:generate
+          # Execute test migrations if needed
+
+      - name: Run Unit & Integration Tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/campus-connect
+          REDIS_PASSWORD: redispassword
+        run: pnpm run test
+
+  build-codebases:
+    name: Build Frontend & Backend
+    needs: validate-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.5.0
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Packages & Apps
+        run: pnpm run build
+
+  build-and-push-docker:
+    name: Build & Push Docker Images
+    needs: build-codebases
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Note: Docker Registry login should be configured using GitHub Secrets (e.g. AWS ECR, DockerHub, GHCR)
+      # - name: Log in to Registry
+      #   uses: docker/login-action@v3
+      #   with:
+      #     username: ${{ secrets.DOCKER_USERNAME }}
+      #     password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Determine Target Tag
+        id: vars
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "env=production" >> $GITHUB_OUTPUT
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          else
+            echo "env=development" >> $GITHUB_OUTPUT
+            echo "tag=dev" >> $GITHUB_OUTPUT
+          fi
+          echo "sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Build & Package API (Backend)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./apps/api/Dockerfile
+          push: false # Set to true when registry login is configured
+          tags: |
+            campus-connect-api:${{ steps.vars.outputs.tag }}
+            campus-connect-api:${{ steps.vars.outputs.sha }}
+
+      - name: Build & Package Web (Frontend)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./apps/web/Dockerfile
+          push: false # Set to true when registry login is configured
+          tags: |
+            campus-connect-web:${{ steps.vars.outputs.tag }}
+            campus-connect-web:${{ steps.vars.outputs.sha }}
+
+  deploy:
+    name: Deploy to Server
+    needs: build-and-push-docker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy Orchestration
+        run: |
+          echo "Deploying to target environment..."
+          # Insert deployment runner hooks here (e.g., AWS ECS, Kubernetes kubectl apply, SSH remote command, webhook)
+          # Deployment strategies:
+          #   - Development: Auto Deploy
+          #   - Staging/Production: Gated manually or via approval gates
+
+      - name: Post-Deployment Health Check
+        run: |
+          echo "Verifying server endpoints are online..."
+          # Perform automated curl health-check queries (Verification Plan Section 6.7)
+          # curl -f http://api.campus-connect.local/health || exit 1
+          # curl -f http://api.campus-connect.local/health/database || exit 1
+          # curl -f http://api.campus-connect.local/health/redis || exit 1
+
+      - name: Send Release Notification
+        if: always()
+        run: |
+          echo "Sending deployment status notifications..."
+          # Send status email, discord hook or slack update with metadata (Commit SHA, duration, destination)

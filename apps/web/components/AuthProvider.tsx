@@ -13,7 +13,108 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const MOCK_USERS: Record<string, User & { password?: string }> = {};
+export const MOCK_USERS: Record<string, User & { password?: string }> = {
+  'student@collegea.edu': {
+    id: 'usr-student-a',
+    email: 'student@collegea.edu',
+    name: 'Alex Rivera',
+    role: 'STUDENT',
+    collegeId: 'college-a',
+    password: 'password123',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  'student@collegeb.edu': {
+    id: 'usr-student-b',
+    email: 'student@collegeb.edu',
+    name: 'Anish Patil',
+    role: 'STUDENT',
+    collegeId: 'college-b',
+    password: 'password123',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  'student@collegec.edu': {
+    id: 'usr-student-c',
+    email: 'student@collegec.edu',
+    name: 'Sneha Redekar',
+    role: 'STUDENT',
+    collegeId: 'college-c',
+    password: 'password123',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  'teacher@collegea.edu': {
+    id: 'usr-teacher-a',
+    email: 'teacher@collegea.edu',
+    name: 'Dr. Sarah Jenkins',
+    role: 'TEACHER',
+    collegeId: 'college-a',
+    password: 'password123',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  'teacher@collegeb.edu': {
+    id: 'usr-teacher-b',
+    email: 'teacher@collegeb.edu',
+    name: 'Prof. Rajesh Patil',
+    role: 'TEACHER',
+    collegeId: 'college-b',
+    password: 'password123',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  'teacher@collegec.edu': {
+    id: 'usr-teacher-c',
+    email: 'teacher@collegec.edu',
+    name: 'Dr. Sneha Patil',
+    role: 'TEACHER',
+    collegeId: 'college-c',
+    password: 'password123',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  'admin@collegea.edu': {
+    id: 'usr-admin-a',
+    email: 'admin@collegea.edu',
+    name: 'Admin A',
+    role: 'ADMIN',
+    collegeId: 'college-a',
+    password: 'password123',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  'admin@collegeb.edu': {
+    id: 'usr-admin-b',
+    email: 'admin@collegeb.edu',
+    name: 'Admin B',
+    role: 'ADMIN',
+    collegeId: 'college-b',
+    password: 'password123',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  'admin@collegec.edu': {
+    id: 'usr-admin-c',
+    email: 'admin@collegec.edu',
+    name: 'Dean Marcus Vance',
+    role: 'ADMIN',
+    collegeId: 'college-c',
+    password: 'password123',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  'super@campusconnect.com': {
+    id: 'usr-super',
+    email: 'super@campusconnect.com',
+    name: 'System Administrator',
+    role: 'ADMIN',
+    collegeId: 'college-a',
+    password: 'password123',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -67,8 +168,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     await new Promise((resolve) => setTimeout(resolve, 800));
 
-    const matchedUser = MOCK_USERS[email.toLowerCase()];
+    // Support logging in registered mock users
+    const storedUsers = typeof window !== 'undefined' ? (localStorage.getItem('cc_mock_registered_users') || '[]') : '[]';
+    const registeredUsers = JSON.parse(storedUsers);
+    const dynamicUsers = registeredUsers.reduce((acc: any, u: any) => {
+      acc[u.email.toLowerCase()] = u;
+      return acc;
+    }, {});
+
+    const matchedUser = MOCK_USERS[email.toLowerCase()] || dynamicUsers[email.toLowerCase()];
     if (matchedUser && matchedUser.collegeId === collegeId && matchedUser.role === role) {
+      // Validate password for dynamic users
+      if (matchedUser.password && password && matchedUser.password !== password) {
+        setIsLoading(false);
+        return false;
+      }
       setUser(matchedUser);
       localStorage.setItem('cc_user', JSON.stringify(matchedUser));
       localStorage.setItem('cc_token', 'mock-token-12345');

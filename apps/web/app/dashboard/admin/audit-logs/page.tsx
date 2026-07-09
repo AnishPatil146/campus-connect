@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, Table, TableHeader, TableBody, TableHead, TableRow, TableCell, Button, Badge, Input } from '@campus-connect/ui';
 import { Activity, Search, ShieldAlert, Clock, RefreshCw } from 'lucide-react';
+import { api } from '../../../../utils/api';
 
 interface AuditLog {
   id: string;
@@ -17,12 +18,44 @@ interface AuditLog {
 export default function AuditLogs() {
   const [search, setSearch] = useState('');
   
-  const [logs] = useState<AuditLog[]>([
+  const [logs, setLogs] = useState<AuditLog[]>([
     { id: '1001', timestamp: '05 Jul 2026, 10:15 AM', userName: 'Anish Patil', role: 'ADMIN', action: 'Added Student', details: 'Added student profile for Alex Rivera (student@college.edu)' },
     { id: '1002', timestamp: '05 Jul 2026, 10:18 AM', userName: 'Anish Patil', role: 'ADMIN', action: 'Created User Account', details: 'Generated credentials and user record for Alex Rivera' },
     { id: '1003', timestamp: '05 Jul 2026, 11:20 AM', userName: 'Dr. Sarah Jenkins', role: 'TEACHER', action: 'Uploaded Lecture Notes', details: 'Uploaded Operating Systems lecture handout for Semester 3 Unit 1' },
     { id: '1004', timestamp: '05 Jul 2026, 01:45 PM', userName: 'Anish Patil', role: 'ADMIN', action: 'Created Event', details: 'Created event "Tech Connect Hackathon 2026" with 150 capacity' },
   ]);
+
+  const loadLogs = async () => {
+    try {
+      const resp = await api.getAuditLogs();
+      if (resp.success && resp.data.length > 0) {
+        const mapped = resp.data.map((l: any) => {
+          let timeStr = 'Just now';
+          try {
+            timeStr = new Date(l.timestamp).toLocaleString();
+            if (timeStr === 'Invalid Date') {
+              timeStr = l.timestamp;
+            }
+          } catch (_) {}
+          return {
+            id: l.id,
+            timestamp: timeStr,
+            userName: l.userName,
+            role: l.role,
+            action: l.action,
+            details: l.details || '',
+          };
+        });
+        setLogs(mapped);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    loadLogs();
+  }, []);
 
   const filteredLogs = logs.filter(l => 
     l.userName.toLowerCase().includes(search.toLowerCase()) ||
@@ -58,7 +91,7 @@ export default function AuditLogs() {
             />
           </div>
           
-          <Button variant="secondary" className="h-10 rounded-xl flex items-center gap-2 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+          <Button onClick={loadLogs} variant="secondary" className="h-10 rounded-xl flex items-center gap-2 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
             <RefreshCw className="h-4 w-4 text-slate-400" />
             <span>Refresh</span>
           </Button>

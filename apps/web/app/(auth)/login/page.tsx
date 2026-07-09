@@ -4,24 +4,37 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../components/AuthProvider';
 import { useTheme } from '../../../components/ThemeProvider';
-import { Button, Card, Input } from '@campus-connect/ui';
+import { Button } from '@campus-connect/ui';
 import { CollegeId, UserRole } from '@campus-connect/types';
-import { getCollegeName, getCollegeLogo } from '@campus-connect/utils';
-import { AlertCircle, Sun, Moon, User as UserIcon, GraduationCap, School, KeyRound } from 'lucide-react';
+import { 
+  AlertCircle, 
+  Sun, 
+  Moon, 
+  User as UserIcon, 
+  GraduationCap, 
+  School, 
+  Lock, 
+  Eye, 
+  EyeOff, 
+  Shield 
+} from 'lucide-react';
 import { auth } from '../../../config/firebase';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { api } from '../../../utils/api';
 
-export default function Login() {
+export default function Login({ initialRole, brandingMessage }: { initialRole?: UserRole; brandingMessage?: string }) {
   const { login, isLoading } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
 
   const [collegeId, setCollegeId] = useState<CollegeId>('college-a');
-  const [role, setRole] = useState<UserRole>('ADMIN');
+  const [role, setRole] = useState<UserRole>(initialRole || 'STUDENT');
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  
+  // Custom password visibility toggle
+  const [showPasswordText, setShowPasswordText] = useState(false);
 
   // Forgot password states
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -31,23 +44,33 @@ export default function Login() {
 
   // Sign up states
   const [showSignUp, setShowSignUp] = useState(false);
-  const [signUpName, setSignUpName] = useState('');           // Name as per Aadhaar
+  const [signUpFirstName, setSignUpFirstName] = useState('');
+  const [signUpSurname, setSignUpSurname] = useState('');
   const [signUpGmail, setSignUpGmail] = useState('');         // Gmail (login email)
   const [signUpPassword, setSignUpPassword] = useState('');
   const [signUpRole, setSignUpRole] = useState<'STUDENT' | 'TEACHER'>('STUDENT');
-  // Student-specific
-  const [signUpPhone, setSignUpPhone] = useState('');
-  const [signUpSection, setSignUpSection] = useState('A');
+  
+  // Student-specific required fields
+  const [signUpClassroom, setSignUpClassroom] = useState('Division A');
   const [signUpRollNo, setSignUpRollNo] = useState('');
+  const [signUpDegree, setSignUpDegree] = useState('BSc IT'); // Used for Student degree or Teacher degree
+  const [signUpSemester, setSignUpSemester] = useState('Semester 1');
+
+  // Other Student-specific fields
+  const [signUpPhone, setSignUpPhone] = useState('');
   const [signUpAdmissionNo, setSignUpAdmissionNo] = useState('');
   const [signUpGender, setSignUpGender] = useState('Male');
   const [signUpAddress, setSignUpAddress] = useState('');
   const [signUpParentName, setSignUpParentName] = useState('');
+  const [signUpMotherName, setSignUpMotherName] = useState('');
+  const [signUpFatherName, setSignUpFatherName] = useState('');
   const [signUpParentMobile, setSignUpParentMobile] = useState('');
+  
   // Course (11th / 12th)
   const [signUpCourseType, setSignUpCourseType] = useState<'11' | '12' | 'DEGREE'>('11');
   const [signUpStream, setSignUpStream] = useState('Science');
   const [signUpSubjects, setSignUpSubjects] = useState<string[]>([]);
+  
   // Teacher-specific
   const [signUpDeptId, setSignUpDeptId] = useState('');
   const [signUpMobile, setSignUpMobile] = useState('');
@@ -103,54 +126,78 @@ export default function Login() {
     setSignUpError(null);
     setSignUpSuccess(null);
 
-    if (!signUpName || !signUpGmail || !signUpPassword) {
-      setSignUpError('Name as per Aadhaar, Gmail, and password are required.');
+    if (!signUpFirstName || !signUpSurname || !signUpGmail || !signUpPassword) {
+      setSignUpError('First Name, Surname, Gmail, and Password are required.');
       return;
     }
     if (!/^[^@]+@gmail\.com$/.test(signUpGmail)) {
       setSignUpError('Please enter a valid Gmail address (e.g., name@gmail.com).');
       return;
     }
-    if (signUpRole === 'STUDENT' && signUpSubjects.length < 2) {
+    if (signUpRole === 'STUDENT' && signUpCourseType !== 'DEGREE' && signUpSubjects.length < 2) {
       setSignUpError('Please select at least 2 subjects.');
       return;
     }
 
     setIsSigningUp(true);
     try {
+      // Student-specific required fields validation
+      if (signUpRole === 'STUDENT') {
+        if (!signUpPhone) {
+          setSignUpError('Phone Number is required.');
+          return;
+        }
+        if (!signUpFatherName || !signUpMotherName) {
+          setSignUpError('Both Father\'s and Mother\'s names are required.');
+          return;
+        }
+      }
+
       const payload = {
-        name: signUpName,
+        name: `${signUpFirstName} ${signUpSurname}`.trim(),
+        firstName: signUpFirstName,
+        lastName: signUpSurname,
+        surname: signUpSurname,
         email: signUpGmail,
         password: signUpPassword,
         role: signUpRole,
         collegeId: collegeId,
         rollNumber: signUpRole === 'STUDENT' ? (signUpRollNo || null) : undefined,
-        admissionNumber: signUpRole === 'STUDENT' ? (signUpAdmissionNo || null) : undefined,
+        admissionNumber: signUpRole === 'STUDENT' ? (signUpAdmissionNo || `ADM-${Math.floor(100000 + Math.random() * 900000)}`) : undefined,
         gender: signUpRole === 'STUDENT' ? (signUpGender || null) : undefined,
         mobile: signUpRole === 'STUDENT' ? (signUpPhone || null) : (signUpMobile || null),
         address: signUpRole === 'STUDENT' ? (signUpAddress || null) : undefined,
-        parentName: signUpRole === 'STUDENT' ? (signUpParentName || null) : undefined,
+        parentName: signUpRole === 'STUDENT' ? `Father: ${signUpFatherName}, Mother: ${signUpMotherName}` : undefined,
+        motherName: signUpRole === 'STUDENT' ? (signUpMotherName || null) : undefined,
+        fatherName: signUpRole === 'STUDENT' ? (signUpFatherName || null) : undefined,
         parentMobile: signUpRole === 'STUDENT' ? (signUpParentMobile || null) : undefined,
-        divisionId: signUpSection ? `div-${signUpSection.toLowerCase()}` : 'div-a',
+        divisionId: signUpRole === 'STUDENT' ? (signUpClassroom === 'Division B' ? 'div-b' : 'div-a') : undefined,
         departmentId: signUpRole === 'TEACHER' ? (signUpDeptId || 'dept-id') : undefined,
-        // Extra info stored as admissionNumber field if needed
         courseType: signUpRole === 'STUDENT' ? signUpCourseType : undefined,
         stream: signUpRole === 'STUDENT' ? signUpStream : undefined,
-        subjects: signUpRole === 'STUDENT' ? signUpSubjects : undefined,
-        section: signUpRole === 'STUDENT' ? signUpSection : undefined,
+        subjects: signUpRole === 'STUDENT' ? (signUpCourseType === 'DEGREE' ? [signUpDegree] : signUpSubjects) : undefined,
+        semester: signUpRole === 'STUDENT' ? signUpSemester : undefined,
+        classroom: signUpRole === 'STUDENT' ? signUpClassroom : undefined,
+        degree: signUpRole === 'STUDENT' ? signUpDegree : (signUpRole === 'TEACHER' ? signUpDegree : undefined),
       };
 
       const resp = await api.register(payload);
       if (resp.success) {
-        setSignUpSuccess('Profile created successfully! You can now sign in with your Gmail and password.');
-        setSignUpName('');
+        setSignUpSuccess('Profile created successfully! Confirmation email has been sent.');
+        setSignUpFirstName('');
+        setSignUpSurname('');
         setSignUpGmail('');
         setSignUpPassword('');
         setSignUpRollNo('');
+        setSignUpClassroom('Division A');
+        setSignUpDegree('BSc IT');
+        setSignUpSemester('Semester 1');
         setSignUpAdmissionNo('');
         setSignUpPhone('');
         setSignUpAddress('');
         setSignUpParentName('');
+        setSignUpMotherName('');
+        setSignUpFatherName('');
         setSignUpParentMobile('');
         setSignUpDeptId('');
         setSignUpMobile('');
@@ -200,25 +247,43 @@ export default function Login() {
     else if (userRole === 'ADMIN') router.push('/dashboard/admin');
   };
 
-  const handleQuickLogin = async (demoEmail: string, demoRole: UserRole, demoCollegeId: CollegeId) => {
-    setError(null);
-    setEmail(demoEmail);
-    setPassword('password123');
-    setRole(demoRole);
-    setCollegeId(demoCollegeId);
-
-    const success = await login(demoEmail, demoCollegeId, demoRole, 'password123');
-    if (success) {
-      redirectUser(demoRole);
-    } else {
-      setError('Demo login failed.');
-    }
-  };
-
   const collegeList: { id: CollegeId; name: string }[] = [
     { id: 'college-a', name: "Pushpalata Mhatre Women's College" },
     { id: 'college-b', name: 'Balasaheb Mhatre College (Junior)' },
     { id: 'college-c', name: 'Balasaheb Mhatre College (Senior)' }
+  ];
+
+  const rolesConfig = [
+    {
+      role: 'STUDENT' as UserRole,
+      label: 'Student',
+      icon: GraduationCap,
+      colorClass: 'text-blue-500 dark:text-blue-400',
+      selectedBorderClass: 'border-blue-500 ring-2 ring-blue-500/10 dark:border-blue-500',
+      selectedBgClass: 'bg-blue-50/50 dark:bg-blue-950/20',
+      selectedIconClass: 'text-blue-600 dark:text-blue-400',
+      selectedLabelClass: 'text-blue-600 dark:text-blue-400'
+    },
+    {
+      role: 'TEACHER' as UserRole,
+      label: 'Teacher',
+      icon: UserIcon,
+      colorClass: 'text-emerald-500 dark:text-emerald-400',
+      selectedBorderClass: 'border-emerald-500 ring-2 ring-emerald-500/10 dark:border-emerald-500',
+      selectedBgClass: 'bg-emerald-50/50 dark:bg-emerald-950/20',
+      selectedIconClass: 'text-emerald-600 dark:text-emerald-400',
+      selectedLabelClass: 'text-emerald-600 dark:text-emerald-450'
+    },
+    {
+      role: 'ADMIN' as UserRole,
+      label: 'Admin',
+      icon: Shield,
+      colorClass: 'text-purple-500 dark:text-purple-400',
+      selectedBorderClass: 'border-purple-500 ring-2 ring-purple-500/10 dark:border-purple-500',
+      selectedBgClass: 'bg-purple-50/50 dark:bg-purple-950/20',
+      selectedIconClass: 'text-purple-600 dark:text-purple-400',
+      selectedLabelClass: 'text-purple-600 dark:text-purple-450'
+    }
   ];
 
   return (
@@ -227,279 +292,429 @@ export default function Login() {
       <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] rounded-full bg-blue-500/5 dark:bg-blue-600/5 blur-[120px] -z-10 pointer-events-none" />
       <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-indigo-500/5 dark:bg-indigo-600/5 blur-[120px] -z-10 pointer-events-none" />
 
-      {/* Floating Header with Theme Toggle */}
-      <header className="w-full max-w-7xl mx-auto px-6 h-20 flex items-center justify-between z-10">
-        <div className="flex items-center gap-2.5">
-          <div className="h-9 w-9 rounded-xl bg-blue-600 dark:bg-blue-500 flex items-center justify-center text-white font-bold text-base shadow-lg shadow-blue-500/20">
-            C
-          </div>
-          <span className="font-display font-extrabold text-lg tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
-            CampusConnect
-          </span>
-        </div>
-
+      {/* Floating Theme Toggle */}
+      <div className="absolute top-6 right-6 z-50">
         <button
           onClick={toggleTheme}
           type="button"
-          className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-sm transition-all duration-200"
+          className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-sm transition-all duration-205 cursor-pointer"
           aria-label="Toggle Theme"
         >
           {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
         </button>
-      </header>
+      </div>
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex items-center justify-center py-8 px-4 sm:px-6 lg:px-8 z-10">
-        <div className="max-w-4xl w-full flex flex-col items-center">
+      {/* Main Container */}
+      <main className="flex-1 flex items-center justify-center p-4 sm:p-6 md:p-8 z-10">
+        <div className="w-full max-w-5xl bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl overflow-hidden border border-slate-200/60 dark:border-slate-800 grid grid-cols-1 md:grid-cols-12 min-h-[760px] transition-all">
           
-          <div className="text-center max-w-xl mb-8">
-            <h1 className="font-display font-extrabold text-3xl sm:text-4xl tracking-tight text-slate-900 dark:text-slate-50">
-              Welcome to the Campus Portal
-            </h1>
-            <p className="mt-2.5 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              Balasaheb Mhatre Education Group Unified Campus Management System
-            </p>
-          </div>
-
-          <div className="w-full max-w-2xl grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
+          {/* Left Column (Hero Welcome Banner) */}
+          <div className="hidden md:flex md:col-span-5 flex-col justify-between p-10 text-white relative overflow-hidden bg-gradient-to-b from-[#02225B] to-[#0A3B8B]">
+            {/* Soft highlight */}
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.2),transparent_65%)] pointer-events-none" />
             
-            {/* Left Column: College Selector */}
-            <div className="md:col-span-5 flex flex-col gap-3">
-              <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
-                Select Your Institution
-              </label>
-              
-              <div className="flex flex-col gap-3 flex-1 justify-between">
-                {collegeList.map((col) => {
-                  const isSelected = collegeId === col.id;
-                  return (
-                    <button
-                      key={col.id}
-                      type="button"
-                      onClick={() => setCollegeId(col.id)}
-                      className={`w-full text-left p-4 rounded-2xl border transition-all duration-200 flex items-center gap-3 bg-white dark:bg-slate-900 hover:shadow-sm ${
-                        isSelected
-                          ? 'border-blue-500 ring-2 ring-blue-500/10 dark:border-blue-500'
-                          : 'border-slate-200 dark:border-slate-850 hover:border-slate-350 dark:hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="h-10 w-10 rounded-lg overflow-hidden shrink-0 border border-slate-100 dark:border-slate-800 p-0.5 bg-white flex items-center justify-center shadow-xs">
-                        <img
-                          src={getCollegeLogo(col.id)}
-                          alt={col.name}
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-250 line-clamp-2">
-                        {col.name}
-                      </span>
-                    </button>
-                  );
-                })}
+            {/* Top Logo branding */}
+            <div className="z-10 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center shadow-lg border border-white/20">
+                <GraduationCap className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <span className="font-display font-extrabold text-sm tracking-tight text-white block animate-pulse">
+                  Campus Connect
+                </span>
+                <span className="text-[9px] text-blue-200/70 font-semibold tracking-wider uppercase block -mt-0.5">
+                  Smart Campus. Better Future.
+                </span>
               </div>
             </div>
 
-            {/* Right Column: Main Login Form */}
-            <div className="md:col-span-7">
-              <Card className="glass-card shadow-xl p-6 border-slate-250/70 dark:border-slate-850 bg-white/70 dark:bg-slate-900/70 flex flex-col justify-between h-full">
-                
-                {/* Dynamically shown prominent logo */}
-                <div className="flex flex-col items-center text-center mb-6">
-                  <div className="h-20 w-20 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-850 p-1.5 bg-white shadow-md mb-3 flex items-center justify-center">
-                    <img
-                      src={getCollegeLogo(collegeId)}
-                      alt="Current College Logo"
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                  <h3 className="font-bold text-sm text-slate-850 dark:text-slate-150 line-clamp-1">
-                    {getCollegeName(collegeId)}
-                  </h3>
-                  <p className="text-[10px] text-slate-400 mt-0.5 uppercase tracking-widest font-semibold">
-                    {showSignUp ? 'Create New Profile' : 'Authorized Sign In'}
+            {/* Title / Description */}
+            <div className="z-10 my-auto py-8 space-y-4">
+              <h1 className="font-display font-extrabold text-3xl leading-tight">
+                {brandingMessage ? (
+                  brandingMessage
+                ) : (
+                  <>
+                    Welcome to <br />
+                    <span className="text-white">Campus </span>
+                    <span className="text-blue-300">Connect</span>
+                  </>
+                )}
+              </h1>
+              <p className="text-[11px] text-blue-100/70 leading-relaxed font-normal max-w-[240px]">
+                {role === 'STUDENT' ? 'Access your lectures, check attendance, download learning notes, and track your performance index.' :
+                 role === 'TEACHER' ? 'Manage attendance, publish assignments, grade student submissions, and upload notes.' :
+                 'Manage college departments, courses, student and teacher databases, timetable slots, and system settings.'}
+              </p>
+              <div className="h-[2px] w-8 bg-blue-400 rounded-full animate-pulse" />
+            </div>
+
+            {/* Illustration image matching the dusk skyline mockup */}
+            <div className="absolute bottom-0 left-0 right-0 w-full overflow-hidden leading-none z-0 select-none pointer-events-none">
+              <img 
+                src="/campus_dusk.png" 
+                alt="Campus at Dusk" 
+                className="w-full h-auto object-cover opacity-95 transition-transform duration-700 hover:scale-105"
+              />
+            </div>
+          </div>
+
+          {/* Right Column (Forms Panel) */}
+          <div className="col-span-12 md:col-span-7 flex flex-col justify-center p-6 sm:p-10 md:p-12 bg-white dark:bg-slate-900 transition-colors">
+            
+            {showForgotPassword ? (
+              /* PASSWORD RECOVERY FORM */
+              <div className="space-y-6">
+                <div>
+                  <h2 className="font-display font-extrabold text-2xl tracking-tight text-slate-900 dark:text-slate-50 animate-fade-in">
+                    Password Recovery
+                  </h2>
+                  <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    Recover your account via Email or Admin Office
                   </p>
                 </div>
 
-                {showForgotPassword ? (
-                  <form onSubmit={handleForgotPassword} className="space-y-4">
-                    <div className="text-center mb-4">
-                      <h4 className="font-bold text-sm text-slate-850 dark:text-slate-150 flex items-center justify-center gap-1.5">
-                        <KeyRound className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                        Password Recovery
-                      </h4>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
-                        Recover your account via Email or Admin Office
-                      </p>
+                {resetStatus && (
+                  <div className={`p-4 border rounded-xl flex items-start gap-3 text-xs leading-relaxed ${
+                    resetStatus.type === 'success' 
+                      ? 'bg-emerald-50 border-emerald-250 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-900 dark:text-emerald-400' 
+                      : 'bg-red-50 border-red-200 text-red-700 dark:bg-red-950/20 dark:border-red-900 dark:text-red-400'
+                  }`}>
+                    <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                    <span>{resetStatus.text}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-505">
+                        <UserIcon className="h-5 w-5" />
+                      </div>
+                      <input
+                        type="email"
+                        placeholder="Enter registered email"
+                        value={resetEmail}
+                        onChange={(e) => setResetEmail(e.target.value)}
+                        className="flex h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-450 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all duration-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    isLoading={isResetting}
+                    className="w-full h-11 rounded-xl text-xs font-semibold shadow-md bg-blue-600 hover:bg-blue-700 text-white border-transparent transition-all"
+                  >
+                    Send Password Reset Link
+                  </Button>
+
+                  <div className="bg-amber-50/50 dark:bg-amber-950/10 border border-amber-250/60 dark:border-amber-900/30 p-4 rounded-xl text-xs leading-relaxed text-amber-800 dark:text-amber-400 space-y-1.5 mt-4 animate-pulse">
+                    <p className="font-bold uppercase tracking-wider text-[10px]">Need immediate reset?</p>
+                    <p>Please visit the <b className="font-semibold">Admin Office</b> to reset your password directly. The system administrator can change your credentials instantly.</p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPassword(false)}
+                    className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors pt-2 block"
+                  >
+                    Back to Sign In
+                  </button>
+                </form>
+              </div>
+
+            ) : showSignUp ? (
+              /* SIGN UP FORM (CREATE PROFILE) */
+              <div className="space-y-6">
+                <div>
+                  <h2 className="font-display font-extrabold text-2xl tracking-tight text-slate-900 dark:text-slate-50">
+                    Create New Profile
+                  </h2>
+                  <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    Join your college community portal
+                  </p>
+                </div>
+
+                {signUpError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-red-700 text-xs">
+                    <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                    <span>{signUpError}</span>
+                  </div>
+                )}
+
+                {signUpSuccess && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-250 rounded-xl flex items-start gap-2.5 text-emerald-700 text-xs">
+                    <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                    <span>{signUpSuccess}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleSignUpSubmit} className="space-y-4">
+                  <div className="max-h-[500px] overflow-y-auto pr-2 space-y-4 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
+                    
+                    {/* SignUp Role Selection Tabs */}
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                        I am a
+                      </label>
+                      <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700">
+                        {(['STUDENT', 'TEACHER'] as const).map((r) => (
+                          <button
+                            key={r}
+                            type="button"
+                            onClick={() => setSignUpRole(r)}
+                            className={`py-2 rounded-lg text-[10px] font-bold text-center uppercase tracking-wide transition-all duration-150 cursor-pointer ${
+                              signUpRole === r
+                                ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/40 dark:border-slate-700'
+                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 border border-transparent'
+                            }`}
+                          >
+                            {r}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
-                    {resetStatus && (
-                      <div className={`p-3 border rounded-xl flex items-start gap-2 text-[10px] leading-relaxed ${
-                        resetStatus.type === 'success' 
-                          ? 'bg-emerald-50 border-emerald-250 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-900 dark:text-emerald-400' 
-                          : 'bg-red-50 border-red-200 text-red-700 dark:bg-red-950/20 dark:border-red-900 dark:text-red-400'
-                      }`}>
-                        <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                        <span>{resetStatus.text}</span>
-                      </div>
-                    )}
-
-                    <Input
-                      label="Your Email Address"
-                      type="email"
-                      placeholder="Enter registered email"
-                      value={resetEmail}
-                      onChange={(e) => setResetEmail(e.target.value)}
-                    />
-
-                    <Button
-                      type="submit"
-                      isLoading={isResetting}
-                      className="w-full h-10.5 rounded-xl text-xs font-semibold shadow-md bg-slate-900 text-white dark:bg-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-slate-100 border border-transparent mt-1 transition-all"
-                    >
-                      Send Password Reset Link
-                    </Button>
-
-                    <div className="bg-amber-50/50 dark:bg-amber-955/10 border border-amber-250/60 dark:border-amber-900/30 p-3.5 rounded-xl text-[10px] leading-relaxed text-amber-800 dark:text-amber-400 space-y-1 mt-4">
-                      <p className="font-bold uppercase tracking-wider">Need immediate reset?</p>
-                      <p>Please visit the <b>Admin Office</b> to reset your password directly. The system administrator can change your credentials instantly.</p>
+                    {/* Identity Details Header */}
+                    <div className="pt-2 pb-1 border-t border-slate-100 dark:border-slate-800">
+                      <p className="text-[9px] font-bold text-slate-400 dark:text-slate-505 uppercase tracking-widest">Identity & Credentials</p>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setShowForgotPassword(false)}
-                      className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors pt-2 block"
-                    >
-                      Back to Sign In
-                    </button>
-                  </form>
-                ) : showSignUp ? (
-                  <form onSubmit={handleSignUpSubmit} className="space-y-4">
-                    <div className="text-center mb-2">
-                      <h4 className="font-bold text-sm text-slate-850 dark:text-slate-150 flex items-center justify-center gap-1.5">
-                        <GraduationCap className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                        Create New Profile
-                      </h4>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
-                        Join your college community portal
-                      </p>
-                    </div>
-
-                    {signUpError && (
-                      <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2 text-red-700 text-xs">
-                        <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                        <span>{signUpError}</span>
-                      </div>
-                    )}
-
-                    {signUpSuccess && (
-                      <div className="p-3 bg-emerald-50 border border-emerald-250 rounded-xl flex items-start gap-2 text-emerald-700 text-xs">
-                        <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                        <span>{signUpSuccess}</span>
-                      </div>
-                    )}
-
-                    <div className="max-h-[340px] overflow-y-auto pr-1 space-y-3.5 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
-                      {/* Role Selector */}
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
-                          I am a
-                        </label>
-                        <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-slate-105 dark:bg-slate-850 border border-slate-200/50 dark:border-slate-800">
-                          {(['STUDENT', 'TEACHER'] as const).map((r) => (
-                            <button
-                              key={r}
-                              type="button"
-                              onClick={() => setSignUpRole(r)}
-                              className={`py-1.5 rounded-lg text-[9px] font-bold text-center uppercase tracking-wide transition-all duration-150 ${
-                                signUpRole === r
-                                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/40 dark:border-slate-800/40'
-                                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                              }`}
-                            >
-                              {r}
-                            </button>
+                    {/* Institution Selector */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                        Institution / College
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-505">
+                          <School className="h-5 w-5" />
+                        </div>
+                        <select
+                          value={collegeId}
+                          onChange={(e) => setCollegeId(e.target.value as CollegeId)}
+                          className="flex h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-8 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all duration-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 appearance-none font-medium cursor-pointer"
+                        >
+                          {collegeList.map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
                           ))}
+                        </select>
+                        <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-450">
+                          <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20">
+                            <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                          </svg>
                         </div>
                       </div>
+                    </div>
 
-                      {/* ── IDENTITY ── */}
-                      <div className="pt-1 pb-0.5 border-t border-slate-100 dark:border-slate-800">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Identity</p>
+                    <div className="grid grid-cols-2 gap-3.5">
+                      {/* First Name */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">First Name</label>
+                        <input
+                          type="text"
+                          placeholder="Rahul"
+                          value={signUpFirstName}
+                          onChange={(e) => setSignUpFirstName(e.target.value)}
+                          className="flex h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all duration-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 font-medium"
+                        />
                       </div>
+                      {/* Surname */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Surname</label>
+                        <input
+                          type="text"
+                          placeholder="Patil"
+                          value={signUpSurname}
+                          onChange={(e) => setSignUpSurname(e.target.value)}
+                          className="flex h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all duration-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 font-medium"
+                        />
+                      </div>
+                    </div>
 
-                      <Input
-                        label="Full Name (as per Aadhaar Card)"
-                        placeholder="e.g. Rahul Anish Patil"
-                        value={signUpName}
-                        onChange={(e) => setSignUpName(e.target.value)}
-                      />
-
-                      <Input
-                        label="Gmail Address"
+                    {/* Gmail */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Gmail Address</label>
+                      <input
                         type="email"
                         placeholder="yourname@gmail.com"
                         value={signUpGmail}
                         onChange={(e) => setSignUpGmail(e.target.value)}
+                        className="flex h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all duration-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 font-medium"
                       />
+                    </div>
 
-                      <Input
-                        label="Password"
+                    {/* Password */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Password</label>
+                      <input
                         type="password"
                         placeholder="Min 6 characters"
                         value={signUpPassword}
                         onChange={(e) => setSignUpPassword(e.target.value)}
+                        className="flex h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all duration-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 font-medium"
                       />
+                    </div>
 
-                      {/* ── STUDENT FIELDS ── */}
-                      {signUpRole === 'STUDENT' ? (
-                        <>
-                          {/* Course / Class */}
-                          <div className="pt-1 pb-0.5 border-t border-slate-100 dark:border-slate-800">
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Class & Course</p>
+                    {/* STUDENT-SPECIFIC FIELDS */}
+                    {signUpRole === 'STUDENT' ? (
+                      <>
+                        <div className="pt-2 pb-1 border-t border-slate-100 dark:border-slate-800">
+                          <p className="text-[9px] font-bold text-slate-400 dark:text-slate-505 uppercase tracking-widest">Contact & Parent Details</p>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Student Phone Number</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. +91 9876543210"
+                            value={signUpPhone}
+                            onChange={(e) => setSignUpPhone(e.target.value)}
+                            className="flex h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all duration-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 font-medium"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3.5">
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Father's Name</label>
+                            <input
+                              type="text"
+                              placeholder="Father's Name"
+                              value={signUpFatherName}
+                              onChange={(e) => setSignUpFatherName(e.target.value)}
+                              className="flex h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all duration-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 font-medium"
+                            />
                           </div>
-
-                          <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                              Class
-                            </label>
-                            <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-slate-105 dark:bg-slate-850 border border-slate-200/50 dark:border-slate-800">
-                              {(['11', '12', 'DEGREE'] as const).map((ct) => (
-                                <button
-                                  key={ct}
-                                  type="button"
-                                  onClick={() => { setSignUpCourseType(ct); setSignUpSubjects([]); }}
-                                  className={`py-1.5 rounded-lg text-[9px] font-bold text-center uppercase tracking-wide transition-all duration-150 ${
-                                    signUpCourseType === ct
-                                      ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/40 dark:border-slate-800/40'
-                                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                                  }`}
-                                >
-                                  {ct === 'DEGREE' ? 'Degree' : `${ct}th`}
-                                </button>
-                              ))}
-                            </div>
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Mother's Name</label>
+                            <input
+                              type="text"
+                              placeholder="Mother's Name"
+                              value={signUpMotherName}
+                              onChange={(e) => setSignUpMotherName(e.target.value)}
+                              className="flex h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all duration-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 font-medium"
+                            />
                           </div>
+                        </div>
 
-                          {signUpCourseType !== 'DEGREE' && (
-                            <div>
-                              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                                Stream
-                              </label>
-                              <select
-                                value={signUpStream}
-                                onChange={(e) => { setSignUpStream(e.target.value); setSignUpSubjects([]); }}
-                                className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        <div className="pt-2 pb-1 border-t border-slate-100 dark:border-slate-800">
+                          <p className="text-[9px] font-bold text-slate-400 dark:text-slate-505 uppercase tracking-widest">Classroom & Roll Number</p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3.5">
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Classroom / Division</label>
+                            <select
+                              value={signUpClassroom}
+                              onChange={(e) => setSignUpClassroom(e.target.value)}
+                              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="Division A">Division A</option>
+                              <option value="Division B">Division B</option>
+                              <option value="Division C">Division C</option>
+                            </select>
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Roll Number</label>
+                            <input
+                              type="text"
+                              placeholder="e.g. 42"
+                              value={signUpRollNo}
+                              onChange={(e) => setSignUpRollNo(e.target.value)}
+                              className="flex h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all duration-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 font-medium"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="pt-2 pb-1 border-t border-slate-100 dark:border-slate-800">
+                          <p className="text-[9px] font-bold text-slate-400 dark:text-slate-505 uppercase tracking-widest">Program & Semester</p>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Class / Program Type</label>
+                          <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700">
+                            {(['11', '12', 'DEGREE'] as const).map((ct) => (
+                              <button
+                                key={ct}
+                                type="button"
+                                onClick={() => { setSignUpCourseType(ct); setSignUpSubjects([]); }}
+                                className={`py-1.5 rounded-lg text-[10px] font-bold text-center uppercase tracking-wide transition-all duration-150 cursor-pointer ${
+                                  signUpCourseType === ct
+                                    ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/40 dark:border-slate-700'
+                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 border border-transparent'
+                                }`}
                               >
-                                <option value="Science">Science</option>
-                                <option value="Commerce">Commerce</option>
-                                <option value="Arts">Arts</option>
+                                {ct === 'DEGREE' ? 'Degree' : `${ct}th`}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {signUpCourseType === 'DEGREE' ? (
+                          <div className="grid grid-cols-2 gap-3.5">
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Select Degree</label>
+                              <select
+                                value={signUpDegree}
+                                onChange={(e) => setSignUpDegree(e.target.value)}
+                                className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="BSc IT">BSc IT</option>
+                                <option value="BMS">BMS</option>
+                                <option value="BCom">BCom</option>
+                                <option value="BSc CS">BSc CS</option>
+                                <option value="BA">BA</option>
                               </select>
                             </div>
-                          )}
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Semester</label>
+                              <select
+                                value={signUpSemester}
+                                onChange={(e) => setSignUpSemester(e.target.value)}
+                                className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 animate-fade-in"
+                              >
+                                <option value="Semester 1">Semester 1</option>
+                                <option value="Semester 2">Semester 2</option>
+                                <option value="Semester 3">Semester 3</option>
+                                <option value="Semester 4">Semester 4</option>
+                                <option value="Semester 5">Semester 5</option>
+                                <option value="Semester 6">Semester 6</option>
+                              </select>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="grid grid-cols-2 gap-3.5">
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Stream</label>
+                                <select
+                                  value={signUpStream}
+                                  onChange={(e) => { setSignUpStream(e.target.value); setSignUpSubjects([]); }}
+                                  className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                  <option value="Science">Science</option>
+                                  <option value="Commerce">Commerce</option>
+                                  <option value="Arts">Arts</option>
+                                </select>
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Semester</label>
+                                <select
+                                  value={signUpSemester}
+                                  onChange={(e) => setSignUpSemester(e.target.value)}
+                                  className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                  <option value="Semester 1">Semester 1</option>
+                                  <option value="Semester 2">Semester 2</option>
+                                </select>
+                              </div>
+                            </div>
 
-                          {signUpCourseType !== 'DEGREE' && (
-                            <div>
-                              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1">
                                 Subjects <span className="text-slate-400 font-normal normal-case">(select all you study)</span>
                               </label>
                               <div className="flex flex-wrap gap-1.5">
@@ -508,251 +723,242 @@ export default function Login() {
                                     key={sub}
                                     type="button"
                                     onClick={() => toggleSubject(sub)}
-                                    className={`px-2.5 py-1 rounded-lg text-[9px] font-semibold border transition-all duration-150 ${
+                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-semibold border transition-all duration-150 cursor-pointer ${
                                       signUpSubjects.includes(sub)
-                                        ? 'bg-blue-600 dark:bg-blue-500 border-blue-600 dark:border-blue-500 text-white'
-                                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-blue-400'
+                                        ? 'bg-blue-600 border-blue-600 text-white'
+                                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-650 dark:text-slate-350 hover:border-blue-400'
                                     }`}
                                   >
                                     {sub}
                                   </button>
                                 ))}
                               </div>
-                              {signUpSubjects.length > 0 && (
-                                <p className="text-[9px] text-slate-400 mt-1.5">{signUpSubjects.length} subject(s) selected</p>
-                              )}
                             </div>
-                          )}
-
-                          {/* Contact */}
-                          <div className="pt-1 pb-0.5 border-t border-slate-100 dark:border-slate-800">
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Contact & Class Info</p>
-                          </div>
-
-                          <Input
-                            label="Phone Number"
-                            type="tel"
-                            placeholder="+91 9876543210"
-                            value={signUpPhone}
-                            onChange={(e) => setSignUpPhone(e.target.value)}
-                          />
-
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                                Section
-                              </label>
-                              <select
-                                value={signUpSection}
-                                onChange={(e) => setSignUpSection(e.target.value)}
-                                className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                              >
-                                {['A', 'B', 'C', 'D', 'E'].map(s => (
-                                  <option key={s} value={s}>Section {s}</option>
-                                ))}
-                              </select>
-                            </div>
-                            <Input
-                              label="Roll Number"
-                              placeholder="e.g. 42"
-                              value={signUpRollNo}
-                              onChange={(e) => setSignUpRollNo(e.target.value)}
-                            />
-                          </div>
-
-                          <Input
-                            label="Admission Number"
-                            placeholder="ADM-2026-089"
-                            value={signUpAdmissionNo}
-                            onChange={(e) => setSignUpAdmissionNo(e.target.value)}
-                          />
-
-                          <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                              Gender
-                            </label>
-                            <select
-                              value={signUpGender}
-                              onChange={(e) => setSignUpGender(e.target.value)}
-                              className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            >
-                              <option value="Male">Male</option>
-                              <option value="Female">Female</option>
-                              <option value="Other">Other</option>
-                            </select>
-                          </div>
-
-                          {/* Parent Info */}
-                          <div className="pt-1 pb-0.5 border-t border-slate-100 dark:border-slate-800">
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Parent / Guardian Info</p>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-2">
-                            <Input
-                              label="Parent Name"
-                              placeholder="Ramesh Patil"
-                              value={signUpParentName}
-                              onChange={(e) => setSignUpParentName(e.target.value)}
-                            />
-                            <Input
-                              label="Parent Phone"
-                              placeholder="+91 9876543211"
-                              value={signUpParentMobile}
-                              onChange={(e) => setSignUpParentMobile(e.target.value)}
-                            />
-                          </div>
-
-                          <Input
-                            label="Residential Address"
-                            placeholder="Flat 101, Star Heights, Thane"
-                            value={signUpAddress}
-                            onChange={(e) => setSignUpAddress(e.target.value)}
-                          />
-                        </>
-                      ) : (
-                        <>
-                          {/* Teacher fields */}
-                          <div className="pt-1 pb-0.5 border-t border-slate-100 dark:border-slate-800">
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Professional Details</p>
-                          </div>
-
-                          <Input
-                            label="Phone Number"
-                            type="tel"
-                            placeholder="+91 9876543210"
-                            value={signUpMobile}
-                            onChange={(e) => setSignUpMobile(e.target.value)}
-                          />
-
-                          <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                              Department
-                            </label>
-                            <select
-                              value={signUpDeptId}
-                              onChange={(e) => setSignUpDeptId(e.target.value)}
-                              className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            >
-                              <option value="">Select Department</option>
-                              <option value="dept-cs">Computer Science</option>
-                              <option value="dept-it">Information Technology</option>
-                              <option value="dept-science">Science</option>
-                              <option value="dept-commerce">Commerce</option>
-                              <option value="dept-arts">Arts</option>
-                              <option value="dept-maths">Mathematics</option>
-                            </select>
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    <Button
-                      type="submit"
-                      isLoading={isSigningUp}
-                      className="w-full h-10.5 rounded-xl text-xs font-semibold shadow-md bg-slate-900 text-white dark:bg-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-slate-100 border border-transparent mt-1 transition-all"
-                    >
-                      Create Profile
-                    </Button>
-
-                    <button
-                      type="button"
-                      onClick={() => setShowSignUp(false)}
-                      className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors pt-1 block"
-                    >
-                      Already have an account? Sign In
-                    </button>
-                  </form>
-                ) : (
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    {error && (
-                      <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2 text-red-700 text-xs">
-                        <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                        <span>{error}</span>
-                      </div>
-                    )}
-
-                    {/* Hidden inputs to support autofill role */}
-                    <div className="space-y-3.5">
-                      {/* Role selector tabs */}
-                      <div>
-                        <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-slate-105 dark:bg-slate-850 border border-slate-200/50 dark:border-slate-800">
-                          {(['STUDENT', 'TEACHER', 'ADMIN'] as UserRole[]).map((r) => (
-                            <button
-                              key={r}
-                              type="button"
-                              onClick={() => setRole(r)}
-                              className={`py-1.5 rounded-lg text-[9px] font-bold text-center uppercase tracking-wide transition-all duration-150 ${
-                                role === r
-                                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/40 dark:border-slate-800/40'
-                                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                              }`}
-                            >
-                              {r.replace('_', ' ')}
-                            </button>
-                          ))}
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      /* TEACHER-SPECIFIC FIELDS */
+                      <>
+                        <div className="pt-2 pb-1 border-t border-slate-100 dark:border-slate-800">
+                          <p className="text-[9px] font-bold text-slate-400 dark:text-slate-505 uppercase tracking-widest">Professional Details</p>
                         </div>
-                      </div>
 
-                      <Input
-                        label="Email Address"
-                        type="email"
-                        placeholder="anish@college.edu"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                      />
-                      
-                      <div className="space-y-1">
-                        <div className="flex justify-between items-center">
-                          <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Password</label>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setResetEmail(email);
-                              setShowForgotPassword(true);
-                              setResetStatus(null);
-                            }}
-                            className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline"
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Degree / Qualification</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. M.Sc. in IT, Ph.D. in CS"
+                            value={signUpDegree}
+                            onChange={(e) => setSignUpDegree(e.target.value)}
+                            className="flex h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all duration-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 font-medium"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Department</label>
+                          <select
+                            value={signUpDeptId}
+                            onChange={(e) => setSignUpDeptId(e.target.value)}
+                            className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           >
-                            Forgot Password?
-                          </button>
+                            <option value="">Select Department</option>
+                            <option value="Computer Science">Computer Science</option>
+                            <option value="Information Technology">Information Technology</option>
+                            <option value="Science">Science</option>
+                            <option value="Commerce">Commerce</option>
+                            <option value="Arts">Arts</option>
+                            <option value="Mathematics">Mathematics</option>
+                          </select>
                         </div>
-                        <Input
-                          type="password"
-                          placeholder="••••••••"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                        />
-                      </div>
-                    </div>
+                      </>
+                    )}
+                  </div>
 
-                    <Button
-                      type="submit"
-                      isLoading={isLoading}
-                      className="w-full h-10.5 rounded-xl text-xs font-semibold shadow-md bg-slate-900 text-white dark:bg-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-slate-100 border border-transparent mt-2 transition-all"
-                    >
-                      Sign In to Portal
-                    </Button>
+                  <Button
+                    type="submit"
+                    isLoading={isSigningUp}
+                    className="w-full h-11 rounded-xl text-xs font-semibold shadow-md bg-blue-600 hover:bg-blue-700 text-white border-transparent transition-all mt-2 cursor-pointer"
+                  >
+                    Create Profile
+                  </Button>
 
-                    <button
-                      type="button"
-                      onClick={() => setShowSignUp(true)}
-                      className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors pt-2 block"
-                    >
-                      New here? Create New Profile
-                    </button>
-                  </form>
+                  <button
+                    type="button"
+                    onClick={() => setShowSignUp(false)}
+                    className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors pt-1 block cursor-pointer"
+                  >
+                    Already have an account? Sign In
+                  </button>
+                </form>
+              </div>
+
+            ) : (
+              /* STANDARD LOGIN FORM */
+              <div className="space-y-6">
+                <div>
+                  <h2 className="font-display font-extrabold text-2xl tracking-tight text-slate-900 dark:text-slate-50">
+                    Welcome Back!
+                  </h2>
+                  <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    Login to your account to continue
+                  </p>
+                </div>
+
+                {error && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-red-700 text-xs">
+                    <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                    <span>{error}</span>
+                  </div>
                 )}
 
-              </Card>
-            </div>
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  {/* Role selection row */}
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-bold text-slate-450 dark:text-slate-500 uppercase tracking-wider block">
+                      Login as
+                    </label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {rolesConfig.map((item) => {
+                        const isSelected = role === item.role;
+                        const Icon = item.icon;
+                        return (
+                          <button
+                            key={item.role}
+                            type="button"
+                            onClick={() => setRole(item.role)}
+                            className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all duration-300 bg-white dark:bg-slate-900 hover:shadow-sm cursor-pointer ${
+                              isSelected
+                                ? `${item.selectedBorderClass} ${item.selectedBgClass}`
+                                : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                            }`}
+                          >
+                            <div className={`p-2 rounded-xl mb-1.5 transition-colors ${
+                              isSelected ? item.selectedBgClass : 'bg-slate-50 dark:bg-slate-800/50'
+                            }`}>
+                              <Icon className={`h-6 w-6 transition-colors ${
+                                isSelected ? item.selectedIconClass : item.colorClass
+                              }`} />
+                            </div>
+                            <span className={`text-[11px] font-bold transition-colors ${
+                              isSelected ? item.selectedLabelClass : 'text-slate-650 dark:text-slate-355'
+                            }`}>
+                              {item.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
 
+                  {/* Institution Selector */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                      Institution / College
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-505">
+                        <School className="h-5 w-5" />
+                      </div>
+                      <select
+                        value={collegeId}
+                        onChange={(e) => setCollegeId(e.target.value as CollegeId)}
+                        className="flex h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-8 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all duration-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 appearance-none font-medium cursor-pointer"
+                      >
+                        {collegeList.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                      <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-450">
+                        <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20">
+                          <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Email or Username */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                      Email or Username
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-505">
+                        <UserIcon className="h-5 w-5" />
+                      </div>
+                      <input
+                        type="email"
+                        placeholder="Enter your email or username"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="flex h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all duration-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Password */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                        Password
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setResetEmail(email);
+                          setShowForgotPassword(true);
+                          setResetStatus(null);
+                        }}
+                        className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline transition-colors cursor-pointer"
+                      >
+                        Forgot Password?
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-505">
+                        <Lock className="h-5 w-5" />
+                      </div>
+                      <input
+                        type={showPasswordText ? 'text' : 'password'}
+                        placeholder="Enter your password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="flex h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-10 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all duration-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 font-medium"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswordText(!showPasswordText)}
+                        className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-650 dark:hover:text-slate-300 transition-colors cursor-pointer"
+                      >
+                        {showPasswordText ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    isLoading={isLoading}
+                    className="w-full h-11 rounded-xl text-xs font-semibold shadow-md bg-blue-600 hover:bg-blue-700 text-white border-transparent transition-all mt-4 cursor-pointer"
+                  >
+                    Login
+                  </Button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowSignUp(true)}
+                    className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-850 dark:text-slate-400 dark:hover:text-slate-200 transition-colors pt-2 block cursor-pointer"
+                  >
+                    New here? Create New Profile
+                  </button>
+                </form>
+              </div>
+            )}
           </div>
-
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="h-16 flex items-center justify-center border-t border-slate-100 dark:border-slate-900 z-10 text-[10px] font-semibold text-slate-450 uppercase tracking-wider">
+      <footer className="h-16 flex items-center justify-center border-t border-slate-200/50 dark:border-slate-900 z-10 text-[10px] font-semibold text-slate-450 dark:text-slate-500 uppercase tracking-wider">
         Campus Connect • © 2026
       </footer>
     </div>

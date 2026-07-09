@@ -14,13 +14,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
-    // 1. Fetch user and their roles
+    // 1. Fetch user and their roles with permissions from RolePermission table
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       include: {
         userRoles: {
           include: {
-            role: true,
+            role: {
+              include: {
+                rolePermissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -30,13 +38,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('User no longer exists');
     }
 
-    // 2. Check account status (Active, Inactive, Suspended, Pending Verification)
-    // Only Active users can perform API requests.
+    // 2. Check account status — only ACTIVE users can make API requests
     if (user.status !== 'ACTIVE') {
       throw new UnauthorizedException(`Account is ${user.status.toLowerCase().replace('_', ' ')}. Access denied.`);
     }
 
-    // 3. If the payload contains a role, verify that the user actually possesses it
+    // 3. Check soft delete
+    if (user.deletedAt) {
+      throw new UnauthorizedException('Account has been deleted. Access denied.');
+    }
+
+    // 4. If the payload contains a role, verify user actually has it
     if (payload.role) {
       const userHasRole = user.userRoles.some((ur) => ur.role.name === payload.role);
       if (!userHasRole) {
@@ -44,9 +56,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
     }
 
-    // 4. Retrieve permissions for this active role (if applicable)
+    // 5. Retrieve permissions for the active role from RolePermission → Permission
     const activeUserRole = user.userRoles.find((ur) => ur.role.name === payload.role);
-    const permissions = activeUserRole ? activeUserRole.role.permissions : [];
+    let permissions: string[] = [];
+
+    if (activeUserRole) {
+      permissions = activeUserRole.role.rolePermissions.map(
+        (rp) => rp.permission.name,
+      );
+    }
+
+
 
     return {
       id: user.id,

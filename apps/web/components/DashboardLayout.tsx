@@ -90,13 +90,27 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
           </button>
           
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg overflow-hidden flex items-center justify-center bg-white border border-slate-200/60 dark:border-slate-800 p-0.5 shadow-sm">
-              <img 
-                src={getCollegeLogo(user.collegeId)} 
-                alt="College Logo" 
-                className="w-full h-full object-contain rounded-md"
-              />
-            </div>
+            {user.role === 'TEACHER' ? (
+              <div className="flex items-center -space-x-2.5 overflow-hidden">
+                {(['college-a', 'college-b', 'college-c'] as any[]).map((cid) => (
+                  <div key={cid} className="h-8 w-8 rounded-lg overflow-hidden flex items-center justify-center bg-white border border-slate-200/80 dark:border-slate-800 p-0.5 shadow-sm ring-2 ring-white dark:ring-slate-900 shrink-0">
+                    <img 
+                      src={getCollegeLogo(cid)} 
+                      alt="College Logo" 
+                      className="w-full h-full object-contain rounded-md"
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="h-8 w-8 rounded-lg overflow-hidden flex items-center justify-center bg-white border border-slate-200/60 dark:border-slate-800 p-0.5 shadow-sm">
+                <img 
+                  src={getCollegeLogo(user.collegeId)} 
+                  alt="College Logo" 
+                  className="w-full h-full object-contain rounded-md"
+                />
+              </div>
+            )}
             <span className="font-display font-bold text-lg text-slate-900 dark:text-white hidden sm:inline">
               CampusConnect
             </span>
@@ -105,8 +119,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
           <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block" />
 
           {/* College Tag */}
-          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${getCollegeBgTag(user.collegeId)}`}>
-            {getCollegeName(user.collegeId)}
+          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
+            user.role === 'TEACHER' 
+              ? 'bg-slate-100 text-slate-700 border-slate-250 dark:bg-slate-900 dark:text-slate-355 dark:border-slate-800' 
+              : getCollegeBgTag(user.collegeId)
+          }`}>
+            {user.role === 'TEACHER' ? 'Balasaheb Mhatre Group Faculty' : getCollegeName(user.collegeId)}
           </span>
         </div>
 

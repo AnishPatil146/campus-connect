@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, IsEnum, IsOptional, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, IsEnum, IsOptional, MinLength, IsArray } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 
@@ -10,7 +10,7 @@ export class RegisterDto {
 
   @ApiProperty({ example: 'password123' })
   @IsNotEmpty()
-  @MinLength(6)
+  @MinLength(8)
   password!: string;
 
   @ApiProperty({ example: 'New User' })
@@ -27,6 +27,22 @@ export class RegisterDto {
   @IsString()
   @IsNotEmpty()
   collegeId!: string;
+
+  // Added Name and Surname fields
+  @ApiProperty({ example: 'Rahul', required: false })
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @ApiProperty({ example: 'Patil', required: false })
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @ApiProperty({ example: 'Patil', required: false })
+  @IsOptional()
+  @IsString()
+  surname?: string;
 
   // Student specific fields
   @ApiProperty({ example: 'CS-2026-089', required: false })
@@ -64,6 +80,16 @@ export class RegisterDto {
   @IsString()
   parentName?: string;
 
+  @ApiProperty({ example: 'Sunita Rivera', required: false })
+  @IsOptional()
+  @IsString()
+  motherName?: string;
+
+  @ApiProperty({ example: 'Ramesh Rivera', required: false })
+  @IsOptional()
+  @IsString()
+  fatherName?: string;
+
   @ApiProperty({ example: '+91 9876543211', required: false })
   @IsOptional()
   @IsString()
@@ -73,6 +99,38 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   divisionId?: string;
+
+  // Course, degree, subjects, semester, classroom
+  @ApiProperty({ example: 'DEGREE', required: false })
+  @IsOptional()
+  @IsString()
+  courseType?: string;
+
+  @ApiProperty({ example: 'Science', required: false })
+  @IsOptional()
+  @IsString()
+  stream?: string;
+
+  @ApiProperty({ example: ['Physics', 'Chemistry'], required: false })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  subjects?: string[];
+
+  @ApiProperty({ example: 'BSc IT', required: false })
+  @IsOptional()
+  @IsString()
+  degree?: string;
+
+  @ApiProperty({ example: 'Semester 1', required: false })
+  @IsOptional()
+  @IsString()
+  semester?: string;
+
+  @ApiProperty({ example: 'Division A', required: false })
+  @IsOptional()
+  @IsString()
+  classroom?: string;
 
   // Teacher specific fields
   @ApiProperty({ example: 'dept-id', required: false })

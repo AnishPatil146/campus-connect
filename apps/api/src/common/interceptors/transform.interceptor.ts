@@ -21,11 +21,13 @@ export class TransformInterceptor<T> implements NestInterceptor<T, Response<T>> 
         // Otherwise, wrap it into the standard format
         const message = data && typeof data === 'object' && 'message' in data ? data.message : 'Operation successful';
         const resultData = data && typeof data === 'object' && 'data' in data ? data.data : (data && typeof data === 'object' && 'message' in data ? null : data);
+        const meta = data && typeof data === 'object' && 'meta' in data ? data.meta : undefined;
 
         return {
           success: true,
           message,
           data: resultData === undefined ? null : resultData,
+          ...(meta ? { meta } : {}),
         };
       }),
     );

@@ -91,24 +91,56 @@ export default function TeacherDashboard() {
   const pendingTasks = assignedTasks.filter(t => t.status === 'PENDING');
   const completedTasks = assignedTasks.filter(t => t.status === 'COMPLETED');
 
+  const stats = [
+    { title: "Today's Classes", value: "2", color: "text-blue-600 bg-blue-50" },
+    { title: "Pending Attendance", value: "1", color: "text-amber-600 bg-amber-50" },
+    { title: "Pending Reviews", value: "5", color: "text-rose-600 bg-rose-50" },
+    { title: "Uploaded Notes", value: "12", color: "text-purple-600 bg-purple-50" },
+    { title: "Leave Balance", value: "18 Days", color: "text-emerald-600 bg-emerald-50" },
+  ];
+
   return (
     <DashboardLayout title="Teacher Control Panel">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="space-y-6">
         
-        {/* Left Side: Courses & Student List */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          {/* Welcome Banner */}
-          <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 rounded-2xl p-6 text-white relative overflow-hidden shadow-lg shadow-purple-500/10">
-            <div className="absolute top-0 right-0 transform translate-x-12 -translate-y-12 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
-            <h2 className="text-2xl font-bold">Welcome Back, {user?.name}!</h2>
-            <p className="text-purple-100 text-sm mt-1">
-              Department of Computer Science • Beacon College of Engineering
-            </p>
+        {/* Welcome Banner */}
+        <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 rounded-2xl p-6 text-white relative overflow-hidden shadow-lg shadow-purple-500/10">
+          <div className="absolute top-0 right-0 transform translate-x-12 -translate-y-12 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider bg-white/20 px-2.5 py-1 rounded-full">
+                Faculty Workspace
+              </span>
+              <h2 className="text-2xl font-extrabold mt-3 tracking-tight">Good Morning, Professor {user?.name || 'John'} 👋</h2>
+              <p className="text-purple-100 text-xs mt-1">
+                Department of Computer Science • Academic Session: AY 2026-27
+              </p>
+            </div>
+            <div className="bg-white/12 backdrop-blur-md rounded-xl p-3 border border-white/10 text-right text-xs">
+              <div>Time: {new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
+              <div className="opacity-80 mt-0.5">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}</div>
+            </div>
           </div>
+        </div>
 
-          {/* Courses List */}
-          <Card>
+        {/* Quick Statistics Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          {stats.map((item, idx) => (
+            <Card key={idx} className="border-slate-100/80 hover:border-purple-100 transition-all duration-300">
+              <CardContent className="p-4 flex flex-col justify-between h-full space-y-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{item.title}</span>
+                <span className={`text-xl font-extrabold text-slate-800 dark:text-white`}>{item.value}</span>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Side: Courses & Student List */}
+          <div className="lg:col-span-2 space-y-6">
+            
+            {/* Courses List */}
+            <Card>
             <CardHeader>
               <CardTitle>My Courses</CardTitle>
               <p className="text-xs text-slate-500">Active courses you are instructing this semester</p>
@@ -307,8 +339,8 @@ export default function TeacherDashboard() {
             </CardContent>
           </Card>
         </div>
-
       </div>
-    </DashboardLayout>
-  );
+    </div>
+  </DashboardLayout>
+);
 }

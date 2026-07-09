@@ -2,12 +2,16 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
-import { Role } from '@prisma/client';
+import { Role, StudentStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class StudentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private eventsGateway: EventsGateway,
+  ) {}
 
   async findAll(collegeId?: string, query?: {
     search?: string;
@@ -19,42 +23,37 @@ export class StudentsService {
   }) {
     const where: any = {};
 
-    // Scope to specific college if collegeId is provided (e.g. for College Admins)
     if (collegeId) {
-      where.user = { collegeId };
+      where.collegeId = collegeId;
     }
 
-    // Status filtering
     if (query?.status === 'deleted') {
       where.deletedAt = { not: null };
-    } else if (query?.status === 'inactive') {
+    } else if (query?.status) {
       where.deletedAt = null;
-      where.isActive = false;
+      where.status = query.status as StudentStatus;
     } else {
-      // Default to showing only non-deleted, active students
       where.deletedAt = null;
-      where.isActive = true;
+      where.status = 'ACTIVE';
     }
 
-    // Dynamic academic filtering
     if (query?.divisionId) {
       where.divisionId = query.divisionId;
     } else if (query?.semesterId) {
-      where.division = { semesterId: query.semesterId };
+      where.semesterId = query.semesterId;
     } else if (query?.courseId) {
-      where.division = { semester: { academicSession: { courseId: query.courseId } } };
+      where.courseId = query.courseId;
     } else if (query?.departmentId) {
-      where.division = { semester: { academicSession: { course: { departmentId: query.departmentId } } } };
+      where.departmentId = query.departmentId;
     }
 
-    // Search query
     if (query?.search) {
       const searchVal = query.search.trim();
       where.OR = [
         { user: { name: { contains: searchVal, mode: 'insensitive' } } },
         { user: { email: { contains: searchVal, mode: 'insensitive' } } },
         { rollNumber: { contains: searchVal, mode: 'insensitive' } },
-        { admissionNumber: { contains: searchVal, mode: 'insensitive' } },
+        { admissionNo: { contains: searchVal, mode: 'insensitive' } },
       ];
     }
 
@@ -66,19 +65,16 @@ export class StudentsService {
             id: true,
             email: true,
             name: true,
-            userRoles: {
-              select: {
-                role: {
-                  select: {
-                    name: true,
-                  },
-                },
-              },
-            },
-            collegeId: true,
             createdAt: true,
           },
         },
+        profile: true,
+        guardians: true,
+        addresses: true,
+        medical: true,
+        promotions: true,
+        logins: true,
+        statusHistories: true,
         division: {
           include: {
             semester: {
@@ -87,11 +83,7 @@ export class StudentsService {
                   include: {
                     course: {
                       include: {
-                        department: {
-                          include: {
-                            college: true,
-                          },
-                        },
+                        department: true,
                       },
                     },
                   },
@@ -116,18 +108,16 @@ export class StudentsService {
             id: true,
             email: true,
             name: true,
-            userRoles: {
-              select: {
-                role: {
-                  select: {
-                    name: true,
-                  },
-                },
-              },
-            },
             collegeId: true,
           },
         },
+        profile: true,
+        guardians: true,
+        addresses: true,
+        medical: true,
+        promotions: true,
+        logins: true,
+        statusHistories: true,
         division: {
           include: {
             semester: {
@@ -136,11 +126,7 @@ export class StudentsService {
                   include: {
                     course: {
                       include: {
-                        department: {
-                          include: {
-                            college: true,
-                          },
-                        },
+                        department: true,
                       },
                     },
                   },
@@ -156,15 +142,14 @@ export class StudentsService {
       throw new NotFoundException(`Student with ID "${id}" not found`);
     }
 
-    if (collegeId && (student as any).user.collegeId !== collegeId) {
+    if (collegeId && student.collegeId !== collegeId) {
       throw new BadRequestException('Access denied: Student belongs to another college');
     }
 
     return student;
   }
 
-  async create(createDto: CreateStudentDto, collegeId: string | null) {
-    // Check if user already exists
+  async create(createDto: CreateStudentDto, collegeId: string | null, actorId: string, actorName: string, actorRole: string) {
     const existingUser = await this.prisma.user.findUnique({
       where: { email: createDto.email },
     });
@@ -173,43 +158,23 @@ export class StudentsService {
       throw new BadRequestException(`Email "${createDto.email}" is already registered`);
     }
 
-    // Find the division to ensure it exists
-    const division = await this.prisma.division.findUnique({
-      where: { id: createDto.divisionId },
-      include: {
-        semester: {
-          include: {
-            academicSession: {
-              include: {
-                course: {
-                  include: {
-                    department: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+    // Generate dynamic values if not supplied
+    const resolvedCollegeId = collegeId || createDto.collegeId;
+    const admissionNo = createDto.admissionNo || `ADM-${resolvedCollegeId.substring(0, 4).toUpperCase()}-${Date.now().toString().slice(-6)}`;
+    const rollNumber = createDto.rollNumber || `CS-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
+
+    // Verify roll number uniqueness in the division
+    const existingRoll = await this.prisma.student.findFirst({
+      where: { rollNumber, divisionId: createDto.divisionId, deletedAt: null },
     });
-
-    if (!division) {
-      throw new NotFoundException(`Division with ID "${createDto.divisionId}" not found`);
-    }
-
-    // Determine the college ID of the student.
-    // If collegeId is enforced via controller (e.g. College Admin), verify it matches the division's college.
-    const divisionCollegeId = division.semester.academicSession.course.department.collegeId;
-    const targetCollegeId = collegeId || divisionCollegeId;
-
-    if (collegeId && divisionCollegeId !== collegeId) {
-      throw new BadRequestException('Cannot create student in a division of another college');
+    if (existingRoll) {
+      throw new BadRequestException(`Roll number "${rollNumber}" already exists in this division`);
     }
 
     const defaultPasswordHash = bcrypt.hashSync('password123', 10);
 
-    return await this.prisma.$transaction(async (tx) => {
-      // 1. Create the User record
+    const student = await this.prisma.$transaction(async (tx) => {
+      // 1. Create User
       const user = await tx.user.create({
         data: {
           email: createDto.email.toLowerCase(),
@@ -223,86 +188,144 @@ export class StudentsService {
               },
             },
           },
-          collegeId: targetCollegeId,
-        },
-      });
-
-      // 2. Create the Student record
-      const student = await tx.student.create({
-        data: {
-          userId: user.id,
-          divisionId: createDto.divisionId,
-          rollNumber: createDto.rollNumber || null,
-          admissionNumber: createDto.admissionNumber || null,
-          gender: createDto.gender || null,
-          dateOfBirth: createDto.dateOfBirth ? new Date(createDto.dateOfBirth) : null,
-          mobile: createDto.mobile || null,
-          address: createDto.address || null,
-          profilePhoto: createDto.profilePhoto || null,
-          parentName: createDto.parentName || null,
-          parentMobile: createDto.parentMobile || null,
-          isActive: true,
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              name: true,
-              userRoles: {
-                select: {
-                  role: {
-                    select: {
-                      name: true,
-                    },
-                  },
-                },
-              },
-              collegeId: true,
+          collegeId: resolvedCollegeId,
+          userProfile: {
+            create: {
+              firstName: createDto.firstName,
+              lastName: createDto.lastName,
+              gender: createDto.gender,
+              phone: createDto.phone || null,
             },
           },
         },
       });
 
-      return student;
+      // 2. Create Student (Academic details)
+      const studentObj = await tx.student.create({
+        data: {
+          userId: user.id,
+          collegeId: resolvedCollegeId,
+          departmentId: createDto.departmentId,
+          courseId: createDto.courseId,
+          semesterId: createDto.semesterId,
+          divisionId: createDto.divisionId,
+          academicSessionId: createDto.academicSessionId,
+          admissionNo,
+          rollNumber,
+          registrationNumber: createDto.registrationNumber || null,
+          admissionDate: createDto.admissionDate ? new Date(createDto.admissionDate) : new Date(),
+          currentYear: createDto.currentYear || 1,
+          status: 'ACTIVE',
+          profile: {
+            create: {
+              firstName: createDto.firstName,
+              middleName: createDto.middleName || null,
+              lastName: createDto.lastName,
+              gender: createDto.gender,
+              dob: new Date(createDto.dateOfBirth),
+              bloodGroup: createDto.bloodGroup || null,
+              religion: createDto.religion || null,
+              nationality: createDto.nationality || 'Indian',
+              aadharNumber: createDto.aadharNumber || null,
+              passportNumber: createDto.passportNumber || null,
+              photoUrl: createDto.photoUrl || null,
+              email: createDto.email,
+              phone: createDto.phone || null,
+            },
+          },
+          guardians: {
+            create: {
+              fatherName: createDto.fatherName || null,
+              motherName: createDto.motherName || null,
+              guardianName: createDto.guardianName || null,
+              relationship: createDto.guardianRelationship || null,
+              occupation: createDto.guardianOccupation || null,
+              phone: createDto.guardianPhone || null,
+              email: createDto.guardianEmail || null,
+              annualIncome: createDto.guardianAnnualIncome || null,
+            },
+          },
+          addresses: {
+            create: {
+              addressLine: createDto.addressLine || 'N/A',
+              city: createDto.city || 'Thane',
+              state: createDto.state || 'Maharashtra',
+              country: createDto.country || 'India',
+              postalCode: createDto.postalCode || '400601',
+              addressType: createDto.addressType || 'CURRENT',
+            },
+          },
+          medical: {
+            create: {
+              bloodGroup: createDto.bloodGroup || null,
+              allergies: createDto.allergies || null,
+              medicalNotes: createDto.medicalNotes || null,
+              disability: createDto.disability || null,
+              insurance: createDto.insurance || null,
+            },
+          },
+        },
+      });
+
+      // 3. Create status history
+      await tx.studentStatusHistory.create({
+        data: {
+          studentId: studentObj.id,
+          status: 'ADMISSION',
+          changedBy: actorId,
+          remarks: `Admitted by ${actorName} (${actorRole})`,
+        },
+      });
+
+      return studentObj;
     });
+
+    this.eventsGateway.broadcast('student.created', { id: student.id, name: createDto.name });
+    return student;
   }
 
   async update(id: string, updateDto: UpdateStudentDto, collegeId?: string) {
     const student = await this.findOne(id, collegeId);
 
-    // Verify division if changed
-    if (updateDto.divisionId && updateDto.divisionId !== student.divisionId) {
-      const division = await this.prisma.division.findUnique({
-        where: { id: updateDto.divisionId },
-        include: {
-          semester: {
-            include: {
-              academicSession: {
-                include: {
-                  course: {
-                    include: {
-                      department: true,
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
+    return await this.prisma.$transaction(async (tx) => {
+      // 1. Update Student Table (Academic fields)
+      const studentData: any = {};
+      if (updateDto.divisionId) studentData.divisionId = updateDto.divisionId;
+      if (updateDto.rollNumber) studentData.rollNumber = updateDto.rollNumber;
+      if (updateDto.admissionNo) studentData.admissionNo = updateDto.admissionNo;
+      if (updateDto.registrationNumber !== undefined) studentData.registrationNumber = updateDto.registrationNumber;
+      if (updateDto.admissionDate) studentData.admissionDate = new Date(updateDto.admissionDate);
+      if (updateDto.currentYear !== undefined) studentData.currentYear = updateDto.currentYear;
+      if (updateDto.status) studentData.status = updateDto.status as StudentStatus;
+
+      await tx.student.update({
+        where: { id },
+        data: studentData,
       });
 
-      if (!division) {
-        throw new NotFoundException(`Division with ID "${updateDto.divisionId}" not found`);
+      // 2. Update StudentProfile
+      const profileData: any = {};
+      if (updateDto.firstName) profileData.firstName = updateDto.firstName;
+      if (updateDto.middleName !== undefined) profileData.middleName = updateDto.middleName;
+      if (updateDto.lastName) profileData.lastName = updateDto.lastName;
+      if (updateDto.gender) profileData.gender = updateDto.gender;
+      if (updateDto.dateOfBirth) profileData.dob = new Date(updateDto.dateOfBirth);
+      if (updateDto.bloodGroup !== undefined) profileData.bloodGroup = updateDto.bloodGroup;
+      if (updateDto.religion !== undefined) profileData.religion = updateDto.religion;
+      if (updateDto.nationality) profileData.nationality = updateDto.nationality;
+      if (updateDto.aadharNumber !== undefined) profileData.aadharNumber = updateDto.aadharNumber;
+      if (updateDto.passportNumber !== undefined) profileData.passportNumber = updateDto.passportNumber;
+      if (updateDto.photoUrl !== undefined) profileData.photoUrl = updateDto.photoUrl;
+      if (updateDto.phone !== undefined) profileData.phone = updateDto.phone;
+
+      if (Object.keys(profileData).length > 0) {
+        await tx.studentProfile.update({
+          where: { studentId: id },
+          data: profileData,
+        });
       }
 
-      if (collegeId && division.semester.academicSession.course.department.collegeId !== collegeId) {
-        throw new BadRequestException('Cannot transfer student to a division in another college');
-      }
-    }
-
-    return await this.prisma.$transaction(async (tx) => {
-      // 1. Update the User details if name is provided
+      // 3. Update User Name
       if (updateDto.name) {
         await tx.user.update({
           where: { id: student.userId },
@@ -310,43 +333,48 @@ export class StudentsService {
         });
       }
 
-      // 2. Update Student details
-      const studentData: any = {};
-      if (updateDto.divisionId !== undefined) studentData.divisionId = updateDto.divisionId;
-      if (updateDto.rollNumber !== undefined) studentData.rollNumber = updateDto.rollNumber;
-      if (updateDto.admissionNumber !== undefined) studentData.admissionNumber = updateDto.admissionNumber;
-      if (updateDto.gender !== undefined) studentData.gender = updateDto.gender;
-      if (updateDto.dateOfBirth !== undefined) {
-        studentData.dateOfBirth = updateDto.dateOfBirth ? new Date(updateDto.dateOfBirth) : null;
+      // 4. Update status history if status changed
+      if (updateDto.status && updateDto.status !== student.status) {
+        await tx.studentStatusHistory.create({
+          data: {
+            studentId: id,
+            status: updateDto.status,
+            changedBy: 'SYSTEM_ADMIN',
+            remarks: 'Status updated by admin',
+          },
+        });
       }
-      if (updateDto.mobile !== undefined) studentData.mobile = updateDto.mobile;
-      if (updateDto.address !== undefined) studentData.address = updateDto.address;
-      if (updateDto.profilePhoto !== undefined) studentData.profilePhoto = updateDto.profilePhoto;
-      if (updateDto.parentName !== undefined) studentData.parentName = updateDto.parentName;
-      if (updateDto.parentMobile !== undefined) studentData.parentMobile = updateDto.parentMobile;
-      if (updateDto.isActive !== undefined) studentData.isActive = updateDto.isActive;
 
+      return await tx.student.findUnique({
+        where: { id },
+        include: {
+          profile: true,
+          guardians: true,
+          addresses: true,
+          medical: true,
+        },
+      });
+    });
+  }
+
+  async softDelete(id: string, collegeId?: string) {
+    await this.findOne(id, collegeId);
+
+    return await this.prisma.$transaction(async (tx) => {
       const updated = await tx.student.update({
         where: { id },
-        data: studentData,
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              name: true,
-              userRoles: {
-                select: {
-                  role: {
-                    select: {
-                      name: true,
-                    },
-                  },
-                },
-              },
-              collegeId: true,
-            },
-          },
+        data: {
+          status: 'INACTIVE',
+          deletedAt: new Date(),
+        },
+      });
+
+      await tx.studentStatusHistory.create({
+        data: {
+          studentId: id,
+          status: 'INACTIVE',
+          changedBy: 'SYSTEM_ADMIN',
+          remarks: 'Student record soft-deleted',
         },
       });
 
@@ -354,23 +382,11 @@ export class StudentsService {
     });
   }
 
-  async softDelete(id: string, collegeId?: string) {
-    await this.findOne(id, collegeId);
-    
-    return await this.prisma.student.update({
-      where: { id },
-      data: {
-        isActive: false,
-        deletedAt: new Date(),
-      },
-    });
-  }
-
   async resetPassword(id: string, collegeId?: string, customPassword?: string) {
     const student = await this.findOne(id, collegeId);
     const passwordToUse = customPassword || 'password123';
     const passwordHash = bcrypt.hashSync(passwordToUse, 10);
-    
+
     await this.prisma.user.update({
       where: { id: student.userId },
       data: {
@@ -378,11 +394,77 @@ export class StudentsService {
       },
     });
 
-    return { 
-      success: true, 
-      message: customPassword 
-        ? 'Password updated to custom value successfully' 
-        : 'Password reset to default "password123"' 
+    return {
+      success: true,
+      message: customPassword
+        ? 'Password updated to custom value successfully'
+        : 'Password reset to default "password123"',
     };
+  }
+
+  async promote(studentIds: string[], targetDivisionId: string, actorId: string, actorName: string, actorRole: string) {
+    const targetDivision = await this.prisma.division.findUnique({
+      where: { id: targetDivisionId, deletedAt: null },
+      include: {
+        semester: true,
+      },
+    });
+    if (!targetDivision) {
+      throw new NotFoundException(`Target Division with ID "${targetDivisionId}" not found`);
+    }
+
+    const students = await this.prisma.student.findMany({
+      where: { id: { in: studentIds }, deletedAt: null },
+    });
+
+    if (students.length === 0) {
+      throw new BadRequestException('No valid student profiles provided for promotion');
+    }
+
+    return await this.prisma.$transaction(async (tx) => {
+      const results = [];
+      for (const student of students) {
+        const previousDivisionId = student.divisionId;
+
+        if (previousDivisionId === targetDivisionId) {
+          results.push(student);
+          continue;
+        }
+
+        const updated = await tx.student.update({
+          where: { id: student.id },
+          data: {
+            divisionId: targetDivisionId,
+            semesterId: targetDivision.semesterId,
+          },
+        });
+
+        // Create student promotion log
+        await tx.studentPromotion.create({
+          data: {
+            studentId: student.id,
+            oldSemester: student.semesterId,
+            newSemester: targetDivision.semesterId,
+            oldDivision: previousDivisionId,
+            newDivision: targetDivisionId,
+            promotedBy: actorId,
+          },
+        });
+
+        // Create status history log
+        await tx.studentStatusHistory.create({
+          data: {
+            studentId: student.id,
+            status: 'PROMOTION',
+            changedBy: actorId,
+            remarks: `Promoted to division ${targetDivision.name} by ${actorName} (${actorRole})`,
+          },
+        });
+
+        this.eventsGateway.broadcast('student.promoted', { id: student.id, targetDivisionId });
+        results.push(updated);
+      }
+      return results;
+    });
   }
 }

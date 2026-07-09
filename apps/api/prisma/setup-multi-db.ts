@@ -14,9 +14,15 @@ function getDatabaseUrl(collegeId: string): string {
 }
 
 async function createDatabaseIfNotExists(dbName: string) {
-  const adminUrl = 'postgresql://postgres:postgrespassword@localhost:5444/postgres?schema=public';
+  const adminUrl = process.env.DATABASE_URL 
+    ? new URL(process.env.DATABASE_URL)
+    : new URL('postgresql://postgres:postgrespassword@localhost:5444/postgres?schema=public');
+  
+  // Use admin database 'postgres' to run CREATE DATABASE
+  adminUrl.pathname = '/postgres';
+  
   const client = new PrismaClient({
-    datasources: { db: { url: adminUrl } }
+    datasources: { db: { url: adminUrl.toString() } }
   });
   
   try {
@@ -42,6 +48,7 @@ async function seedCollegeDatabase(collegeId: string, url: string) {
 
   try {
     // 1. Clean existing records in reverse order
+    await prisma.announcement.deleteMany({});
     await prisma.activityLog.deleteMany({});
     await prisma.student.deleteMany({});
     await prisma.teacher.deleteMany({});
@@ -49,6 +56,8 @@ async function seedCollegeDatabase(collegeId: string, url: string) {
     await prisma.userRole.deleteMany({});
     await prisma.refreshToken.deleteMany({});
     await prisma.loginHistory.deleteMany({});
+    await prisma.rolePermission.deleteMany({});
+    await prisma.permission.deleteMany({});
     await prisma.roleModel.deleteMany({});
     await prisma.user.deleteMany({});
     await prisma.division.deleteMany({});
@@ -59,34 +68,102 @@ async function seedCollegeDatabase(collegeId: string, url: string) {
     await prisma.college.deleteMany({});
     await prisma.educationGroup.deleteMany({});
 
-    // 2. Create Roles with Permissions
+    // 2. Create Permissions
+    const modules = [
+      'auth', 'users', 'roles', 'colleges', 'education-groups', 'departments',
+      'courses', 'subjects', 'students', 'teachers', 'attendance', 'timetable',
+      'notes', 'assignments', 'events', 'announcements', 'notifications',
+      'reports', 'analytics', 'audit', 'backup', 'dashboard'
+    ];
+    const actions = ['create', 'read', 'update', 'delete'];
+    const permissionsToCreate: { name: string; module: string; action: string; description: string }[] = [];
+
+    for (const mod of modules) {
+      for (const action of actions) {
+        permissionsToCreate.push({
+          name: `${mod}.${action}`,
+          module: mod,
+          action,
+          description: `${action.charAt(0).toUpperCase() + action.slice(1)} ${mod}`,
+        });
+      }
+    }
+
+    permissionsToCreate.push(
+      { name: 'roles.assign', module: 'roles', action: 'assign', description: 'Assign or remove roles from users' },
+      { name: 'backup.restore', module: 'backup', action: 'restore', description: 'Restore from backup' },
+      { name: 'students.import', module: 'students', action: 'import', description: 'Import students via CSV' },
+      { name: 'students.export', module: 'students', action: 'export', description: 'Export students data' },
+      { name: 'teachers.import', module: 'teachers', action: 'import', description: 'Import teachers via CSV' },
+      { name: 'teachers.export', module: 'teachers', action: 'export', description: 'Export teachers data' },
+      { name: 'attendance.mark', module: 'attendance', action: 'mark', description: 'Mark student attendance' },
+      { name: 'attendance.report', module: 'attendance', action: 'report', description: 'View attendance reports' },
+      { name: 'announcements.publish', module: 'announcements', action: 'publish', description: 'Publish announcements' },
+      { name: 'events.register', module: 'events', action: 'register', description: 'Register for events' },
+      { name: 'audit.export', module: 'audit', action: 'export', description: 'Export audit logs' },
+    );
+
+    for (const perm of permissionsToCreate) {
+      await prisma.permission.create({ data: perm });
+    }
+
+    const allPerms = await prisma.permission.findMany();
+
+    // ADMIN Role
     const adminRole = await prisma.roleModel.create({
       data: {
         name: 'ADMIN',
-        permissions: [
-          'student.create',
-          'student.update',
-          'student.delete',
-          'teacher.create',
-          'teacher.update',
-          'teacher.delete',
-          'events.create',
-          'announcements.create',
-        ],
+        description: 'College administrator with full access',
+        isSystem: true,
+        rolePermissions: {
+          create: allPerms.map((p) => ({
+            permissionId: p.id,
+          })),
+        },
       },
     });
 
+    // TEACHER Role
+    const teacherPermissionNames = [
+      'notes.create', 'notes.read', 'notes.update', 'notes.delete',
+      'assignments.create', 'assignments.read', 'assignments.update', 'assignments.delete',
+      'attendance.create', 'attendance.read', 'attendance.update', 'attendance.delete',
+      'attendance.mark', 'attendance.report',
+      'events.create', 'events.read', 'events.register',
+      'announcements.create', 'announcements.read', 'announcements.publish',
+      'timetable.read', 'students.read', 'dashboard.read'
+    ];
+    const teacherPermissions = allPerms.filter((p) => teacherPermissionNames.includes(p.name));
     const teacherRole = await prisma.roleModel.create({
       data: {
         name: 'TEACHER',
-        permissions: ['notes.upload', 'events.create', 'announcements.create'],
+        description: 'Faculty member',
+        isSystem: true,
+        rolePermissions: {
+          create: teacherPermissions.map((p) => ({
+            permissionId: p.id,
+          })),
+        },
       },
     });
 
+    // STUDENT Role
+    const studentPermissionNames = [
+      'notes.read', 'events.read', 'events.register', 'announcements.read',
+      'timetable.read', 'assignments.read', 'assignments.create', 'attendance.read',
+      'courses.read', 'subjects.read', 'semesters.read', 'divisions.read', 'dashboard.read'
+    ];
+    const studentPermissions = allPerms.filter((p) => studentPermissionNames.includes(p.name));
     const studentRole = await prisma.roleModel.create({
       data: {
         name: 'STUDENT',
-        permissions: ['notes.read'],
+        description: 'Enrolled student',
+        isSystem: true,
+        rolePermissions: {
+          create: studentPermissions.map((p) => ({
+            permissionId: p.id,
+          })),
+        },
       },
     });
 
@@ -115,7 +192,12 @@ async function seedCollegeDatabase(collegeId: string, url: string) {
       },
     });
 
-    // 5. Create Academic Hierarchy
+    // Create default settings
+    await prisma.collegeSetting.create({
+      data: { collegeId: college.id },
+    });
+
+    // 5. Create basic departments/courses/semesters/divisions hierarchy
     const department = await prisma.department.create({
       data: {
         name: 'Computer Science',
@@ -151,21 +233,9 @@ async function seedCollegeDatabase(collegeId: string, url: string) {
       },
     });
 
-    // 6. Create Users and Assign Roles specific to each college
+    // 6. Seed Specific College Users & Profiles
     if (collegeId === 'college-a') {
-      // Admin: Anish Patil
-      await prisma.user.create({
-        data: {
-          email: 'anish@college.edu',
-          passwordHash: defaultPasswordHash,
-          name: 'Anish Patil',
-          status: 'ACTIVE',
-          collegeId: college.id,
-          userRoles: { create: { roleId: adminRole.id } },
-        },
-      });
-
-      // Student: Alex Rivera
+      // Student for College A
       const studentUser = await prisma.user.create({
         data: {
           email: 'student@collegea.edu',
@@ -174,23 +244,60 @@ async function seedCollegeDatabase(collegeId: string, url: string) {
           status: 'ACTIVE',
           collegeId: college.id,
           userRoles: { create: { roleId: studentRole.id } },
+          userProfile: {
+            create: {
+              firstName: 'Alex',
+              lastName: 'Rivera',
+              phone: '+91 9876543210',
+              address: '102, Shanti Nagar, Thane',
+              city: 'Thane',
+              state: 'Maharashtra',
+              country: 'India',
+            },
+          },
         },
       });
 
       await prisma.student.create({
         data: {
           userId: studentUser.id,
+          collegeId: college.id,
+          departmentId: department.id,
+          courseId: course.id,
+          semesterId: semester.id,
           divisionId: division.id,
+          academicSessionId: academicSession.id,
+          admissionNo: 'ADM-902341',
           rollNumber: 'CS-2026-089',
-          admissionNumber: 'ADM-902341',
-          gender: 'Male',
-          dateOfBirth: new Date('2005-05-15'),
-          mobile: '+91 9876543210',
-          address: '102, Shanti Nagar, Sector 4, Thane, Maharashtra',
-          profilePhoto: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150',
-          parentName: 'Ramesh Rivera',
-          parentMobile: '+91 9876543211',
-          isActive: true,
+          admissionDate: new Date(),
+          currentYear: 1,
+          profile: {
+            create: {
+              firstName: 'Alex',
+              lastName: 'Rivera',
+              gender: 'Male',
+              dob: new Date('2005-05-15'),
+              email: 'student@collegea.edu',
+              phone: '+91 9876543210',
+              photoUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150',
+            },
+          },
+          guardians: {
+            create: {
+              fatherName: 'Ramesh Rivera',
+              phone: '+91 9876543211',
+            },
+          },
+          addresses: {
+            create: {
+              addressLine: '102, Shanti Nagar, Sector 4',
+              city: 'Thane',
+              state: 'Maharashtra',
+              country: 'India',
+              postalCode: '400601',
+              addressType: 'CURRENT',
+            },
+          },
         },
       });
 
@@ -207,13 +314,44 @@ async function seedCollegeDatabase(collegeId: string, url: string) {
               data: [{ roleId: teacherRole.id }, { roleId: adminRole.id }]
             }
           },
+          userProfile: {
+            create: {
+              firstName: 'Sarah',
+              lastName: 'Jenkins',
+              phone: '+91 9876543213',
+              address: '204, Royal Heights, Mumbai',
+              city: 'Mumbai',
+              state: 'Maharashtra',
+              country: 'India',
+            },
+          },
         },
       });
 
       await prisma.teacher.create({
         data: {
           userId: teacherUser.id,
-          departments: { connect: [{ id: department.id }] },
+          employeeId: 'TCH-2026-0001',
+          collegeId: college.id,
+          departmentId: department.id,
+          joiningDate: new Date(),
+          employmentType: 'FULL_TIME',
+          profile: {
+            create: {
+              firstName: 'Sarah',
+              lastName: 'Jenkins',
+              gender: 'Female',
+              dob: new Date('1985-04-12'),
+              phone: '+91 9876543213',
+              email: 'teacher@collegea.edu',
+            },
+          },
+          departments: {
+            create: {
+              departmentId: department.id,
+              primaryDepartment: true,
+            },
+          },
         },
       });
 
@@ -231,13 +369,44 @@ async function seedCollegeDatabase(collegeId: string, url: string) {
               data: [{ roleId: teacherRole.id }, { roleId: adminRole.id }]
             }
           },
+          userProfile: {
+            create: {
+              firstName: 'Sarah',
+              lastName: 'Jenkins',
+              phone: '+91 9876543213',
+              address: '204, Royal Heights, Mumbai',
+              city: 'Mumbai',
+              state: 'Maharashtra',
+              country: 'India',
+            },
+          },
         },
       });
 
       await prisma.teacher.create({
         data: {
           userId: teacherUser.id,
-          departments: { connect: [{ id: department.id }] },
+          employeeId: 'TCH-2026-0001',
+          collegeId: college.id,
+          departmentId: department.id,
+          joiningDate: new Date(),
+          employmentType: 'FULL_TIME',
+          profile: {
+            create: {
+              firstName: 'Sarah',
+              lastName: 'Jenkins',
+              gender: 'Female',
+              dob: new Date('1985-04-12'),
+              phone: '+91 9876543213',
+              email: 'teacher@collegeb.edu',
+            },
+          },
+          departments: {
+            create: {
+              departmentId: department.id,
+              primaryDepartment: true,
+            },
+          },
         },
       });
 
@@ -250,6 +419,13 @@ async function seedCollegeDatabase(collegeId: string, url: string) {
           status: 'ACTIVE',
           collegeId: college.id,
           userRoles: { create: { roleId: adminRole.id } },
+          userProfile: {
+            create: {
+              firstName: 'Admin',
+              lastName: 'B',
+              phone: '+91 9900990099',
+            },
+          },
         },
       });
 
@@ -262,23 +438,60 @@ async function seedCollegeDatabase(collegeId: string, url: string) {
           status: 'ACTIVE',
           collegeId: college.id,
           userRoles: { create: { roleId: studentRole.id } },
+          userProfile: {
+            create: {
+              firstName: 'Priya',
+              lastName: 'Sharma',
+              phone: '+91 9922334455',
+              address: '501, Blue Heights, Lokhandwala, Andheri West, Mumbai',
+              city: 'Mumbai',
+              state: 'Maharashtra',
+              country: 'India',
+            },
+          },
         },
       });
 
       await prisma.student.create({
         data: {
           userId: studentUser.id,
+          collegeId: college.id,
+          departmentId: department.id,
+          courseId: course.id,
+          semesterId: semester.id,
           divisionId: division.id,
+          academicSessionId: academicSession.id,
+          admissionNo: 'ADM-902359',
           rollNumber: 'CS-2026-104',
-          admissionNumber: 'ADM-902359',
-          gender: 'Female',
-          dateOfBirth: new Date('2006-03-22'),
-          mobile: '+91 9922334455',
-          address: '501, Blue Heights, Lokhandwala, Andheri West, Mumbai',
-          profilePhoto: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
-          parentName: 'Sunita Sharma',
-          parentMobile: '+91 9922334466',
-          isActive: true,
+          admissionDate: new Date(),
+          currentYear: 1,
+          profile: {
+            create: {
+              firstName: 'Priya',
+              lastName: 'Sharma',
+              gender: 'Female',
+              dob: new Date('2006-03-22'),
+              email: 'student@collegeb.edu',
+              phone: '+91 9922334455',
+              photoUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
+            },
+          },
+          guardians: {
+            create: {
+              motherName: 'Sunita Sharma',
+              phone: '+91 9922334466',
+            },
+          },
+          addresses: {
+            create: {
+              addressLine: '501, Blue Heights, Lokhandwala, Andheri West',
+              city: 'Mumbai',
+              state: 'Maharashtra',
+              country: 'India',
+              postalCode: '400053',
+              addressType: 'CURRENT',
+            },
+          },
         },
       });
 
@@ -293,6 +506,13 @@ async function seedCollegeDatabase(collegeId: string, url: string) {
           status: 'ACTIVE',
           collegeId: college.id,
           userRoles: { create: { roleId: adminRole.id } },
+          userProfile: {
+            create: {
+              firstName: 'Admin',
+              lastName: 'C',
+              phone: '+91 9911991199',
+            },
+          },
         },
       });
 
@@ -305,13 +525,40 @@ async function seedCollegeDatabase(collegeId: string, url: string) {
           status: 'ACTIVE',
           collegeId: college.id,
           userRoles: { create: { roleId: teacherRole.id } },
+          userProfile: {
+            create: {
+              firstName: 'Amit',
+              lastName: 'Patil',
+              phone: '+91 9811223399',
+            },
+          },
         },
       });
 
       await prisma.teacher.create({
         data: {
           userId: teacherUser.id,
-          departments: { connect: [{ id: department.id }] },
+          employeeId: 'TCH-2026-0002',
+          collegeId: college.id,
+          departmentId: department.id,
+          joiningDate: new Date(),
+          employmentType: 'FULL_TIME',
+          profile: {
+            create: {
+              firstName: 'Amit',
+              lastName: 'Patil',
+              gender: 'Male',
+              dob: new Date('1980-08-15'),
+              phone: '+91 9811223399',
+              email: 'teacher@collegec.edu',
+            },
+          },
+          departments: {
+            create: {
+              departmentId: department.id,
+              primaryDepartment: true,
+            },
+          },
         },
       });
 
@@ -324,23 +571,60 @@ async function seedCollegeDatabase(collegeId: string, url: string) {
           status: 'ACTIVE',
           collegeId: college.id,
           userRoles: { create: { roleId: studentRole.id } },
+          userProfile: {
+            create: {
+              firstName: 'Rohit',
+              lastName: 'Kadam',
+              phone: '+91 9811223344',
+              address: '4B, Green Park View, Sector 2, Vashi, Navi Mumbai',
+              city: 'Navi Mumbai',
+              state: 'Maharashtra',
+              country: 'India',
+            },
+          },
         },
       });
 
       await prisma.student.create({
         data: {
           userId: studentUser.id,
+          collegeId: college.id,
+          departmentId: department.id,
+          courseId: course.id,
+          semesterId: semester.id,
           divisionId: division.id,
+          academicSessionId: academicSession.id,
+          admissionNo: 'ADM-902312',
           rollNumber: 'IT-2026-042',
-          admissionNumber: 'ADM-902312',
-          gender: 'Male',
-          dateOfBirth: new Date('2005-09-10'),
-          mobile: '+91 9811223344',
-          address: '4B, Green Park View, Sector 2, Vashi, Navi Mumbai',
-          profilePhoto: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-          parentName: 'Vijay Kadam',
-          parentMobile: '+91 9811223345',
-          isActive: true,
+          admissionDate: new Date(),
+          currentYear: 1,
+          profile: {
+            create: {
+              firstName: 'Rohit',
+              lastName: 'Kadam',
+              gender: 'Male',
+              dob: new Date('2005-09-10'),
+              email: 'student@collegec.edu',
+              phone: '+91 9811223344',
+              photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+            },
+          },
+          guardians: {
+            create: {
+              fatherName: 'Vijay Kadam',
+              phone: '+91 9811223345',
+            },
+          },
+          addresses: {
+            create: {
+              addressLine: '4B, Green Park View, Sector 2',
+              city: 'Vashi',
+              state: 'Maharashtra',
+              country: 'India',
+              postalCode: '400703',
+              addressType: 'CURRENT',
+            },
+          },
         },
       });
     }
@@ -368,7 +652,7 @@ async function run() {
     const dbUrl = getDatabaseUrl(collegeId);
     console.log(`⚙️ Pushing Prisma schema to ${collegeId}...`);
     try {
-      execSync('npx prisma db push --accept-data-loss', {
+      execSync('npx prisma db push --force-reset --accept-data-loss', {
         env: { ...process.env, DATABASE_URL: dbUrl },
         stdio: 'inherit',
       });

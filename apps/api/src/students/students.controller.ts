@@ -92,7 +92,7 @@ export class StudentsController {
     // Restrict College Admin to creating students only in their own college
     const scopedCollegeId = user.role === Role.ADMIN ? user.collegeId : null;
 
-    const data = await this.studentsService.create(createDto, scopedCollegeId);
+    const data = await this.studentsService.create(createDto, scopedCollegeId, user.id, user.name, user.role);
 
     await this.auditService.log(
       user.id,
@@ -181,6 +181,36 @@ export class StudentsController {
 
     return {
       message: 'Student password reset successfully',
+      data,
+    };
+  }
+
+  @Post('promote')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Promote multiple students to a new division' })
+  async promote(
+    @Req() req: any,
+    @Body() body: { studentIds: string[]; targetDivisionId: string },
+  ) {
+    const user = req.user;
+    const data = await this.studentsService.promote(
+      body.studentIds,
+      body.targetDivisionId,
+      user.id,
+      user.name,
+      user.role,
+    );
+
+    await this.auditService.log(
+      user.id,
+      user.name,
+      user.role,
+      'Promoted Students',
+      `User ${user.email} promoted ${body.studentIds.length} students to division ID ${body.targetDivisionId}`,
+    );
+
+    return {
+      message: 'Students promoted successfully',
       data,
     };
   }

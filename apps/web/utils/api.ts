@@ -11,6 +11,8 @@ export interface StudentRecord {
   address: string;
   profilePhoto: string;
   parentName: string;
+  motherName?: string;
+  fatherName?: string;
   parentMobile: string;
   isActive: boolean;
   createdAt: string;
@@ -73,7 +75,7 @@ function getHeaders() {
 // Check if API is responsive
 async function pingAPI(): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE_URL}/colleges`, { 
+    const res = await fetch(`${API_BASE_URL}/auth/health`, { 
       method: 'GET',
       headers: getHeaders(),
       signal: AbortSignal.timeout(1500) // quick timeout
@@ -349,6 +351,8 @@ export const api = {
     address?: string;
     profilePhoto?: string;
     parentName?: string;
+    motherName?: string;
+    fatherName?: string;
     parentMobile?: string;
     collegeId: CollegeId;
   }): Promise<StudentRecord> {
@@ -388,6 +392,8 @@ export const api = {
       address: payload.address || 'Mock Address, Mumbai',
       profilePhoto: payload.profilePhoto || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
       parentName: payload.parentName || 'Mock Parent Name',
+      motherName: payload.motherName || 'Mock Mother Name',
+      fatherName: payload.fatherName || 'Mock Father Name',
       parentMobile: payload.parentMobile || '+91 8888888888',
       isActive: true,
       createdAt: new Date().toISOString(),
@@ -678,10 +684,30 @@ export const api = {
       }
     }
     // Mock handler (local storage offline mode)
+    const storedLogs = localStorage.getItem('cc_audit_logs') || '[]';
+    const auditLogs = JSON.parse(storedLogs);
+    
+    const fullName = payload.firstName ? `${payload.firstName} ${payload.lastName || payload.surname || ''}`.trim() : payload.name;
+
+    // Save user credentials dynamically to allow mock login
+    const storedUsers = localStorage.getItem('cc_mock_registered_users') || '[]';
+    const registeredUsers = JSON.parse(storedUsers);
+    registeredUsers.push({
+      id: `usr-${Date.now()}`,
+      email: payload.email,
+      name: fullName,
+      role: payload.role,
+      collegeId: payload.collegeId,
+      password: payload.password || 'password123',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+    localStorage.setItem('cc_mock_registered_users', JSON.stringify(registeredUsers));
+
     if (payload.role === 'STUDENT') {
       const student = await this.createStudent({
         email: payload.email,
-        name: payload.name,
+        name: fullName,
         collegeId: payload.collegeId,
         divisionId: payload.divisionId || 'div-a',
         rollNumber: payload.rollNumber,
@@ -691,21 +717,168 @@ export const api = {
         mobile: payload.mobile,
         address: payload.address,
         parentName: payload.parentName,
+        motherName: payload.motherName,
+        fatherName: payload.fatherName,
         parentMobile: payload.parentMobile,
       });
+
+      // Log a simulated audit action for admin notification
+      auditLogs.unshift({
+        id: `mock-audit-${Date.now()}`,
+        time: new Date().toLocaleTimeString(),
+        user: fullName,
+        role: 'STUDENT',
+        action: 'Student Registered',
+        details: `Student registered: ${payload.email}. Classroom: ${payload.classroom || 'N/A'}, Roll: ${payload.rollNumber || 'N/A'}, Semester: ${payload.semester || 'N/A'}, Subjects/Degree: ${payload.courseType === 'DEGREE' ? (payload.degree || 'Degree') : (payload.subjects?.join(', ') || 'None')}`
+      });
+      localStorage.setItem('cc_audit_logs', JSON.stringify(auditLogs.slice(0, 50)));
+
+      console.log(`[Mock System Alert] Notification dispatched to Admin: New student registered: ${fullName} (${payload.email})`);
+      console.log(`[Mock Email Sent] Confirmation email sent to student Gmail: ${payload.email}`);
+
       return { success: true, data: student };
     } else {
       // Teacher mock registration
-      const storedLogs = localStorage.getItem('cc_audit_logs') || '[]';
-      const auditLogs = JSON.parse(storedLogs);
       auditLogs.unshift({
+        id: `mock-audit-${Date.now()}`,
         time: new Date().toLocaleTimeString(),
-        user: payload.name,
-        action: `Teacher Registered (${payload.email})`
+        user: fullName,
+        role: 'TEACHER',
+        action: 'Teacher Registered',
+        details: `Teacher registered: ${payload.email}. Qualification/Degree: ${payload.degree || 'N/A'}, Department: ${payload.departmentId || 'N/A'}`
       });
-      localStorage.setItem('cc_audit_logs', JSON.stringify(auditLogs.slice(0, 10)));
-      return { success: true, data: { email: payload.email, name: payload.name, role: payload.role } };
+      localStorage.setItem('cc_audit_logs', JSON.stringify(auditLogs.slice(0, 50)));
+
+      console.log(`[Mock System Alert] Notification dispatched to Admin: New teacher registered: ${fullName} (${payload.email})`);
+      console.log(`[Mock Email Sent] Confirmation email sent to teacher Gmail: ${payload.email}`);
+
+      return { success: true, data: { email: payload.email, name: fullName, role: payload.role } };
     }
+  },
+
+  async getAuditLogs(): Promise<{ success: boolean; data: any[] }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/audit-logs`, {
+          headers: getHeaders(),
+        });
+        const payload = await res.json();
+        if (payload.success) return { success: true, data: payload.data };
+      } catch (err) {
+        console.warn('Failed to fetch audit logs from NestJS API:', err);
+      }
+    }
+
+    // Mock Fallback
+    const storedLogs = localStorage.getItem('cc_audit_logs') || '[]';
+    try {
+      const parsed = JSON.parse(storedLogs);
+      const mapped = parsed.map((l: any, idx: number) => ({
+        id: l.id || `mock-${idx}`,
+        timestamp: l.time || 'Just now',
+        userName: l.user || 'System User',
+        role: l.role || 'STUDENT',
+        action: l.action || 'Performed Action',
+        details: l.details || l.action || '',
+      }));
+      return { success: true, data: mapped };
+    } catch (_) {
+      return { success: true, data: [] };
+    }
+  },
+
+  // ────────────────── Announcements ──────────────────
+
+  async getAnnouncements(): Promise<{ success: boolean; data: any[] }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/announcements`, {
+          headers: getHeaders(),
+        });
+        const payload = await res.json();
+        if (payload.success) return { success: true, data: payload.data };
+      } catch (err) {
+        console.warn('Failed to fetch announcements from API:', err);
+      }
+    }
+    return { success: true, data: [] };
+  },
+
+  async createAnnouncement(data: {
+    title: string;
+    content: string;
+    category: string;
+    target?: string;
+    status?: string;
+    priority?: string;
+    scheduledAt?: string;
+  }): Promise<{ success: boolean; data: any; message?: string }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/announcements`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify(data),
+        });
+        const payload = await res.json();
+        return { success: payload.success, data: payload.data, message: payload.message };
+      } catch (err) {
+        console.warn('Failed to create announcement:', err);
+        return { success: false, data: null, message: 'Network error' };
+      }
+    }
+    return { success: false, data: null, message: 'API is offline' };
+  },
+
+  async updateAnnouncement(
+    id: string,
+    data: {
+      title?: string;
+      content?: string;
+      category?: string;
+      target?: string;
+      status?: string;
+      priority?: string;
+      scheduledAt?: string;
+    }
+  ): Promise<{ success: boolean; data: any; message?: string }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/announcements/${id}`, {
+          method: 'PATCH',
+          headers: getHeaders(),
+          body: JSON.stringify(data),
+        });
+        const payload = await res.json();
+        return { success: payload.success, data: payload.data, message: payload.message };
+      } catch (err) {
+        console.warn('Failed to update announcement:', err);
+        return { success: false, data: null, message: 'Network error' };
+      }
+    }
+    return { success: false, data: null, message: 'API is offline' };
+  },
+
+  async deleteAnnouncement(id: string): Promise<{ success: boolean; message?: string }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/announcements/${id}`, {
+          method: 'DELETE',
+          headers: getHeaders(),
+        });
+        const payload = await res.json();
+        return { success: payload.success, message: payload.message };
+      } catch (err) {
+        console.warn('Failed to delete announcement:', err);
+        return { success: false, message: 'Network error' };
+      }
+    }
+    return { success: false, message: 'API is offline' };
   },
 };
 

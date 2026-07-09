@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../../../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@campus-connect/ui';
 import { useAuth } from '../../../components/AuthProvider';
+import { api } from '../../../utils/api';
 import Link from 'next/link';
 import { 
   Users, 
@@ -43,12 +44,40 @@ interface Announcement {
 export default function AdminDashboard() {
   const { user } = useAuth();
   
-  // Local states for logs, timetable and announcements (mirroring backend structure with fallback)
-  const [logs] = useState<AuditLog[]>([
+  const [logs, setLogs] = useState<AuditLog[]>([
     { time: '10:15 AM', user: 'Admin', action: 'Added Student (Alex Rivera)' },
     { time: '11:20 AM', user: 'Admin', action: 'Uploaded OS Lecture Notes Unit 2' },
     { time: '01:45 PM', user: 'Admin', action: 'Created Campus Tech Fest Event' },
   ]);
+
+  useEffect(() => {
+    async function loadLogs() {
+      try {
+        const resp = await api.getAuditLogs();
+        if (resp.success && resp.data.length > 0) {
+          const mapped = resp.data.slice(0, 5).map((l: any) => {
+            let timeStr = 'Just now';
+            try {
+              // Parse date if it's full timestamp
+              timeStr = new Date(l.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              if (timeStr === 'Invalid Date') {
+                timeStr = l.timestamp; // fallback to string
+              }
+            } catch (_) {}
+            return {
+              time: timeStr,
+              user: l.userName,
+              action: `${l.action} - ${l.details || ''}`
+            };
+          });
+          setLogs(mapped);
+        }
+      } catch (err) {
+        console.error('Failed to load logs:', err);
+      }
+    }
+    loadLogs();
+  }, []);
 
   const [classes] = useState<TimetableItem[]>([
     { time: '09:00 AM - 10:00 AM', subject: 'Database Management Systems (DBMS)', room: 'Room 301', teacher: 'Prof. Amit Patil' },
@@ -108,6 +137,28 @@ export default function AdminDashboard() {
                 </CardContent>
               </Card>
             </Link>
+          ))}
+        </div>
+
+        {/* Second Row Widgets (Section 5.4) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          {[
+            { label: 'New Admissions', value: '24', icon: <Plus className="h-4 w-4 text-blue-500" /> },
+            { label: 'Teachers on Leave', value: '2', icon: <Users className="h-4 w-4 text-rose-500" /> },
+            { label: 'Pending Attendance', value: '4', icon: <Clock className="h-4 w-4 text-amber-500" /> },
+            { label: 'Upcoming Events', value: '1', icon: <Calendar className="h-4 w-4 text-indigo-500" /> },
+            { label: 'Pending Reports', value: '3', icon: <ClipboardCheck className="h-4 w-4 text-purple-500" /> },
+            { label: 'System Health', value: '99.9%', icon: <Server className="h-4 w-4 text-emerald-500" /> },
+          ].map((item, idx) => (
+            <Card key={idx} className="border-slate-100/80 dark:border-slate-800/60 bg-slate-50/30 hover:border-slate-200 transition-all duration-250">
+              <CardContent className="p-4 flex flex-col justify-between h-full space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">{item.label}</span>
+                  {item.icon}
+                </div>
+                <span className="text-base font-extrabold text-slate-800 dark:text-white block">{item.value}</span>
+              </CardContent>
+            </Card>
           ))}
         </div>
 

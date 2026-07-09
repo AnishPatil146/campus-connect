@@ -234,6 +234,36 @@ export class ImportsService {
             throw new Error('Missing required student columns');
           }
 
+          // Resolve division first so we have required academic relation IDs
+          const division = await this.prisma.division.findUnique({
+            where: { id: divisionId },
+            include: {
+              semester: {
+                include: {
+                  academicSession: {
+                    include: {
+                      course: {
+                        include: {
+                          department: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          });
+
+          if (!division) {
+            throw new Error(`Division with ID "${divisionId}" not found`);
+          }
+
+          const collegeId = division.semester.academicSession.course.department.collegeId;
+          const departmentId = division.semester.academicSession.course.departmentId;
+          const courseId = division.semester.academicSession.courseId;
+          const semesterId = division.semesterId;
+          const academicSessionId = division.semester.academicSessionId;
+
           // Check duplicate email
           const existingUser = await this.prisma.user.findUnique({
             where: { email },
@@ -261,7 +291,20 @@ export class ImportsService {
                     data: {
                       divisionId,
                       rollNumber,
-                      mobile,
+                    },
+                  });
+
+                  await tx.studentProfile.upsert({
+                    where: { studentId: student.id },
+                    update: { phone: mobile || null },
+                    create: {
+                      studentId: student.id,
+                      firstName: name.split(' ')[0] || 'Student',
+                      lastName: name.split(' ').slice(1).join(' ') || 'Profile',
+                      gender: 'MALE',
+                      dob: new Date(),
+                      phone: mobile || null,
+                      email,
                     },
                   });
                 } else {
@@ -269,9 +312,27 @@ export class ImportsService {
                   await tx.student.create({
                     data: {
                       userId: existingUser.id,
+                      collegeId,
+                      departmentId,
+                      courseId,
+                      semesterId,
                       divisionId,
+                      academicSessionId,
                       rollNumber,
-                      mobile,
+                      admissionNo: `ADM-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                      admissionDate: new Date(),
+                      currentYear: 1,
+                      status: 'ACTIVE',
+                      profile: {
+                        create: {
+                          firstName: name.split(' ')[0] || 'Student',
+                          lastName: name.split(' ').slice(1).join(' ') || 'Profile',
+                          gender: 'MALE',
+                          dob: new Date(),
+                          phone: mobile || null,
+                          email,
+                        },
+                      },
                     },
                   });
                 }
@@ -282,27 +343,6 @@ export class ImportsService {
               throw new Error(`Email "${email}" is already registered (Duplicate policy: CREATE_NEW failed due to unique constraints)`);
             }
           }
-
-          // Resolve college ID from Division's college
-          const division = await this.prisma.division.findUnique({
-            where: { id: divisionId },
-            include: {
-              semester: {
-                include: {
-                  academicSession: {
-                    include: {
-                      course: {
-                        include: {
-                          department: true,
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          });
-          const collegeId = division?.semester.academicSession.course.department.collegeId || null;
 
           // Create brand new User + Student in transaction
           await this.prisma.$transaction(async (tx) => {
@@ -326,9 +366,27 @@ export class ImportsService {
             await tx.student.create({
               data: {
                 userId: user.id,
+                collegeId,
+                departmentId,
+                courseId,
+                semesterId,
                 divisionId,
+                academicSessionId,
                 rollNumber,
-                mobile,
+                admissionNo: `ADM-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                admissionDate: new Date(),
+                currentYear: 1,
+                status: 'ACTIVE',
+                profile: {
+                  create: {
+                    firstName: name.split(' ')[0] || 'Student',
+                    lastName: name.split(' ').slice(1).join(' ') || 'Profile',
+                    gender: 'MALE',
+                    dob: new Date(),
+                    phone: mobile || null,
+                    email,
+                  },
+                },
               },
             });
           });
@@ -342,6 +400,15 @@ export class ImportsService {
           if (!name || !email || !departmentId) {
             throw new Error('Missing required teacher columns');
           }
+
+          // Resolve department and college ID
+          const dept = await this.prisma.department.findUnique({
+            where: { id: departmentId },
+          });
+          if (!dept) {
+            throw new Error(`Department with ID "${departmentId}" not found`);
+          }
+          const collegeId = dept.collegeId;
 
           const existingUser = await this.prisma.user.findUnique({
             where: { email },
@@ -363,21 +430,49 @@ export class ImportsService {
                 });
 
                 if (teacher) {
-                  // Connect to the new department if not connected
-                  await tx.teacher.update({
-                    where: { id: teacher.id },
-                    data: {
-                      departments: {
-                        connect: [{ id: departmentId }],
-                      },
-                    },
+                  // Connect to the new department if not connected via join table
+                  const existingTD = await tx.teacherDepartment.findFirst({
+                    where: { teacherId: teacher.id, departmentId },
                   });
+                  if (!existingTD) {
+                    await tx.teacherDepartment.create({
+                      data: {
+                        teacherId: teacher.id,
+                        departmentId,
+                        primaryDepartment: false,
+                      },
+                    });
+                  }
                 } else {
+                  const year = new Date().getFullYear();
+                  const count = await tx.teacher.count();
+                  const countStr = String(count + 1).padStart(4, '0');
+                  const employeeId = `TCH-${year}-${countStr}`;
+
                   await tx.teacher.create({
                     data: {
                       userId: existingUser.id,
+                      employeeId,
+                      collegeId,
+                      departmentId,
+                      designation: 'Lecturer',
+                      joiningDate: new Date(),
+                      employmentType: 'FULL_TIME',
+                      status: 'ACTIVE',
+                      profile: {
+                        create: {
+                          firstName: name.split(' ')[0] || 'Teacher',
+                          lastName: name.split(' ').slice(1).join(' ') || 'Profile',
+                          gender: 'MALE',
+                          dob: new Date(),
+                          email: existingUser.email,
+                        },
+                      },
                       departments: {
-                        connect: [{ id: departmentId }],
+                        create: {
+                          departmentId,
+                          primaryDepartment: true,
+                        },
                       },
                     },
                   });
@@ -389,12 +484,6 @@ export class ImportsService {
               throw new Error(`Email "${email}" already registered`);
             }
           }
-
-          // Resolve college ID from Department's college
-          const dept = await this.prisma.department.findUnique({
-            where: { id: departmentId },
-          });
-          const collegeId = dept?.collegeId || null;
 
           await this.prisma.$transaction(async (tx) => {
             const user = await tx.user.create({
@@ -414,11 +503,35 @@ export class ImportsService {
               },
             });
 
+            const year = new Date().getFullYear();
+            const count = await tx.teacher.count();
+            const countStr = String(count + 1).padStart(4, '0');
+            const employeeId = `TCH-${year}-${countStr}`;
+
             await tx.teacher.create({
               data: {
                 userId: user.id,
+                employeeId,
+                collegeId,
+                departmentId,
+                designation: 'Lecturer',
+                joiningDate: new Date(),
+                employmentType: 'FULL_TIME',
+                status: 'ACTIVE',
+                profile: {
+                  create: {
+                    firstName: name.split(' ')[0] || 'Teacher',
+                    lastName: name.split(' ').slice(1).join(' ') || 'Profile',
+                    gender: 'MALE',
+                    dob: new Date(),
+                    email,
+                  },
+                },
                 departments: {
-                  connect: [{ id: departmentId }],
+                  create: {
+                    departmentId,
+                    primaryDepartment: true,
+                  },
                 },
               },
             });

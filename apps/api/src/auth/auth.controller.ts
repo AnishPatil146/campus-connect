@@ -17,6 +17,12 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 export class AuthController {
   constructor(private authService: AuthService) {}
 
+  @Get('health')
+  @ApiOperation({ summary: 'Check API health' })
+  health() {
+    return { status: 'OK' };
+  }
+
   @Post('register')
   @ApiOperation({ summary: 'Register a new student or teacher account' })
   async register(@Body() registerDto: RegisterDto) {

@@ -4,12 +4,33 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import helmet from 'helmet';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Enable CORS
-  app.enableCors();
+  // Enable Helmet for security headers
+  app.use(helmet({
+    crossOriginEmbedderPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: [`'self'`],
+        styleSrc: [`'self'`, `'unsafe-inline'`],
+        imgSrc: [`'self'`, 'data:', 'https:'],
+        scriptSrc: [`'self'`, `'unsafe-inline'`, `'unsafe-eval'`],
+      },
+    },
+  }));
+
+  // Enable CORS with secure configurations
+  app.enableCors({
+    origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true,
+  });
+
+  // Set global API prefix
+  app.setGlobalPrefix('api/v1');
 
   // Global pipes for DTO class-validator parsing
   app.useGlobalPipes(new ValidationPipe({
@@ -34,7 +55,7 @@ async function bootstrap() {
 
   const port = process.env.PORT || 4000;
   await app.listen(port);
-  console.log(`🚀 Campus Connect NestJS API listening on http://localhost:${port}`);
+  console.log(`🚀 Campus Connect NestJS API listening on http://localhost:${port}/api/v1`);
   console.log(`📚 API documentation available at http://localhost:${port}/api/docs`);
 }
 
