@@ -19,7 +19,6 @@ export default function AttendancePage() {
   const { user } = useAuth();
   const [selectedLog, setSelectedLog] = useState<AttendanceLog | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   // Leave Request States
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
@@ -77,7 +76,6 @@ export default function AttendancePage() {
 
   const fetchLiveAttendance = async () => {
     if (!user?.studentProfile?.id) return;
-    setLoading(true);
     try {
       const res = await api.getStudentAttendance(user.studentProfile.id);
       if (res.success && res.data && res.data.length > 0) {
@@ -110,8 +108,6 @@ export default function AttendancePage() {
       }
     } catch (err) {
       console.error('Failed to load student attendance:', err);
-    } finally {
-      setLoading(false);
     }
   };
 

@@ -59,9 +59,7 @@ export default function Login({ initialRole, brandingMessage }: { initialRole?: 
   // Other Student-specific fields
   const [signUpPhone, setSignUpPhone] = useState('');
   const [signUpAdmissionNo, setSignUpAdmissionNo] = useState('');
-  const [signUpGender, setSignUpGender] = useState('Male');
   const [signUpAddress, setSignUpAddress] = useState('');
-  const [signUpParentName, setSignUpParentName] = useState('');
   const [signUpMotherName, setSignUpMotherName] = useState('');
   const [signUpFatherName, setSignUpFatherName] = useState('');
   const [signUpParentMobile, setSignUpParentMobile] = useState('');
@@ -164,7 +162,7 @@ export default function Login({ initialRole, brandingMessage }: { initialRole?: 
         collegeId: collegeId,
         rollNumber: signUpRole === 'STUDENT' ? (signUpRollNo || null) : undefined,
         admissionNumber: signUpRole === 'STUDENT' ? (signUpAdmissionNo || `ADM-${Math.floor(100000 + Math.random() * 900000)}`) : undefined,
-        gender: signUpRole === 'STUDENT' ? (signUpGender || null) : undefined,
+        gender: signUpRole === 'STUDENT' ? 'Male' : undefined,
         mobile: signUpRole === 'STUDENT' ? (signUpPhone || null) : (signUpMobile || null),
         address: signUpRole === 'STUDENT' ? (signUpAddress || null) : undefined,
         parentName: signUpRole === 'STUDENT' ? `Father: ${signUpFatherName}, Mother: ${signUpMotherName}` : undefined,
@@ -195,7 +193,6 @@ export default function Login({ initialRole, brandingMessage }: { initialRole?: 
         setSignUpAdmissionNo('');
         setSignUpPhone('');
         setSignUpAddress('');
-        setSignUpParentName('');
         setSignUpMotherName('');
         setSignUpFatherName('');
         setSignUpParentMobile('');

@@ -54,6 +54,7 @@ export default function AnnouncementCenter() {
       const timer = setTimeout(() => setToast(null), 4000);
       return () => clearTimeout(timer);
     }
+    return;
   }, [toast]);
 
   const fetchAnnouncements = async () => {
