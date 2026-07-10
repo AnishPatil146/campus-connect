@@ -22,7 +22,7 @@ export const Toast: React.FC<ToastProps> = ({
   className,
 }) => {
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
     if (isOpen && duration > 0) {
       timer = setTimeout(() => {
         onClose();
