@@ -888,6 +888,7 @@ export default function Login({ initialRole, brandingMessage }: { initialRole?: 
                       </div>
                       <input
                         type="email"
+                        required
                         placeholder="Enter your email or username"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
@@ -920,6 +921,7 @@ export default function Login({ initialRole, brandingMessage }: { initialRole?: 
                       </div>
                       <input
                         type={showPasswordText ? 'text' : 'password'}
+                        required
                         placeholder="Enter your password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}

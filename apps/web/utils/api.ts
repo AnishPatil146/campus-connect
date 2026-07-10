@@ -880,5 +880,68 @@ export const api = {
     }
     return { success: false, message: 'API is offline' };
   },
+
+  async getStudentAttendance(studentId: string): Promise<{ success: boolean; data: any[] }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/attendance/student?studentId=${studentId}`, {
+          headers: getHeaders(),
+        });
+        const payload = await res.json();
+        if (payload.success) return { success: true, data: payload.data };
+      } catch (err) {
+        console.warn('Failed to fetch student attendance from API:', err);
+      }
+    }
+    return { success: true, data: [] };
+  },
+
+  async requestLeave(payload: {
+    studentId: string;
+    leaveType: string;
+    fromDate: string;
+    toDate: string;
+    reason?: string;
+  }): Promise<{ success: boolean; data: any; message?: string }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/attendance/request`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify(payload),
+        });
+        const resp = await res.json();
+        return { success: resp.success, data: resp.data, message: resp.message };
+      } catch (err) {
+        console.warn('Failed to request leave:', err);
+        return { success: false, data: null, message: 'Network error' };
+      }
+    }
+    return { success: false, data: null, message: 'API is offline' };
+  },
+
+  async requestCorrection(payload: {
+    attendanceRecordId: string;
+    reason: string;
+  }): Promise<{ success: boolean; data: any; message?: string }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/attendance/correction`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify(payload),
+        });
+        const resp = await res.json();
+        return { success: resp.success, data: resp.data, message: resp.message };
+      } catch (err) {
+        console.warn('Failed to request correction:', err);
+        return { success: false, data: null, message: 'Network error' };
+      }
+    }
+    return { success: false, data: null, message: 'API is offline' };
+  },
 };
 

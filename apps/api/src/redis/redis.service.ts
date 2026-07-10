@@ -1,10 +1,9 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 
 @Injectable()
 export class RedisService {
-  private readonly logger = new Logger(RedisService.name);
 
   // TTL constants (seconds)
   static readonly TTL_SESSION = 24 * 60 * 60;       // 24 hours
@@ -32,7 +31,7 @@ export class RedisService {
   }
 
   async reset(): Promise<void> {
-    await this.cacheManager.reset();
+    await (this.cacheManager as any).reset();
   }
 
   // --- Ping / Health ----------------------------------------------------------

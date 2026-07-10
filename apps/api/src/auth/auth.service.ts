@@ -210,6 +210,13 @@ export class AuthService {
     const roleName = userRolesList[0];
     const sessionTokens = await this.createSession(user.id, roleName, ipAddress, userAgent);
 
+    const studentProfile = roleName === Role.STUDENT
+      ? await this.prisma.student.findUnique({ where: { userId: user.id } })
+      : null;
+    const teacherProfile = roleName === Role.TEACHER
+      ? await this.prisma.teacher.findUnique({ where: { userId: user.id } })
+      : null;
+
     return {
       needsWorkspaceSelection: false,
       accessToken: sessionTokens.accessToken,
@@ -221,6 +228,8 @@ export class AuthService {
         name: user.name,
         role: roleName,
         collegeId: user.collegeId,
+        studentProfile,
+        teacherProfile,
       },
     };
   }
@@ -268,6 +277,13 @@ export class AuthService {
     // 4. Create session and generate final tokens
     const sessionTokens = await this.createSession(user.id, role, ipAddress, userAgent);
 
+    const studentProfile = role === Role.STUDENT
+      ? await this.prisma.student.findUnique({ where: { userId: user.id } })
+      : null;
+    const teacherProfile = role === Role.TEACHER
+      ? await this.prisma.teacher.findUnique({ where: { userId: user.id } })
+      : null;
+
     return {
       accessToken: sessionTokens.accessToken,
       refreshToken: sessionTokens.refreshToken,
@@ -278,6 +294,8 @@ export class AuthService {
         name: user.name,
         role: role,
         collegeId: user.collegeId,
+        studentProfile,
+        teacherProfile,
       },
     };
   }

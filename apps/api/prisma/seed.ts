@@ -279,7 +279,7 @@ async function main() {
     },
   });
 
-  await prisma.teacher.create({
+  const teacher = await prisma.teacher.create({
     data: {
       userId: teacherUser.id,
       employeeId: 'TCH-2026-0001',
@@ -333,7 +333,7 @@ async function main() {
     },
   });
 
-  await prisma.student.create({
+  const student = await prisma.student.create({
     data: {
       userId: studentUser.id,
       collegeId: seniorCollege.id,
@@ -380,6 +380,109 @@ async function main() {
       },
     },
   });
+
+  // Seed subjects
+  const dbmsSubject = await prisma.subject.create({
+    data: {
+      name: 'Database Management Systems',
+      code: 'CS-401',
+      courseId: course.id,
+      departmentId: department.id,
+      creditHours: 4,
+    },
+  });
+
+  const osSubject = await prisma.subject.create({
+    data: {
+      name: 'Operating Systems',
+      code: 'CS-402',
+      courseId: course.id,
+      departmentId: department.id,
+      creditHours: 4,
+    },
+  });
+
+  const pythonSubject = await prisma.subject.create({
+    data: {
+      name: 'Python Web Lab',
+      code: 'CS-403',
+      courseId: course.id,
+      departmentId: department.id,
+      creditHours: 2,
+    },
+  });
+
+  const mathSubject = await prisma.subject.create({
+    data: {
+      name: 'Discrete Mathematics',
+      code: 'MATH-405',
+      courseId: course.id,
+      departmentId: department.id,
+      creditHours: 4,
+    },
+  });
+
+  // Seed attendance sessions & records for Alex Rivera (July 2026)
+  const JulyAttendanceList = [
+    { day: 1, status: 'PRESENT', subject: dbmsSubject, timeSlot: '09:00 AM - 10:30 AM', reason: 'On Time' },
+    { day: 2, status: 'PRESENT', subject: osSubject, timeSlot: '11:00 AM - 12:30 PM', reason: 'On Time' },
+    { day: 3, status: 'ABSENT', subject: pythonSubject, timeSlot: '11:00 AM - 12:30 PM', reason: 'No Attendance Recorded - Unexcused' },
+    { day: 4, status: 'PRESENT', subject: dbmsSubject, timeSlot: '09:00 AM - 10:30 AM', reason: 'On Time' },
+    { day: 5, status: 'LEAVE', subject: mathSubject, timeSlot: '02:00 PM - 03:30 PM', reason: 'Medical Checkup - Approved by Class Teacher' },
+    { day: 6, status: 'PRESENT', subject: dbmsSubject, timeSlot: '09:00 AM - 10:30 AM', reason: 'On Time' },
+    { day: 7, status: 'PRESENT', subject: osSubject, timeSlot: '11:00 AM - 12:30 PM', reason: 'On Time' },
+    { day: 8, status: 'PRESENT', subject: dbmsSubject, timeSlot: '09:00 AM - 10:30 AM', reason: 'On Time' },
+    { day: 10, status: 'PRESENT', subject: osSubject, timeSlot: '11:00 AM - 12:30 PM', reason: 'On Time' },
+    { day: 13, status: 'PRESENT', subject: dbmsSubject, timeSlot: '09:00 AM - 10:30 AM', reason: 'On Time' },
+    { day: 14, status: 'PRESENT', subject: osSubject, timeSlot: '11:00 AM - 12:30 PM', reason: 'On Time' },
+    { day: 15, status: 'PRESENT', subject: dbmsSubject, timeSlot: '09:00 AM - 10:30 AM', reason: 'On Time' },
+    { day: 16, status: 'PRESENT', subject: osSubject, timeSlot: '11:00 AM - 12:30 PM', reason: 'On Time' },
+    { day: 17, status: 'PRESENT', subject: dbmsSubject, timeSlot: '09:00 AM - 10:30 AM', reason: 'On Time' },
+    { day: 20, status: 'PRESENT', subject: osSubject, timeSlot: '11:00 AM - 12:30 PM', reason: 'On Time' },
+    { day: 21, status: 'PRESENT', subject: dbmsSubject, timeSlot: '09:00 AM - 10:30 AM', reason: 'On Time' },
+    { day: 22, status: 'PRESENT', subject: osSubject, timeSlot: '11:00 AM - 12:30 PM', reason: 'On Time' },
+    { day: 23, status: 'PRESENT', subject: dbmsSubject, timeSlot: '09:00 AM - 10:30 AM', reason: 'On Time' },
+    { day: 24, status: 'PRESENT', subject: osSubject, timeSlot: '11:00 AM - 12:30 PM', reason: 'On Time' },
+    { day: 27, status: 'PRESENT', subject: dbmsSubject, timeSlot: '09:00 AM - 10:30 AM', reason: 'On Time' },
+    { day: 28, status: 'PRESENT', subject: osSubject, timeSlot: '11:00 AM - 12:30 PM', reason: 'On Time' },
+    { day: 29, status: 'ABSENT', subject: pythonSubject, timeSlot: '11:00 AM - 12:30 PM', reason: 'Late Arrival - Flagged Absent' },
+    { day: 30, status: 'PRESENT', subject: dbmsSubject, timeSlot: '09:00 AM - 10:30 AM', reason: 'On Time' },
+    { day: 31, status: 'PRESENT', subject: osSubject, timeSlot: '11:00 AM - 12:30 PM', reason: 'On Time' },
+  ];
+
+  for (const item of JulyAttendanceList) {
+    const sessionDate = new Date(2026, 6, item.day);
+    const timeParts = item.timeSlot.split(' - ');
+    const start = timeParts[0];
+    const end = timeParts[1];
+
+    const attSession = await prisma.attendanceSession.create({
+      data: {
+        collegeId: seniorCollege.id,
+        academicSessionId: academicSession.id,
+        subjectId: item.subject.id,
+        teacherId: teacher.id,
+        semesterId: semester.id,
+        divisionId: division.id,
+        lectureNumber: 1,
+        attendanceDate: sessionDate,
+        startTime: start,
+        endTime: end,
+        status: 'SUBMITTED',
+      },
+    });
+
+    await prisma.attendanceRecord.create({
+      data: {
+        attendanceSessionId: attSession.id,
+        studentId: student.id,
+        status: item.status as any,
+        remarks: item.reason,
+        markedById: teacherUser.id,
+        markedAt: new Date(2026, 6, item.day, 12, 0, 0),
+      },
+    });
+  }
 
   // Seed initial log
   await prisma.activityLog.create({

@@ -14,6 +14,12 @@ describe('AuthService', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
+    student: {
+      findUnique: jest.fn(),
+    },
+    teacher: {
+      findUnique: jest.fn(),
+    },
     loginHistory: {
       create: jest.fn(),
     },

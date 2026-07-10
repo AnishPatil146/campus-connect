@@ -154,6 +154,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             collegeId: collegeId, // Keep visual selected collegeId for asset logo mapping
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
+            studentProfile: apiUser.studentProfile,
+            teacherProfile: apiUser.teacherProfile,
           };
           setUser(loggedUser);
           localStorage.setItem('cc_user', JSON.stringify(loggedUser));

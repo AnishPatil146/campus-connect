@@ -364,4 +364,140 @@ Before final deployment of the Campus Connect ERP to the production cloud, all i
 *   [ ] **Alert Rules Configured**: Outage warnings and backup error alerts linked to email/messaging channels.
 *   [ ] **CI/CD Pipelines Operational**: GitHub Actions tests passing and rollback scripts verified.
 
+---
 
+## 14. Production Architecture & Deliverables
+
+The production ecosystem encompasses Next.js web application, NestJS API service, and Flutter mobile applications.
+
+### 14.1 Production Architecture Topology
+```mermaid
+flowchart TD
+    subgraph Client ["Client Platforms"]
+        F["Next.js Web (Vercel)"]
+        A["Flutter Android APK/AAB"]
+        I["Flutter iOS IPA"]
+    end
+
+    subgraph Server ["Backend Layer (Render)"]
+        B["NestJS Backend API"]
+    end
+
+    subgraph Data ["Data & Storage Layer"]
+        DB[("PostgreSQL (Render)")]
+        RD[("Redis Cache (Render)")]
+        CL[("Cloudinary Storage")]
+    end
+
+    F --> B
+    A --> B
+    I --> B
+    B --> DB
+    B --> RD
+    B --> CL
+```
+
+### 14.2 Production Deliverables & Build Targets
+
+#### Next.js Web
+*   **Target**: Static & SSR Web builds
+*   **Host**: Vercel
+*   **Production URL**: `https://college.yourdomain.com`
+
+#### NestJS Backend API
+*   **Target**: Node.js compilation container
+*   **Host**: Render
+*   **Production URL**: `https://api.college.yourdomain.com`
+
+#### Android Mobile Release
+*   **Target**: Signed Release APK & Google Play App Bundle (AAB)
+*   **Build Commands**:
+    ```bash
+    flutter build apk --release
+    flutter build appbundle --release
+    ```
+*   **Outputs**:
+    *   `build/app/outputs/flutter-apk/app-release.apk`
+    *   `build/app/outputs/bundle/release/app-release.aab`
+
+#### iOS Mobile Release (Future support)
+*   **Target**: Signed iOS App Archive (IPA)
+*   **Build Command**:
+    ```bash
+    flutter build ipa --release
+    ```
+*   **Output**:
+    *   `build/ios/ipa/CampusConnect.ipa`
+
+### 14.3 Production Directory Structure
+All production artifacts and configurations are compiled into a unified layout:
+```
+Production/
+├── backend/                  # Compiled NestJS production bundle
+├── frontend/                 # Optimized Next.js server/static files
+├── mobile/                   # Mobile release binaries
+│   ├── android/
+│   │   ├── apk/
+│   │   │   └── CampusConnect-v1.0.0.apk
+│   │   └── aab/
+│   │       └── CampusConnect-v1.0.0.aab
+│   └── ios/
+│       └── CampusConnect-v1.0.0.ipa
+├── deployment/               # Cloud configurations (Render yaml, Vercel config)
+├── docker/                   # Docker Compose configurations
+└── docs/                     # Release logs and manual guides
+```
+
+---
+
+## 15. Mobile Platform Releases (Flutter)
+
+Mobile platform pipelines are segregated to support fast verification, code analysis, and compilation.
+
+### 15.1 Android Release Pipeline
+```
+[Flutter Source] ➔ [flutter pub get] ➔ [flutter analyze] ➔ [flutter test] ➔ [flutter build apk --release] ➔ [flutter build appbundle --release] ➔ [Binaries Generated]
+```
+
+### 15.2 iOS Release Pipeline
+```
+[Flutter Source] ➔ [flutter pub get] ➔ [flutter analyze] ➔ [flutter test] ➔ [flutter build ipa --release] ➔ [IPA Binary Generated]
+```
+
+### 15.3 App Signing & Versioning Specifications
+*   **Version Name**: `1.0.0`
+*   **Version Code**: `1`
+*   **Android Signing**: Local keystore mapping configured via `android/key.properties` for production. Managed Google Play App Signing is utilized for store distribution.
+*   **iOS Signing**: Apple Distribution Certificate linked with an App Store Provisioning Profile.
+
+---
+
+## 16. Future CI/CD Pipeline (Flutter Release Automation)
+
+To support fully automated releases on every production tag push:
+
+```mermaid
+flowchart TD
+    A[Git Push / Tag] --> B[Run Backend Tests]
+    A --> C[Run Frontend Tests]
+    A --> D[Run Flutter Mobile Tests]
+    
+    B & C & D --> E[Build API & Deploy to Render]
+    B & C & D --> F[Build Web & Deploy to Vercel]
+    
+    B & C & D --> G[Build Flutter APK/AAB (Ubuntu runner)]
+    B & C & D --> H[Build Flutter IPA (macOS runner)]
+    
+    G & H --> I[Upload Release Artifacts]
+    I --> J[Generate GitHub Release with binaries]
+    J --> K[Deploy AAB/IPA to Test Channels]
+```
+
+### 16.1 Automated GitHub Actions CI/CD Flow
+1.  **Release Trigger**: Workflow starts on new tag push (e.g. `v*.*.*`) or direct PR approvals to `main`.
+2.  **Platform Jobs**:
+    *   **Backend / Frontend**: Lint, Test, Deploy (Render & Vercel).
+    *   **Android Release Job**: Sets up Java 17 and Flutter SDK, runs `flutter build apk --release` and `flutter build appbundle --release`, then uploads them.
+    *   **iOS Release Job (macOS-latest)**: Sets up Xcode certificates, CocoaPods, and Flutter SDK, runs `flutter build ipa --release`, then uploads the IPA.
+3.  **GitHub Release Integration**: The outputs are automatically published directly to a GitHub Release, making the latest APK instantly downloadable for testing.
+4.  **Beta Track Distribution (Optional)**: Automatically forward the `.aab` to Google Play Console Internal Testing track and `.ipa` to Apple TestFlight.

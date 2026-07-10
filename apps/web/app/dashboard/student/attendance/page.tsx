@@ -1,34 +1,43 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, Modal, Badge } from '@campus-connect/ui';
-import { CheckCircle2, AlertCircle, AlertTriangle, Coffee } from 'lucide-react';
+import { CheckCircle2, AlertCircle, AlertTriangle, Coffee, Plus } from 'lucide-react';
+import { useAuth } from '../../../../components/AuthProvider';
+import { api } from '../../../../utils/api';
 
 interface AttendanceLog {
   day: number;
   status: 'present' | 'absent' | 'leave' | 'holiday';
   reason?: string;
   approvalStatus?: string;
+  recordId?: string;
 }
 
 export default function AttendancePage() {
+  const { user } = useAuth();
   const [selectedLog, setSelectedLog] = useState<AttendanceLog | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  // Statistics
-  const stats = {
-    percentage: 87,
-    present: 22,
-    absent: 2,
-    leave: 1,
-    holiday: 5,
-  };
+  // Leave Request States
+  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
+  const [leaveType, setLeaveType] = useState('Sick Leave');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [leaveReason, setLeaveReason] = useState('');
+  const [leaveSubmitting, setLeaveSubmitting] = useState(false);
 
-  // Calendar mapping for July 2026
+  // Correction Request States
+  const [correctionReason, setCorrectionReason] = useState('');
+  const [correctionSubmitting, setCorrectionSubmitting] = useState(false);
+  const [correctionSuccess, setCorrectionSuccess] = useState(false);
+
+  // Calendar days template for July 2026
   // July 2026 starts on Wednesday (1st)
   // We represent empty slots for Mon, Tue with null
-  const calendarDays: (AttendanceLog | null)[] = [
+  const defaultCalendarDays: (AttendanceLog | null)[] = [
     null, // Mon
     null, // Tue
     { day: 1, status: 'present' },
@@ -64,9 +73,66 @@ export default function AttendancePage() {
     { day: 31, status: 'present' }
   ];
 
+  const [calendar, setCalendar] = useState<(AttendanceLog | null)[]>(defaultCalendarDays);
+
+  const fetchLiveAttendance = async () => {
+    if (!user?.studentProfile?.id) return;
+    setLoading(true);
+    try {
+      const res = await api.getStudentAttendance(user.studentProfile.id);
+      if (res.success && res.data && res.data.length > 0) {
+        const updatedCalendar = [...defaultCalendarDays];
+        res.data.forEach((record: any) => {
+          const session = record.attendanceSession;
+          if (!session || !session.attendanceDate) return;
+          const date = new Date(session.attendanceDate);
+          
+          // Match July 2026
+          if (date.getFullYear() === 2026 && date.getMonth() === 6) {
+            const dayNum = date.getDate();
+            const idx = updatedCalendar.findIndex(item => item && item.day === dayNum);
+            if (idx !== -1) {
+              const dbStatus = record.status;
+              const mappedStatus = dbStatus === 'PRESENT' || dbStatus === 'LATE' ? 'present' :
+                                   dbStatus === 'ABSENT' ? 'absent' :
+                                   dbStatus === 'LEAVE' || dbStatus === 'MEDICAL' || dbStatus === 'EXCUSED' ? 'leave' : 'holiday';
+
+              updatedCalendar[idx] = {
+                day: dayNum,
+                status: mappedStatus as any,
+                reason: record.remarks || `${session.subject?.name || 'Lecture'} (${session.startTime || ''}-${session.endTime || ''})`,
+                recordId: record.id,
+              };
+            }
+          }
+        });
+        setCalendar(updatedCalendar);
+      }
+    } catch (err) {
+      console.error('Failed to load student attendance:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLiveAttendance();
+  }, [user]);
+
+  // Statistics derived dynamically
+  const present = calendar.filter(c => c && c.status === 'present').length;
+  const absent = calendar.filter(c => c && c.status === 'absent').length;
+  const leave = calendar.filter(c => c && c.status === 'leave').length;
+  const holiday = calendar.filter(c => c && c.status === 'holiday').length;
+
+  const total = present + absent + leave;
+  const percentage = total > 0 ? Math.round((present / total) * 100) : 87;
+
   const handleDateClick = (log: AttendanceLog | null) => {
     if (!log) return;
     setSelectedLog(log);
+    setCorrectionReason('');
+    setCorrectionSuccess(false);
     setIsModalOpen(true);
   };
 
@@ -90,18 +156,75 @@ export default function AttendancePage() {
     }
   };
 
+  const handleLeaveSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user?.studentProfile?.id) return;
+    setLeaveSubmitting(true);
+    const result = await api.requestLeave({
+      studentId: user.studentProfile.id,
+      leaveType,
+      fromDate,
+      toDate,
+      reason: leaveReason,
+    });
+    setLeaveSubmitting(false);
+    if (result.success) {
+      alert('Leave request submitted successfully!');
+      setIsLeaveModalOpen(false);
+      // Reset
+      setLeaveReason('');
+      setFromDate('');
+      setToDate('');
+    } else {
+      alert(result.message || 'Failed to submit leave request');
+    }
+  };
+
+  const handleCorrectionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedLog?.recordId) return;
+    setCorrectionSubmitting(true);
+    const result = await api.requestCorrection({
+      attendanceRecordId: selectedLog.recordId,
+      reason: correctionReason,
+    });
+    setCorrectionSubmitting(false);
+    if (result.success) {
+      setCorrectionSuccess(true);
+    } else {
+      alert(result.message || 'Failed to submit correction request');
+    }
+  };
+
   return (
     <DashboardLayout title="Attendance Tracker">
       <div className="space-y-6">
         
+        {/* Header Actions */}
+        <div className="flex justify-between items-center bg-white dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-900">
+          <div>
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">Track and Manage Attendance</h3>
+            <p className="text-[10px] text-slate-405 mt-0.5">Submit leave applications or correction requests directly</p>
+          </div>
+          <button
+            onClick={() => setIsLeaveModalOpen(true)}
+            className="flex items-center gap-1.5 px-4.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/10 active:scale-[0.98] transition-all"
+          >
+            <Plus className="h-4 w-4" />
+            Request Leave
+          </button>
+        </div>
+
         {/* Attendance overview card */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           
           <Card className="flex flex-col justify-center p-6 border-slate-100 bg-white dark:bg-slate-950">
             <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block">Overall Rate</span>
             <div className="flex items-baseline gap-2 mt-2">
-              <span className="text-3xl font-extrabold text-slate-900 dark:text-white">{stats.percentage}%</span>
-              <Badge variant="success" className="text-xs">Safe</Badge>
+              <span className="text-3xl font-extrabold text-slate-900 dark:text-white">{percentage}%</span>
+              <Badge variant={percentage >= 75 ? 'success' : 'danger'} className="text-xs">
+                {percentage >= 75 ? 'Safe' : 'Low'}
+              </Badge>
             </div>
             <p className="text-[10px] text-slate-550 dark:text-slate-450 mt-1">Minimum required: 75%</p>
           </Card>
@@ -109,8 +232,8 @@ export default function AttendancePage() {
           <Card className="flex flex-col justify-center p-6 border-slate-100 bg-white dark:bg-slate-950">
             <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block">Present Days</span>
             <div className="flex items-baseline gap-2 mt-2">
-              <span className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-450">{stats.present}</span>
-              <span className="text-xs text-slate-450">Lectures</span>
+              <span className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-450">{present}</span>
+              <span className="text-xs text-slate-455">Lectures</span>
             </div>
             <p className="text-[10px] text-slate-550 dark:text-slate-450 mt-1">Fully recorded present</p>
           </Card>
@@ -118,8 +241,8 @@ export default function AttendancePage() {
           <Card className="flex flex-col justify-center p-6 border-slate-100 bg-white dark:bg-slate-950">
             <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block">Absent Days</span>
             <div className="flex items-baseline gap-2 mt-2">
-              <span className="text-3xl font-extrabold text-red-650 dark:text-red-450">{stats.absent}</span>
-              <span className="text-xs text-slate-450">Lectures</span>
+              <span className="text-3xl font-extrabold text-red-650 dark:text-red-450">{absent}</span>
+              <span className="text-xs text-slate-455">Lectures</span>
             </div>
             <p className="text-[10px] text-slate-550 dark:text-slate-450 mt-1">Requires teacher note</p>
           </Card>
@@ -127,8 +250,8 @@ export default function AttendancePage() {
           <Card className="flex flex-col justify-center p-6 border-slate-100 bg-white dark:bg-slate-950">
             <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block">Approved Leave</span>
             <div className="flex items-baseline gap-2 mt-2">
-              <span className="text-3xl font-extrabold text-amber-600 dark:text-amber-400">{stats.leave}</span>
-              <span className="text-xs text-slate-450">Day</span>
+              <span className="text-3xl font-extrabold text-amber-600 dark:text-amber-400">{leave}</span>
+              <span className="text-xs text-slate-455">Day(s)</span>
             </div>
             <p className="text-[10px] text-slate-550 dark:text-slate-450 mt-1">Excused absence</p>
           </Card>
@@ -161,7 +284,7 @@ export default function AttendancePage() {
 
               {/* Grid Box list */}
               <div className="grid grid-cols-7 gap-2">
-                {calendarDays.map((log, idx) => {
+                {calendar.map((log, idx) => {
                   if (!log) {
                     return <div key={`empty-${idx}`} className="aspect-square bg-slate-50/20 dark:bg-slate-900/5 rounded-xl border border-transparent" />;
                   }
@@ -213,19 +336,19 @@ export default function AttendancePage() {
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center p-3 rounded-xl border border-slate-50 dark:border-slate-900 bg-slate-50/50 dark:bg-slate-900/10">
                   <span className="text-xs font-semibold text-slate-700 dark:text-slate-350">Present Classes</span>
-                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{stats.present} Lectures</span>
+                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{present} Lectures</span>
                 </div>
                 <div className="flex justify-between items-center p-3 rounded-xl border border-slate-50 dark:border-slate-900 bg-slate-50/50 dark:bg-slate-900/10">
                   <span className="text-xs font-semibold text-slate-700 dark:text-slate-350">Absent Classes</span>
-                  <span className="text-xs font-bold text-red-650 dark:text-red-450">{stats.absent} Lectures</span>
+                  <span className="text-xs font-bold text-red-650 dark:text-red-450">{absent} Lectures</span>
                 </div>
                 <div className="flex justify-between items-center p-3 rounded-xl border border-slate-50 dark:border-slate-900 bg-slate-50/50 dark:bg-slate-900/10">
                   <span className="text-xs font-semibold text-slate-700 dark:text-slate-350">Approved Leaves</span>
-                  <span className="text-xs font-bold text-amber-600 dark:text-amber-400">{stats.leave} Day</span>
+                  <span className="text-xs font-bold text-amber-600 dark:text-amber-400">{leave} Day(s)</span>
                 </div>
                 <div className="flex justify-between items-center p-3 rounded-xl border border-slate-50 dark:border-slate-900 bg-slate-50/50 dark:bg-slate-900/10">
                   <span className="text-xs font-semibold text-slate-700 dark:text-slate-350">Holidays</span>
-                  <span className="text-xs font-bold text-slate-550 dark:text-slate-400">{stats.holiday} Days</span>
+                  <span className="text-xs font-bold text-slate-550 dark:text-slate-400">{holiday} Days</span>
                 </div>
               </CardContent>
             </Card>
@@ -276,8 +399,112 @@ export default function AttendancePage() {
                   <Badge variant="success" className="text-[10px]">{selectedLog.approvalStatus}</Badge>
                 </div>
               )}
+
+              {selectedLog.status === 'absent' && selectedLog.recordId && (
+                <div className="border-t border-slate-100 dark:border-slate-800 pt-4 mt-2">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Request Attendance Correction</span>
+                  {correctionSuccess ? (
+                    <Badge variant="success" className="mt-2 text-xs">Correction Request Submitted</Badge>
+                  ) : (
+                    <form onSubmit={handleCorrectionSubmit} className="space-y-3 mt-2">
+                      <textarea
+                        required
+                        placeholder="Provide reason for correction (e.g. 'I was present but marked absent')"
+                        value={correctionReason}
+                        onChange={(e) => setCorrectionReason(e.target.value)}
+                        className="w-full p-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 focus:outline-none"
+                        rows={2}
+                      />
+                      <button
+                        type="submit"
+                        disabled={correctionSubmitting}
+                        className="w-full py-2 text-xs font-bold text-white bg-indigo-650 hover:bg-indigo-700 disabled:bg-slate-300 rounded-xl transition-all"
+                      >
+                        {correctionSubmitting ? 'Submitting...' : 'Submit Correction Request'}
+                      </button>
+                    </form>
+                  )}
+                </div>
+              )}
             </div>
           )}
+        </Modal>
+
+        {/* Leave Application Modal */}
+        <Modal
+          isOpen={isLeaveModalOpen}
+          onClose={() => setIsLeaveModalOpen(false)}
+          title="Apply for Leave / Excused Absence"
+          size="sm"
+          footer={
+            <button
+              onClick={() => setIsLeaveModalOpen(false)}
+              className="px-4 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-xl transition-colors"
+            >
+              Cancel
+            </button>
+          }
+        >
+          <form onSubmit={handleLeaveSubmit} className="space-y-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Leave Type</label>
+              <select
+                className="h-10 px-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 font-semibold focus:outline-none"
+                value={leaveType}
+                onChange={(e) => setLeaveType(e.target.value)}
+              >
+                <option value="Sick Leave">Sick Leave</option>
+                <option value="Casual Leave">Casual Leave</option>
+                <option value="Medical">Medical Leave</option>
+                <option value="Duty Leave">Duty Leave</option>
+                <option value="Other">Other Excused Absence</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">From Date</label>
+                <input
+                  type="date"
+                  required
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  className="h-10 px-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 font-semibold focus:outline-none"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">To Date</label>
+                <input
+                  type="date"
+                  required
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  className="h-10 px-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 font-semibold focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Reason for Leave</label>
+              <textarea
+                required
+                placeholder="Explain the reason for absence..."
+                value={leaveReason}
+                onChange={(e) => setLeaveReason(e.target.value)}
+                className="w-full p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 focus:outline-none"
+                rows={3}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={leaveSubmitting}
+              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/10"
+            >
+              {leaveSubmitting ? 'Submitting Application...' : 'Submit Leave Application'}
+            </button>
+          </form>
         </Modal>
 
       </div>

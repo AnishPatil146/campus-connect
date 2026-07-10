@@ -17,6 +17,25 @@ export interface User {
   collegeId: CollegeId;
   createdAt: string;
   updatedAt: string;
+  studentProfile?: {
+    id: string;
+    userId: string;
+    collegeId: string;
+    departmentId: string;
+    courseId: string;
+    semesterId: string;
+    divisionId: string;
+    admissionNo: string;
+    rollNumber: string;
+    status: string;
+  } | null;
+  teacherProfile?: {
+    id: string;
+    userId: string;
+    collegeId: string;
+    departmentId: string;
+    employeeId: string;
+  } | null;
 }
 
 export interface Student extends User {

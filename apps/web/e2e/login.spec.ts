@@ -27,8 +27,8 @@ test.describe('Login Page', () => {
 
   test('FRONT_E2E_003: should navigate to dashboard on valid login', async ({ page }) => {
     // Fill credentials (these must match your seeded admin account)
-    await page.locator('input[type="email"]').first().fill('admin@campusconnect.edu');
-    await page.locator('input[type="password"]').first().fill('Admin@123456');
+    await page.locator('input[type="email"]').first().fill('student@collegea.edu');
+    await page.locator('input[type="password"]').first().fill('password123');
     await page.locator('button[type="submit"]').first().click();
 
     // Wait for redirect to dashboard
