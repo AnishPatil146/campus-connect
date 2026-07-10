@@ -37,9 +37,9 @@ export class FilesService {
       cloudinary.config();
     } else {
       cloudinary.config({
-        cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'poqayuww',
-        api_key: process.env.CLOUDINARY_API_KEY || '636825337839938',
-        api_secret: process.env.CLOUDINARY_API_SECRET || '6H1RURbZ36cg028rqRz6O34XVKg',
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME || '',
+        api_key: process.env.CLOUDINARY_API_KEY || '',
+        api_secret: process.env.CLOUDINARY_API_SECRET || '',
       });
     }
   }
