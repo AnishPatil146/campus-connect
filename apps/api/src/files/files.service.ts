@@ -2,12 +2,16 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { AuditService } from '../audit/audit.service';
 import * as fs from 'fs';
 import * as path from 'path';
+import { v2 as cloudinary } from 'cloudinary';
+import * as https from 'https';
+import { Readable } from 'stream';
 
 export interface FileMetadata {
   id: string;
   name: string;
   originalName: string;
   storagePath: string;
+  publicId?: string;
   fileSize: number;
   checksum: string;
   mimeType: string;
@@ -28,6 +32,33 @@ export class FilesService {
     if (!fs.existsSync(this.registryPath)) {
       fs.writeFileSync(this.registryPath, JSON.stringify([]));
     }
+
+    if (process.env.CLOUDINARY_URL) {
+      cloudinary.config();
+    } else {
+      cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'poqayuww',
+        api_key: process.env.CLOUDINARY_API_KEY || '636825337839938',
+        api_secret: process.env.CLOUDINARY_API_SECRET || '6H1RURbZ36cg028rqRz6O34XVKg',
+      });
+    }
+  }
+
+  private async uploadToCloudinary(fileBuffer: Buffer, folder: string, publicId: string): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder,
+          public_id: publicId,
+          resource_type: 'auto',
+        },
+        (error, result) => {
+          if (error) return reject(error);
+          resolve(result);
+        }
+      );
+      uploadStream.end(fileBuffer);
+    });
   }
 
   private readRegistry(): FileMetadata[] {
@@ -60,10 +91,19 @@ export class FilesService {
     const fileId = this.generateUuid();
     const ext = path.extname(file.originalname);
     const uniqueName = `${fileId}${ext}`;
-    const storagePath = path.join(this.uploadDir, uniqueName);
 
-    // 4. Save file to storage
-    fs.writeFileSync(storagePath, file.buffer);
+    let storagePath = uniqueName;
+    let publicId = '';
+
+    try {
+      const uploadResult = await this.uploadToCloudinary(file.buffer, `campus_connect/${module.toLowerCase()}`, fileId);
+      storagePath = uploadResult.secure_url;
+      publicId = uploadResult.public_id;
+    } catch (err: any) {
+      console.warn('Cloudinary upload failed, falling back to local storage:', err.message || err);
+      const localPath = path.join(this.uploadDir, uniqueName);
+      fs.writeFileSync(localPath, file.buffer);
+    }
 
     // 5. Generate checksum (Mock checksum generation)
     const checksum = 'mock-checksum-' + fileId;
@@ -73,7 +113,8 @@ export class FilesService {
       id: fileId,
       name: uniqueName,
       originalName: file.originalname,
-      storagePath: uniqueName,
+      storagePath,
+      publicId: publicId || undefined,
       fileSize: file.size,
       checksum,
       mimeType: file.mimetype,
@@ -112,10 +153,6 @@ export class FilesService {
 
   async getFileStream(id: string, userId: string, userName: string, role: string) {
     const file = await this.getFileMetadata(id);
-    const filePath = path.join(this.uploadDir, file.storagePath);
-    if (!fs.existsSync(filePath)) {
-      throw new NotFoundException('Physical file not found on disk');
-    }
 
     await this.audit.log(
       userId,
@@ -128,6 +165,27 @@ export class FilesService {
       id,
     );
 
+    if (file.storagePath.startsWith('http')) {
+      const stream = await new Promise<Readable>((resolve, reject) => {
+        https.get(file.storagePath, (res) => {
+          resolve(res);
+        }).on('error', (e) => {
+          reject(new BadRequestException(`Failed to stream file from cloud storage: ${e.message}`));
+        });
+      });
+
+      return {
+        stream,
+        originalName: file.originalName,
+        mimeType: file.mimeType,
+      };
+    }
+
+    const filePath = path.join(this.uploadDir, file.storagePath);
+    if (!fs.existsSync(filePath)) {
+      throw new NotFoundException('Physical file not found on disk');
+    }
+
     return {
       stream: fs.createReadStream(filePath),
       originalName: file.originalName,
@@ -137,9 +195,18 @@ export class FilesService {
 
   async deleteFile(id: string, userId: string, userName: string, role: string) {
     const file = await this.getFileMetadata(id);
-    const filePath = path.join(this.uploadDir, file.storagePath);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+
+    if (file.publicId) {
+      try {
+        await cloudinary.uploader.destroy(file.publicId);
+      } catch (err: any) {
+        console.warn(`Failed to destroy Cloudinary asset for ${file.originalName}:`, err.message || err);
+      }
+    } else {
+      const filePath = path.join(this.uploadDir, file.storagePath);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
     }
 
     let registry = this.readRegistry();
