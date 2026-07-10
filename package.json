@@ -12,7 +12,8 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "lint": "turbo lint",
-    "clean": "turbo clean"
+    "clean": "turbo clean",
+    "start": "pnpm --filter @campus-connect/api run start:prod"
   },
   "devDependencies": {
     "turbo": "^2.0.14",
