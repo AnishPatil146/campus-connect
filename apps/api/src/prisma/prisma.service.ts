@@ -39,19 +39,35 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   async onModuleInit() {
+    if (process.env.SINGLE_DB_MODE === 'true' || !process.env.MULTI_DB_ENABLED) {
+      console.log('🚀 Prisma running in Single Database Mode.');
+      try {
+        await this.$connect();
+        console.log('✅ Connected to database successfully.');
+      } catch (err: any) {
+        console.error(`❌ Failed to connect to database: ${err.message || err}`);
+        throw err;
+      }
+      return;
+    }
+
     // Pre-warm the connections for all colleges
     const colleges = ['college-a', 'college-b', 'college-c'];
     for (const collegeId of colleges) {
-      const url = this.getDatabaseUrl(collegeId);
-      const client = new PrismaClient({
-        datasources: {
-          db: {
-            url,
+      try {
+        const url = this.getDatabaseUrl(collegeId);
+        const client = new PrismaClient({
+          datasources: {
+            db: {
+              url,
+            },
           },
-        },
-      });
-      await client.$connect();
-      this.clients.set(collegeId, client);
+        });
+        await client.$connect();
+        this.clients.set(collegeId, client);
+      } catch (err: any) {
+        console.error(`❌ Failed to connect to database for college ${collegeId}: ${err.message || err}`);
+      }
     }
     console.log('⚡ Prisma dynamic multi-tenant connection pool pre-warmed.');
   }
@@ -60,6 +76,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     for (const client of this.clients.values()) {
       await client.$disconnect();
     }
+    await this.$disconnect();
   }
 
   private getDatabaseUrl(collegeId: string): string {
@@ -70,6 +87,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   public getClient(): PrismaClient {
+    if (process.env.SINGLE_DB_MODE === 'true' || !process.env.MULTI_DB_ENABLED) {
+      return this;
+    }
     const store = collegeStorage.getStore();
     const collegeId = store?.collegeId || 'college-a';
     let client = this.clients.get(collegeId);

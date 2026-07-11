@@ -1,6 +1,6 @@
-import { Test, TestingModule } from '@nestjs/testing';
+﻿import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { AppModule } from './app.module';
 import { PrismaService } from './prisma/prisma.service';
 import { AuditService } from './audit/audit.service';
@@ -10,7 +10,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import bcrypt from 'bcryptjs';
 
 /**
- * Auth E2E Tests � uses Supertest to spin up the full NestJS app
+ * Auth E2E Tests — uses Supertest to spin up the full NestJS app
  * with mocked PrismaService and RedisService (no real DB/Redis needed).
  */
 describe('Auth API (e2e)', () => {
@@ -209,3 +209,4 @@ describe('Auth API (e2e)', () => {
     });
   });
 });
+
