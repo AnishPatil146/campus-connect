@@ -1,4 +1,4 @@
-import {
+﻿import {
   Controller,
   Get,
   Post,
@@ -20,7 +20,7 @@ import { GradeAssignmentDto } from './dto/grade-assignment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Assignments')
-@Controller('api/v1/assignments')
+@Controller('assignments')
 export class AssignmentsController {
   constructor(private readonly assignmentsService: AssignmentsService) {}
 
@@ -171,3 +171,4 @@ export class AssignmentsController {
     };
   }
 }
+

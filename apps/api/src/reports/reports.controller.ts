@@ -1,10 +1,10 @@
-import { Controller, Get, Post, Delete, Body, Param, Req, UseGuards } from '@nestjs/common';
+﻿import { Controller, Get, Post, Delete, Body, Param, Req, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ReportsService, GenerateReportDto } from './reports.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Reports')
-@Controller('api/v1/reports')
+@Controller('reports')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class ReportsController {
@@ -65,3 +65,4 @@ export class ReportsController {
     };
   }
 }
+

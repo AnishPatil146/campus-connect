@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+﻿import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -13,7 +13,7 @@ import { Role, UserStatus } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 
 @ApiTags('Users & Students')
-@Controller('api/v1')
+@Controller()
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class UsersController {
@@ -174,3 +174,4 @@ export class UsersController {
     };
   }
 }
+

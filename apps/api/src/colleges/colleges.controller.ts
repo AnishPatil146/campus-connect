@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Put, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+﻿import { Controller, Get, Post, Patch, Put, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CollegesService } from './colleges.service';
 import { CreateCollegeDto, UpdateCollegeDto, UpdateCollegeSettingsDto } from './dto/college.dto';
@@ -11,7 +11,7 @@ import { Permissions } from '../auth/decorators/permissions.decorator';
 import { Role } from '@prisma/client';
 
 @ApiTags('Colleges')
-@Controller('api/v1/colleges')
+@Controller('colleges')
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class CollegesController {
@@ -114,3 +114,4 @@ export class CollegesController {
     };
   }
 }
+

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Req, UseGuards } from '@nestjs/common';
+﻿import { Controller, Get, Post, Put, Delete, Body, Param, Req, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { TasksService, CreateTaskDto } from './tasks.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -8,7 +8,7 @@ import { Role } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 
 @ApiTags('Tasks Management')
-@Controller('api/v1/tasks')
+@Controller('tasks')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class TasksController {
@@ -137,3 +137,4 @@ export class TasksController {
     };
   }
 }
+

@@ -1,4 +1,4 @@
-﻿import { Test, TestingModule } from '@nestjs/testing';
+import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './app.module';
@@ -58,6 +58,12 @@ describe('Auth API (e2e)', () => {
       findFirst: jest.fn(),
       update: jest.fn().mockResolvedValue({}),
     },
+    student: {
+      findUnique: jest.fn(),
+    },
+    teacher: {
+      findUnique: jest.fn(),
+    },
   };
 
   const mockAudit = { log: jest.fn().mockResolvedValue(undefined) };
@@ -108,6 +114,8 @@ describe('Auth API (e2e)', () => {
     mockPrisma.refreshToken.update.mockResolvedValue({});
     mockAudit.log.mockResolvedValue(undefined);
     mockRedis.setSession.mockResolvedValue(undefined);
+    mockPrisma.student.findUnique.mockResolvedValue({ id: 'student-uuid', userId: 'user-uuid' });
+    mockPrisma.teacher.findUnique.mockResolvedValue({ id: 'teacher-uuid', userId: 'user-uuid' });
   });
 
   // --- Health ----------------------------------------------------------------

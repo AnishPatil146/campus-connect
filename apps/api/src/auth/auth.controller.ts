@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Delete, Body, Req, Param, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Body, Req, Param, UseGuards, HttpCode } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
 import { AuthService } from './auth.service';
@@ -13,7 +13,7 @@ import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @ApiTags('Authentication')
-@Controller('api/v1/auth')
+@Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
@@ -35,6 +35,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @HttpCode(200)
   @ApiOperation({ summary: 'Login using email and password' })
   async login(@Body() loginDto: LoginDto, @Req() req: Request) {
     const ipAddress = req.ip || req.socket.remoteAddress;
@@ -179,3 +180,4 @@ export class AuthController {
     };
   }
 }
+

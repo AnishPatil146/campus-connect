@@ -1,4 +1,4 @@
-import {
+﻿import {
   Controller,
   Get,
   Post,
@@ -19,7 +19,7 @@ import { CreateNoteCommentDto } from './dto/create-note-comment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Notes')
-@Controller('api/v1/notes')
+@Controller('notes')
 export class NotesController {
   constructor(private readonly notesService: NotesService) {}
 
@@ -182,3 +182,4 @@ export class NotesController {
     };
   }
 }
+

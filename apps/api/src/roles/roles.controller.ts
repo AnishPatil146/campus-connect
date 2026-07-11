@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Post, Delete, Body, Param, UseGuards, Req } from '@nestjs/common';
+﻿import { Controller, Get, Patch, Post, Delete, Body, Param, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { RolesService } from './roles.service';
 import { UpdateRoleDto, AssignPermissionsDto, AssignRoleToUserDto } from './dto/role.dto';
@@ -10,7 +10,7 @@ import { Permissions } from '../auth/decorators/permissions.decorator';
 import { Role } from '@prisma/client';
 
 @ApiTags('Roles & Permissions')
-@Controller('api/v1/roles')
+@Controller('roles')
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class RolesController {
@@ -97,3 +97,4 @@ export class RolesController {
     return { message: data.message, data: null };
   }
 }
+

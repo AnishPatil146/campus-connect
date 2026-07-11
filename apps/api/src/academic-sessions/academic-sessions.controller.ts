@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Req } from '@nestjs/common';
+﻿import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AcademicSessionsService } from './academic-sessions.service';
 import { CreateAcademicSessionDto, UpdateAcademicSessionDto, CreateSemesterDto, CreateDivisionDto } from './dto/academic-session.dto';
@@ -10,7 +10,7 @@ import { Permissions } from '../auth/decorators/permissions.decorator';
 import { Role } from '@prisma/client';
 
 @ApiTags('Academic Sessions')
-@Controller('api/v1')
+@Controller()
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class AcademicSessionsController {
@@ -87,3 +87,4 @@ export class AcademicSessionsController {
     return { message: 'Division created successfully', data };
   }
 }
+

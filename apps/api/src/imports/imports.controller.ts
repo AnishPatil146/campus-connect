@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Req, UseGuards, Res } from '@nestjs/common';
+﻿import { Controller, Get, Post, Body, Param, Req, UseGuards, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ImportsService } from './imports.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -9,7 +9,7 @@ import { AuditService } from '../audit/audit.service';
 import { Response } from 'express';
 
 @ApiTags('Imports Center')
-@Controller('api/v1/imports')
+@Controller('imports')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class ImportsController {
@@ -127,3 +127,4 @@ export class ImportsController {
     return res.send(csvContent);
   }
 }
+

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, UseGuards } from '@nestjs/common';
+﻿import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { StudentsService } from './students.service';
 import { CreateStudentDto } from './dto/create-student.dto';
@@ -10,7 +10,7 @@ import { Role } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 
 @ApiTags('Students Management')
-@Controller('api/v1/students')
+@Controller('students')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class StudentsController {
@@ -215,3 +215,4 @@ export class StudentsController {
     };
   }
 }
+

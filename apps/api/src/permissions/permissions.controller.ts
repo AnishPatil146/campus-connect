@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common';
+﻿import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { PermissionsService } from './permissions.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -9,7 +9,7 @@ import { Permissions } from '../auth/decorators/permissions.decorator';
 import { Role } from '@prisma/client';
 
 @ApiTags('Permissions')
-@Controller('api/v1/permissions')
+@Controller('permissions')
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class PermissionsController {
@@ -42,3 +42,4 @@ export class PermissionsController {
     return { message: 'Permission check completed', data };
   }
 }
+

@@ -1,4 +1,4 @@
-import {
+﻿import {
   Controller,
   Get,
   Post,
@@ -24,7 +24,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Events')
-@Controller('api/v1/events')
+@Controller('events')
 export class EventsController {
   constructor(private readonly eventsService: EventsService) {}
 
@@ -322,3 +322,4 @@ export class EventsController {
     };
   }
 }
+

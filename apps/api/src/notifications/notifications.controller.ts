@@ -1,4 +1,4 @@
-import {
+﻿import {
   Controller,
   Get,
   Post,
@@ -18,7 +18,7 @@ import {
 } from './dto/notification-ops.dto';
 
 @ApiTags('Notifications')
-@Controller('api/v1/notifications')
+@Controller('notifications')
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
@@ -163,3 +163,4 @@ export class NotificationsController {
     };
   }
 }
+

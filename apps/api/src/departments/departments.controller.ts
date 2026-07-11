@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+﻿import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { DepartmentsService } from './departments.service';
 import { CreateDepartmentDto, UpdateDepartmentDto } from './dto/department.dto';
@@ -11,7 +11,7 @@ import { Permissions } from '../auth/decorators/permissions.decorator';
 import { Role } from '@prisma/client';
 
 @ApiTags('Departments')
-@Controller('api/v1/departments')
+@Controller('departments')
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class DepartmentsController {
@@ -62,3 +62,4 @@ export class DepartmentsController {
     return { message: result.message, data: null };
   }
 }
+

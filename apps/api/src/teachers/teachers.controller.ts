@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+﻿import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { TeachersService } from './teachers.service';
 import { CreateTeacherDto, UpdateTeacherDto, AssignSubjectsDto } from './dto/teacher.dto';
@@ -11,7 +11,7 @@ import { Permissions } from '../auth/decorators/permissions.decorator';
 import { Role } from '@prisma/client';
 
 @ApiTags('Teachers')
-@Controller('api/v1/teachers')
+@Controller('teachers')
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class TeachersController {
@@ -90,3 +90,4 @@ export class TeachersController {
     return { message: 'Leave application approved successfully', data };
   }
 }
+

@@ -1,4 +1,4 @@
-import {
+﻿import {
   Controller,
   Get,
   Post,
@@ -17,7 +17,7 @@ import { UpdateAnnouncementDto } from './dto/update-announcement.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Announcements')
-@Controller('api/v1/announcements')
+@Controller('announcements')
 export class AnnouncementsController {
   constructor(private readonly announcementsService: AnnouncementsService) {}
 
@@ -92,3 +92,4 @@ export class AnnouncementsController {
     };
   }
 }
+

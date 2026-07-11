@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Query, UseGuards, Req } from '@nestjs/common';
+﻿import { Controller, Get, Post, Patch, Body, Query, UseGuards, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AttendanceService } from './attendance.service';
 import {
@@ -17,7 +17,7 @@ import { Permissions } from '../auth/decorators/permissions.decorator';
 import { Role } from '@prisma/client';
 
 @ApiTags('Attendance')
-@Controller('api/v1/attendance')
+@Controller('attendance')
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class AttendanceController {
@@ -104,3 +104,4 @@ export class AttendanceController {
     return { message: 'Attendance reports retrieved successfully', data };
   }
 }
+

@@ -1,4 +1,4 @@
-import {
+﻿import {
   Controller,
   Get,
   Post,
@@ -19,7 +19,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Response } from 'express';
 
 @ApiTags('Files')
-@Controller('api/v1/files')
+@Controller('files')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class FilesController {
@@ -114,3 +114,4 @@ export class FilesController {
     };
   }
 }
+
