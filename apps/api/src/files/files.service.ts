@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { AuditService } from '../audit/audit.service';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import { v2 as cloudinary } from 'cloudinary';
 import * as https from 'https';
 import { Readable } from 'stream';
@@ -22,9 +23,7 @@ export interface FileMetadata {
 
 @Injectable()
 export class FilesService {
-  private readonly uploadDir = process.env.VERCEL || process.env.LAMBDA_TASK_ROOT
-    ? path.join('/tmp', 'uploads')
-    : path.join(process.cwd(), 'uploads');
+  private readonly uploadDir = path.join(os.tmpdir(), 'uploads');
   private readonly registryPath = path.join(this.uploadDir, 'file-registry.json');
 
   constructor(private audit: AuditService) {
