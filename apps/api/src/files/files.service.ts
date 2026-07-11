@@ -22,7 +22,9 @@ export interface FileMetadata {
 
 @Injectable()
 export class FilesService {
-  private readonly uploadDir = path.join(process.cwd(), 'uploads');
+  private readonly uploadDir = process.env.VERCEL || process.env.LAMBDA_TASK_ROOT
+    ? path.join('/tmp', 'uploads')
+    : path.join(process.cwd(), 'uploads');
   private readonly registryPath = path.join(this.uploadDir, 'file-registry.json');
 
   constructor(private audit: AuditService) {

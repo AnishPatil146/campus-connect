@@ -1,11 +1,11 @@
 'use client';
 
 import React from 'react';
-import Login from '../../(auth)/login/page';
+import LoginContainer from '../../../components/LoginContainer';
 
 export default function StudentLoginPage() {
   return (
-    <Login 
+    <LoginContainer 
       initialRole="STUDENT" 
       brandingMessage="Student Portal" 
     />
