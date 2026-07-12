@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+
+// Load environment variables from the application-specific .env file
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 export const envSchema = z.object({
   PORT: z.coerce.number().default(4000),
@@ -30,11 +35,15 @@ export const envSchema = z.object({
   }
 ).refine(
   (data) => {
-    // Either REDIS_URL or REDIS_HOST must be provided
+    // In production, REDIS_URL must be provided
+    if (data.NODE_ENV === 'production') {
+      return !!data.REDIS_URL;
+    }
+    // In development or test, either REDIS_URL or REDIS_HOST must be provided
     return !!(data.REDIS_URL || data.REDIS_HOST);
   },
   {
-    message: 'Either REDIS_URL or REDIS_HOST must be provided to configure Redis connection.',
+    message: 'REDIS_URL must be provided in production. In local development/test, either REDIS_URL or REDIS_HOST must be provided.',
     path: ['REDIS_URL'],
   }
 );
