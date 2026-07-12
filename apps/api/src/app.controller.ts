@@ -7,6 +7,7 @@ export class AppController {
   @Get()
   @ApiOperation({ summary: 'Application Root Metadata' })
   getRoot() {
+    console.log(`[Health Probe] GET / (Root) requested at: ${new Date().toISOString()}`);
     return {
       name: 'campus-connect-api',
       version: '1.0.0',
