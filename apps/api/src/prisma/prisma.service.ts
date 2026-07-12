@@ -51,25 +51,28 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       return;
     }
 
-    // Pre-warm the connections for all colleges
+    // Pre-warm the connections for all colleges in the background
     const colleges = ['college-a', 'college-b', 'college-c'];
-    for (const collegeId of colleges) {
-      try {
-        const url = this.getDatabaseUrl(collegeId);
-        const client = new PrismaClient({
-          datasources: {
-            db: {
-              url,
+    Promise.all(
+      colleges.map(async (collegeId) => {
+        try {
+          const url = this.getDatabaseUrl(collegeId);
+          const client = new PrismaClient({
+            datasources: {
+              db: {
+                url,
+              },
             },
-          },
-        });
-        await client.$connect();
-        this.clients.set(collegeId, client);
-      } catch (err: any) {
-        console.error(`❌ Failed to connect to database for college ${collegeId}: ${err.message || err}`);
-      }
-    }
-    console.log('⚡ Prisma dynamic multi-tenant connection pool pre-warmed.');
+          });
+          await client.$connect();
+          this.clients.set(collegeId, client);
+        } catch (err: any) {
+          console.error(`❌ Failed to connect to database for college ${collegeId}: ${err.message || err}`);
+        }
+      })
+    ).then(() => {
+      console.log('⚡ Prisma dynamic multi-tenant connection pool pre-warmed.');
+    });
   }
 
   async onModuleDestroy() {
