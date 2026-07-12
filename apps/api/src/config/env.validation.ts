@@ -5,7 +5,10 @@ export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   DATABASE_URL: z.string().url({ message: 'DATABASE_URL must be a valid database connection string' }),
   JWT_SECRET: z.string().min(8, { message: 'JWT_SECRET must be at least 8 characters long' }),
-  REDIS_URL: z.string().url({ message: 'REDIS_URL must be a valid Redis connection string' }),
+  REDIS_URL: z.string().url({ message: 'REDIS_URL must be a valid Redis connection string' }).optional(),
+  REDIS_HOST: z.string().optional(),
+  REDIS_PORT: z.coerce.number().optional(),
+  REDIS_PASSWORD: z.string().optional(),
   MULTI_DB_ENABLED: z.coerce.boolean().default(false),
   SINGLE_DB_MODE: z.coerce.boolean().default(false),
   CLOUDINARY_URL: z.string().url().optional(),
@@ -24,6 +27,15 @@ export const envSchema = z.object({
   {
     message: 'Either CLOUDINARY_URL must be provided, or CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET must all be provided.',
     path: ['CLOUDINARY_URL'],
+  }
+).refine(
+  (data) => {
+    // Either REDIS_URL or REDIS_HOST must be provided
+    return !!(data.REDIS_URL || data.REDIS_HOST);
+  },
+  {
+    message: 'Either REDIS_URL or REDIS_HOST must be provided to configure Redis connection.',
+    path: ['REDIS_URL'],
   }
 );
 
