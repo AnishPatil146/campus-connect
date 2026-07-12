@@ -8,11 +8,14 @@ import { RedisService } from './redis.service';
   imports: [
     CacheModule.registerAsync({
       useFactory: async () => ({
-        store: await redisStore({
+        store: await redisStore(process.env.REDIS_URL ? {
+          url: process.env.REDIS_URL,
+          ttl: 5 * 60,
+        } : {
           host: process.env.REDIS_HOST || 'localhost',
           port: parseInt(process.env.REDIS_PORT || '6379', 10),
           password: process.env.REDIS_PASSWORD || undefined,
-          ttl: 5 * 60, // 5 minutes default TTL (seconds)
+          ttl: 5 * 60,
         }),
       }),
     }),

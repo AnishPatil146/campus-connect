@@ -33,10 +33,12 @@ import { ReportsModule } from './reports/reports.module';
 import { FilesModule } from './files/files.module';
 import { HealthModule } from './health/health.module';
 import { RedisModule } from './redis/redis.module';
+import { ConfigModule } from './config/config.module';
 
 @Module({
   imports: [
     // Core infrastructure modules
+    ConfigModule,
     ThrottlerModule.forRoot([{
       ttl: 60000,
       limit: 100, // 100 requests per minute per IP

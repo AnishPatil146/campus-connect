@@ -30,6 +30,7 @@
     "@nestjs/websockets": "^10.4.22",
     "@prisma/client": "^5.15.0",
     "bcryptjs": "^2.4.3",
+    "zod": "^3.23.8",
     "cache-manager": "^7.2.9",
     "cache-manager-ioredis-yet": "^2.1.2",
     "class-transformer": "^0.5.1",
