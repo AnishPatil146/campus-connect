@@ -5,8 +5,36 @@ import bcrypt from 'bcryptjs';
 const colleges = ['college-a', 'college-b', 'college-c'];
 const defaultPasswordHash = bcrypt.hashSync('password123', 10);
 
+function getEnvCaseInsensitive(key: string): string | undefined {
+  const upperKey = key.toUpperCase();
+  for (const envKey of Object.keys(process.env)) {
+    if (envKey.toUpperCase() === upperKey) {
+      return process.env[envKey];
+    }
+  }
+  return undefined;
+}
+
 function getDatabaseUrl(collegeId: string): string {
-  const defaultUrl = process.env.DATABASE_URL || 'postgresql://postgres:postgrespassword@localhost:5444/campus-connect?schema=public';
+  const cleanId = collegeId.replace('college-', '').toUpperCase().replace(/-/g, '_');
+  const fullId = collegeId.toUpperCase().replace(/-/g, '_');
+
+  const keys = [
+    `COLLEGE_${cleanId}_DATABASE_URL`,
+    `DATABASE_${cleanId}_URL`,
+    `COLLEGE_${fullId}_DATABASE_URL`,
+    `DATABASE_${fullId}_URL`,
+  ];
+
+  for (const key of keys) {
+    const url = getEnvCaseInsensitive(key);
+    if (url) {
+      return url;
+    }
+  }
+
+  // Fallback
+  const defaultUrl = process.env.DATABASE_URL || process.env.MASTER_DATABASE_URL || process.env.DATABASE_MASTER_URL || 'postgresql://postgres:postgrespassword@localhost:5444/campus-connect?schema=public';
   const parsed = new URL(defaultUrl);
   const dbName = `campus_connect_${collegeId.replace(/-/g, '_')}`;
   parsed.pathname = `/${dbName}`;
@@ -14,30 +42,8 @@ function getDatabaseUrl(collegeId: string): string {
 }
 
 async function createDatabaseIfNotExists(dbName: string) {
-  const adminUrl = process.env.DATABASE_URL 
-    ? new URL(process.env.DATABASE_URL)
-    : new URL('postgresql://postgres:postgrespassword@localhost:5444/postgres?schema=public');
-  
-  // Use admin database 'postgres' to run CREATE DATABASE
-  adminUrl.pathname = '/postgres';
-  
-  const client = new PrismaClient({
-    datasources: { db: { url: adminUrl.toString() } }
-  });
-  
-  try {
-    await client.$executeRawUnsafe(`CREATE DATABASE ${dbName}`);
-    console.log(`✅ Created database: ${dbName}`);
-  } catch (e: any) {
-    if (e.message?.includes('already exists') || e.code === 'P2010') {
-      console.log(`ℹ️ Database ${dbName} already exists`);
-    } else {
-      console.error(`❌ Failed to create database ${dbName}:`, e);
-      throw e;
-    }
-  } finally {
-    await client.$disconnect();
-  }
+  // Since we are using production/explicit environment database URLs, the database is already created.
+  console.log(`ℹ️ Skipping CREATE DATABASE for ${dbName} (explicit DB url is configured in environment).`);
 }
 
 async function seedCollegeDatabase(collegeId: string, url: string) {
@@ -647,18 +653,18 @@ async function run() {
     await createDatabaseIfNotExists(dbName);
   }
 
-  // 2. Push schema and seed each
+  // 2. Deploy schema migrations and seed each
   for (const collegeId of colleges) {
     const dbUrl = getDatabaseUrl(collegeId);
-    console.log(`⚙️ Pushing Prisma schema to ${collegeId}...`);
+    console.log(`⚙️ Running Prisma db push on ${collegeId}...`);
     try {
-      execSync('npx prisma db push --force-reset --accept-data-loss', {
+      execSync('npx prisma db push --accept-data-loss', {
         env: { ...process.env, DATABASE_URL: dbUrl },
         stdio: 'inherit',
       });
-      console.log(`✅ Prisma schema pushed successfully for ${collegeId}.`);
+      console.log(`✅ Prisma db push completed successfully for ${collegeId}.`);
     } catch (e) {
-      console.error(`❌ Prisma schema push failed for ${collegeId}:`, e);
+      console.error(`❌ Prisma migrations deployment failed for ${collegeId}:`, e);
       process.exit(1);
     }
 

@@ -346,8 +346,8 @@ export class AuthService {
       },
     });
 
-    // Update last login on user
-    await this.prisma.user.update({
+    // Update last login on user and fetch details for token payload
+    const user = await this.prisma.user.update({
       where: { id: userId },
       data: { lastLogin: new Date() },
     });
@@ -357,6 +357,7 @@ export class AuthService {
       sub: userId,
       sessionId: session.id,
       role,
+      collegeId: user?.collegeId,
     };
     const refreshToken = jwt.sign(refreshTokenPayload, this.jwtSecret, { expiresIn: refreshTokenExpiry });
 
@@ -367,12 +368,13 @@ export class AuthService {
       data: { tokenHash },
     });
 
-    // Sign Access Token (including role and sessionId)
+    // Sign Access Token (including role, sessionId, and collegeId)
     const accessTokenPayload = {
       sub: userId,
-      email: (await this.prisma.user.findUnique({ where: { id: userId } }))?.email,
+      email: user?.email,
       role,
       sessionId: session.id,
+      collegeId: user?.collegeId,
     };
     const accessToken = jwt.sign(accessTokenPayload, this.jwtSecret, { expiresIn: accessTokenExpiry });
 
@@ -388,7 +390,6 @@ export class AuthService {
     });
 
     // Audit Log
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
     await this.audit.log(
       userId,
       user?.name || 'Unknown',

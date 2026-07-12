@@ -5,10 +5,16 @@ import { collegeStorage } from '../common/college-storage';
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   private clients = new Map<string, PrismaClient>();
-  private defaultUrl = process.env.DATABASE_URL || 'postgresql://postgres:postgrespassword@localhost:5444/campus-connect?schema=public';
+  private defaultUrl = process.env.DATABASE_URL || process.env.MASTER_DATABASE_URL || process.env.DATABASE_MASTER_URL || 'postgresql://postgres:postgrespassword@localhost:5444/campus-connect?schema=public';
 
   constructor() {
-    super();
+    super({
+      datasources: {
+        db: {
+          url: process.env.DATABASE_URL || process.env.MASTER_DATABASE_URL || process.env.DATABASE_MASTER_URL || 'postgresql://postgres:postgrespassword@localhost:5444/campus-connect?schema=public',
+        },
+      },
+    });
     // Return a Proxy of the PrismaService instance so that accesses to models 
     // and administrative operations are dynamically routed to the active client.
     return new Proxy(this, {
@@ -19,7 +25,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           'clients', 
           'defaultUrl', 
           'getDatabaseUrl', 
-          'getClient'
+          'getClient',
+          'getEnvCaseInsensitive'
         ];
         
         // If the property is a wrapper-specific method or field, return it directly.
@@ -83,10 +90,38 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   private getDatabaseUrl(collegeId: string): string {
+    const cleanId = collegeId.replace('college-', '').toUpperCase().replace(/-/g, '_');
+    const fullId = collegeId.toUpperCase().replace(/-/g, '_');
+
+    const keys = [
+      `COLLEGE_${cleanId}_DATABASE_URL`,
+      `DATABASE_${cleanId}_URL`,
+      `COLLEGE_${fullId}_DATABASE_URL`,
+      `DATABASE_${fullId}_URL`,
+    ];
+
+    for (const key of keys) {
+      const url = this.getEnvCaseInsensitive(key);
+      if (url) {
+        return url;
+      }
+    }
+
+    // Dynamic fallback
     const parsed = new URL(this.defaultUrl);
     const dbName = `campus_connect_${collegeId.replace(/-/g, '_')}`;
     parsed.pathname = `/${dbName}`;
     return parsed.toString();
+  }
+
+  private getEnvCaseInsensitive(key: string): string | undefined {
+    const upperKey = key.toUpperCase();
+    for (const envKey of Object.keys(process.env)) {
+      if (envKey.toUpperCase() === upperKey) {
+        return process.env[envKey];
+      }
+    }
+    return undefined;
   }
 
   public getClient(): PrismaClient {

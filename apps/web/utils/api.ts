@@ -61,7 +61,10 @@ function getHeaders() {
   };
   if (userStr) {
     try {
-      JSON.parse(userStr);
+      const user = JSON.parse(userStr);
+      if (user && user.collegeId) {
+        headers['x-college-id'] = user.collegeId;
+      }
       // If we had a real token, we would use it:
       const token = localStorage.getItem('cc_token');
       if (token) {

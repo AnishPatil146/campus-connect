@@ -3,6 +3,28 @@ import { HealthController } from './health.controller';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
+jest.mock('@prisma/client', () => {
+  return {
+    PrismaClient: jest.fn().mockImplementation(() => {
+      return {
+        $connect: jest.fn().mockResolvedValue(undefined),
+        $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]),
+        $disconnect: jest.fn().mockResolvedValue(undefined),
+      };
+    }),
+  };
+});
+
+jest.mock('cloudinary', () => {
+  return {
+    v2: {
+      api: {
+        ping: jest.fn().mockResolvedValue({ status: 'ok' }),
+      },
+    },
+  };
+});
+
 describe('HealthController', () => {
   let controller: HealthController;
 
@@ -15,6 +37,10 @@ describe('HealthController', () => {
   };
 
   beforeEach(async () => {
+    process.env.COLLEGE_A_DATABASE_URL = 'postgresql://localhost:5432/mock';
+    process.env.COLLEGE_B_DATABASE_URL = 'postgresql://localhost:5432/mock';
+    process.env.COLLEGE_C_DATABASE_URL = 'postgresql://localhost:5432/mock';
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [HealthController],
       providers: [
@@ -35,10 +61,13 @@ describe('HealthController', () => {
 
   describe('GET /health', () => {
     it('should return status UP with api service', async () => {
+      mockRedisService.ping.mockResolvedValue({ status: 'UP', latencyMs: 1 });
+      mockPrismaService.$queryRaw.mockResolvedValue([{ '?column?': 1 }]);
       const result = await controller.getGeneralHealth();
-      expect(result.status).toBe('UP');
-      expect(result.services.api).toBe('UP');
-      expect(result.timestamp).toBeDefined();
+      expect(result.success).toBe(true);
+      expect(result.data.status).toBe('UP');
+      expect(result.data.services.api).toBe('UP');
+      expect(result.data.timestamp).toBeDefined();
     });
   });
 

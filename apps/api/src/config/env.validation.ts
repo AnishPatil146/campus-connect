@@ -42,6 +42,7 @@ export const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
   ALLOWED_ORIGINS: z.string().optional(),
+  ENABLE_SWAGGER: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false),
 }).refine(
   (data) => {
     // If CLOUDINARY_URL is not set, we require cloud_name, api_key, and api_secret

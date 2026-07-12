@@ -139,7 +139,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const res = await fetch(`${apiBaseUrl}/auth/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-college-id': collegeId
+        },
         body: JSON.stringify({ email, password: password || 'password123' })
       });
       if (res.ok) {
