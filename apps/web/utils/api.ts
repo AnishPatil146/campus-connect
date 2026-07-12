@@ -77,6 +77,11 @@ function getHeaders() {
 
 // Check if API is responsive
 async function pingAPI(): Promise<boolean> {
+  // Safe check: If on the server-side in a production environment (like Vercel) 
+  // and NEXT_PUBLIC_API_URL is not set, do not attempt to call localhost.
+  if (typeof window === 'undefined' && process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_API_URL) {
+    return false;
+  }
   try {
     const res = await fetch(`${API_BASE_URL}/auth/health`, { 
       method: 'GET',
