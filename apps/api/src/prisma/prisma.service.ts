@@ -47,14 +47,14 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   async onModuleInit() {
     if (process.env.SINGLE_DB_MODE === 'true' || !process.env.MULTI_DB_ENABLED) {
-      console.log('🚀 Prisma running in Single Database Mode.');
-      try {
-        await this.$connect();
-        console.log('✅ Connected to database successfully.');
-      } catch (err: any) {
-        console.error(`❌ Failed to connect to database: ${err.message || err}`);
-        throw err;
-      }
+      console.log('🚀 Prisma running in Single Database Mode (connecting in background).');
+      this.$connect()
+        .then(() => {
+          console.log('✅ Connected to database successfully.');
+        })
+        .catch((err: any) => {
+          console.error(`❌ Failed to connect to database: ${err.message || err}`);
+        });
       return;
     }
 

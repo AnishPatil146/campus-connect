@@ -57,7 +57,7 @@ async function bootstrap() {
     SwaggerModule.setup('api/docs', app, document);
   }
 
-  const port = process.env.PORT || 4000;
+  const port = Number(process.env.PORT) || 10000;
   await app.listen(port, '0.0.0.0');
   console.log(`🚀 Campus Connect NestJS API listening on http://localhost:${port}/api/v1`);
   console.log(`📚 API documentation available at http://localhost:${port}/api/docs`);
