@@ -30,7 +30,9 @@ async function bootstrap() {
   });
 
   // Set global API prefix
-  app.setGlobalPrefix('api/v1');
+  app.setGlobalPrefix('api/v1', {
+    exclude: ['/', 'health', 'health/database', 'health/redis', 'health/storage', 'health/socket'],
+  });
 
   // Global pipes for DTO class-validator parsing
   app.useGlobalPipes(new ValidationPipe({

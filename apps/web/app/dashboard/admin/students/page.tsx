@@ -296,7 +296,8 @@ export default function StudentsDirectory() {
     setIsPromoting(true);
     try {
       const token = localStorage.getItem('cc_token');
-      const response = await fetch('http://localhost:4000/api/v1/imports/promote', {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+      const response = await fetch(`${apiBaseUrl}/imports/promote`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

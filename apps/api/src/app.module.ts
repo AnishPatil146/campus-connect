@@ -34,6 +34,7 @@ import { FilesModule } from './files/files.module';
 import { HealthModule } from './health/health.module';
 import { RedisModule } from './redis/redis.module';
 import { ConfigModule } from './config/config.module';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { ConfigModule } from './config/config.module';
     FilesModule,
     HealthModule,
   ],
+  controllers: [AppController],
   providers: [
     {
       provide: APP_GUARD,

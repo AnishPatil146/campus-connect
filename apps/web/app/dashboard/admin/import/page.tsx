@@ -67,7 +67,8 @@ export default function ImportCenter() {
     setIsLoadingHistory(true);
     try {
       const token = localStorage.getItem('cc_token');
-      const response = await fetch('http://localhost:4000/api/v1/imports/history', {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+      const response = await fetch(`${apiBaseUrl}/imports/history`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -132,7 +133,8 @@ export default function ImportCenter() {
       XLSX.writeFile(workbook, 'timetable_import_template.xlsx');
       return;
     }
-    window.open(`http://localhost:4000/api/v1/imports/template/${importType.toLowerCase()}?token=${localStorage.getItem('cc_token') || ''}`);
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+    window.open(`${apiBaseUrl}/imports/template/${importType.toLowerCase()}?token=${localStorage.getItem('cc_token') || ''}`);
   };
 
   // Drag & Drop event handlers
@@ -297,7 +299,8 @@ export default function ImportCenter() {
 
     try {
       const token = localStorage.getItem('cc_token');
-      const response = await fetch('http://localhost:4000/api/v1/imports/preview', {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+      const response = await fetch(`${apiBaseUrl}/imports/preview`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -486,7 +489,8 @@ export default function ImportCenter() {
 
     try {
       const token = localStorage.getItem('cc_token');
-      const response = await fetch('http://localhost:4000/api/v1/imports/commit', {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+      const response = await fetch(`${apiBaseUrl}/imports/commit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
