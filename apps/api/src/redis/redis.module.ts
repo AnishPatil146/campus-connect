@@ -7,8 +7,8 @@ import { RedisService } from './redis.service';
 @Module({
   imports: [
     CacheModule.registerAsync({
-      useFactory: async () => ({
-        store: await redisStore(process.env.REDIS_URL ? {
+      useFactory: async () => {
+        const store = await redisStore(process.env.REDIS_URL ? {
           url: process.env.REDIS_URL,
           ttl: 5 * 60,
         } : {
@@ -16,8 +16,16 @@ import { RedisService } from './redis.service';
           port: parseInt(process.env.REDIS_PORT || '6379', 10),
           password: process.env.REDIS_PASSWORD || undefined,
           ttl: 5 * 60,
-        }),
-      }),
+        });
+
+        if (store.client) {
+          store.client.on('error', (err: any) => {
+            console.error('Redis error occurred:', err);
+          });
+        }
+
+        return { store };
+      },
     }),
   ],
   providers: [RedisService],
