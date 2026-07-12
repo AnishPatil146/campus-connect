@@ -52,11 +52,21 @@ import { RedisService } from './redis.service';
 
         try {
           console.log('[Redis] Sending PING to Redis server...');
-          const pong = await client.ping();
-          if (pong === 'PONG') {
+          const pingPromise = client.ping().catch((err: any) => {
+            console.error('[Redis] Failed to connect / PING Redis server:', err.message || err);
+            return 'ERROR';
+          });
+          const timeoutPromise = new Promise<string>((resolve) =>
+            setTimeout(() => resolve('TIMEOUT'), 3000)
+          );
+          const pingResult = await Promise.race([pingPromise, timeoutPromise]);
+
+          if (pingResult === 'PONG') {
             console.log('[Redis] Redis Connected');
+          } else if (pingResult === 'TIMEOUT') {
+            console.warn('[Redis] Redis connection PING timed out after 3000ms, proceeding in background...');
           } else {
-            console.warn(`[Redis] Unexpected response to PING: ${pong}`);
+            console.warn(`[Redis] Unexpected response or error during connection PING: ${pingResult}`);
           }
         } catch (pingError: any) {
           console.error('[Redis] Failed to connect / PING Redis server:', pingError.message);

@@ -27,14 +27,16 @@ export class HealthController {
       masterStatus = `DOWN (${e.message || String(e)})`;
     }
 
-    // 2. Verify College Databases
+    // 2. Verify College Databases (Only if Multi-Tenant mode is active)
+    const isMultiDb = process.env.MULTI_DB_ENABLED === 'true' && process.env.SINGLE_DB_MODE !== 'true';
+
     const collegeAUrl = process.env.COLLEGE_A_DATABASE_URL || process.env.DATABASE_A_URL;
     const collegeBUrl = process.env.COLLEGE_B_DATABASE_URL || process.env.DATABASE_B_URL;
     const collegeCUrl = process.env.COLLEGE_C_DATABASE_URL || process.env.DATABASE_c_URL || process.env.DATABASE_C_URL;
 
-    const collegeAStatus = await this.checkDbUrl(collegeAUrl);
-    const collegeBStatus = await this.checkDbUrl(collegeBUrl);
-    const collegeCStatus = await this.checkDbUrl(collegeCUrl);
+    const collegeAStatus = isMultiDb ? await this.checkDbUrl(collegeAUrl) : 'UP';
+    const collegeBStatus = isMultiDb ? await this.checkDbUrl(collegeBUrl) : 'UP';
+    const collegeCStatus = isMultiDb ? await this.checkDbUrl(collegeCUrl) : 'UP';
 
     // 3. Verify Redis
     let redisStatus = 'UP';

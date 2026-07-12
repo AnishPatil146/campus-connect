@@ -38,3 +38,7 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Dynamically generated schema files
+apps/api/prisma/schema_merged.prisma
+

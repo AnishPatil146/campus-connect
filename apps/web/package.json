@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node -e \"require('child_process').fork(require.resolve('next/dist/bin/next'), ['build'], { execArgv: ['--max-old-space-size=4096'] }).on('exit', code => process.exit(code))\"",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
