@@ -8,15 +8,36 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 export const envSchema = z.object({
   PORT: z.coerce.number().default(4000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  DATABASE_URL: z.string().url({ message: 'DATABASE_URL must be a valid database connection string' }),
+  DATABASE_URL: z.string().refine((val) => {
+    try {
+      const parsed = new URL(val);
+      return parsed.protocol === 'postgresql:' || parsed.protocol === 'postgres:';
+    } catch {
+      return false;
+    }
+  }, { message: 'DATABASE_URL must be a valid database connection string (postgresql:// or postgres://)' }),
   JWT_SECRET: z.string().min(8, { message: 'JWT_SECRET must be at least 8 characters long' }),
-  REDIS_URL: z.string().url({ message: 'REDIS_URL must be a valid Redis connection string' }).optional(),
+  REDIS_URL: z.string().refine((val) => {
+    try {
+      const parsed = new URL(val);
+      return parsed.protocol === 'redis:' || parsed.protocol === 'rediss:';
+    } catch {
+      return false;
+    }
+  }, { message: 'REDIS_URL must be a valid Redis connection string (redis:// or rediss://)' }).optional(),
   REDIS_HOST: z.string().optional(),
   REDIS_PORT: z.coerce.number().optional(),
   REDIS_PASSWORD: z.string().optional(),
   MULTI_DB_ENABLED: z.coerce.boolean().default(false),
   SINGLE_DB_MODE: z.coerce.boolean().default(false),
-  CLOUDINARY_URL: z.string().url().optional(),
+  CLOUDINARY_URL: z.string().refine((val) => {
+    try {
+      const parsed = new URL(val);
+      return parsed.protocol === 'cloudinary:';
+    } catch {
+      return false;
+    }
+  }, { message: 'CLOUDINARY_URL must be a valid Cloudinary connection string (cloudinary://)' }).optional(),
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
