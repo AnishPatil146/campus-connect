@@ -1,0 +1,233 @@
+// ────────────────────────────────────────────────────────────────
+// Chapter 1–3 — Auth, Users, RBAC
+// ────────────────────────────────────────────────────────────────
+
+model User {
+  id                           String                  @id @default(uuid())
+  email                        String                  @unique
+  passwordHash                 String                  @map("password_hash")
+  name                         String                  @map("full_name")
+  username                     String?                 @unique
+  collegeId                    String?                 @map("college_id")
+  college                      College?                @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+  status                       UserStatus              @default(ACTIVE)
+  mustChangePassword           Boolean                 @default(false) @map("must_change_password")
+  emailVerified                Boolean                 @default(false) @map("email_verified")
+  phoneVerified                Boolean                 @default(false) @map("phone_verified")
+  lastLogin                    DateTime?               @map("last_login")
+  failedLoginAttempts          Int                     @default(0) @map("failed_login_attempts")
+  lockedUntil                  DateTime?               @map("locked_until")
+  userProfile                  UserProfile?
+  studentProfile               Student?
+  teacherProfile               Teacher?
+  activityLogs                 ActivityLog[]
+  importHistories              ImportHistory[]
+  announcements                Announcement[]
+  assignedTasks                Task[]                  @relation("TeacherTasks")
+  createdTasks                 Task[]                  @relation("CreatedTasks")
+  attendanceLogs               AttendanceLog[]
+  generatedReports             AttendanceReport[]      @relation("AttendanceReportGeneratedBy")
+  approvedSubstituteTeachers   SubstituteTeacher[]     @relation("SubstituteApprovedBy")
+  changedTimetableHistories    TimetableHistory[]      @relation("TimetableHistoryChangedBy")
+  publishedTimetables          TimetablePublish[]      @relation("TimetablePublishedBy")
+  userRoles                    UserRole[]
+  refreshTokens                RefreshToken[]
+  sessions                     Session[]
+  devices                      Device[]
+  otpCodes                     OtpCode[]
+  passwordResetTokens          PasswordResetToken[]
+  loginHistories               LoginHistory[]
+  notifications                Notification[]
+  eventRegistrations           EventRegistration[]
+  eventsCreated                Event[]                 @relation("EventCreatedBy")
+  eventLogs                    EventLog[]
+  announcementReads            AnnouncementRead[]
+  notificationPreference       NotificationPreference?
+  notificationRecipients       NotificationRecipient[]
+  notificationLogs             NotificationLog[]
+  broadcasts                   BroadcastMessage[]
+  noteVersions                 NoteVersion[]           @relation("NoteVersionUpdatedBy")
+  noteViews                    NoteView[]
+  noteFavorites                NoteFavorite[]
+  noteComments                 NoteComment[]
+  noteReports                  NoteReport[]
+  noteActivities               NoteActivity[]
+  noteDownloads                NoteDownload[]
+  assignmentActivities         AssignmentActivity[]
+  approvedAssignmentExtensions AssignmentExtension[]   @relation("AssignmentExtensionApprovedBy")
+  deletedAt                    DateTime?               @map("deleted_at")
+  createdAt                    DateTime                @default(now()) @map("created_at")
+  updatedAt                    DateTime                @updatedAt @map("updated_at")
+
+  @@index([email])
+  @@index([username])
+  @@index([collegeId])
+  @@index([status])
+  @@map("users")
+}
+
+model RoleModel {
+  id              String           @id @default(uuid())
+  name            Role             @unique
+  description     String?
+  isSystem        Boolean          @default(false) @map("is_system") // system roles cannot be deleted
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  @@map("roles")
+}
+
+model Permission {
+  id              String           @id @default(uuid())
+  name            String           @unique // e.g., "student.create"
+  description     String?
+  module          String // e.g., "student", "teacher", "attendance"
+  action          String // e.g., "create", "read", "update", "delete"
+  rolePermissions RolePermission[]
+  createdAt       DateTime         @default(now()) @map("created_at")
+
+  @@index([module])
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String     @map("role_id")
+  permissionId String     @map("permission_id")
+  role         RoleModel  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId String    @map("user_id")
+  roleId String    @map("role_id")
+  user   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   RoleModel @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  device    String?
+  browser   String?
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model LoginHistory {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  loginTime  DateTime  @default(now()) @map("login_time")
+  logoutTime DateTime? @map("logout_time")
+  ipAddress  String?   @map("ip_address")
+  device     String?
+  browser    String?
+  status     String // e.g., "SUCCESS" | "FAILED"
+
+  @@index([userId])
+  @@map("login_history")
+}
+
+// ────────────────────────────────────────────────────────────────
+// Extended Auth & History Layer Models (Phase 2)
+// ────────────────────────────────────────────────────────────────
+
+model UserProfile {
+  id           String    @id @default(uuid())
+  userId       String    @unique @map("user_id")
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName    String?   @map("first_name")
+  middleName   String?   @map("middle_name")
+  lastName     String?   @map("last_name")
+  gender       String?
+  dateOfBirth  DateTime? @map("date_of_birth")
+  phone        String?
+  profilePhoto String?   @map("profile_photo")
+  address      String?
+  city         String?
+  state        String?
+  country      String?
+  postalCode   String?   @map("postal_code")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("user_profiles")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionToken String   @unique @map("session_token")
+  deviceId     String?  @map("device_id")
+  browser      String?
+  os           String?
+  ipAddress    String?  @map("ip_address")
+  country      String?
+  city         String?
+  loginAt      DateTime @default(now()) @map("login_at")
+  lastActivity DateTime @default(now()) @map("last_activity")
+  expiresAt    DateTime @map("expires_at")
+  isActive     Boolean  @default(true) @map("is_active")
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Device {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceName  String?  @map("device_name")
+  deviceType  String?  @map("device_type")
+  browser     String?
+  os          String?
+  fingerprint String?
+  trusted     Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("devices")
+}
+
+model OtpCode {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  otp       String
+  purpose   String // e.g. "PASSWORD_RESET" | "EMAIL_VERIFICATION"
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("otp_codes")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}

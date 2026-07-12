@@ -1,0 +1,197 @@
+// ────────────────────────────────────────────────────────────────
+// Chapter 11 — Assignments
+// ────────────────────────────────────────────────────────────────
+
+enum AssignmentStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+  ARCHIVED
+}
+
+enum SubmissionStatus {
+  NOT_SUBMITTED
+  SUBMITTED
+  LATE
+  UNDER_REVIEW
+  GRADED
+}
+
+enum AssignmentActivityType {
+  CREATED
+  SUBMITTED
+  REVIEWED
+  GRADED
+  UPDATED
+  EXTENDED
+}
+
+model Assignment {
+  id                  String                @id @default(uuid())
+  title               String
+  description         String?
+  teacherId           String                @map("teacher_id")
+  teacher             Teacher               @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subjectId           String                @map("subject_id")
+  subject             Subject               @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  divisionId          String                @map("division_id")
+  division            Division              @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  semesterId          String                @map("semester_id")
+  semester            Semester              @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  totalMarks          Int?                  @map("total_marks")
+  passingMarks        Int?                  @map("passing_marks")
+  dueDate             DateTime              @map("due_date")
+  allowLateSubmission Boolean               @default(false) @map("allow_late_submission")
+  status              AssignmentStatus      @default(DRAFT)
+  files               AssignmentFile[]
+  submissions         Submission[]
+  extensions          AssignmentExtension[]
+  rubrics             AssignmentRubric[]
+  activities          AssignmentActivity[]
+  statistics          AssignmentStatistic?
+  deletedAt           DateTime?             @map("deleted_at")
+  createdAt           DateTime              @default(now()) @map("created_at")
+  updatedAt           DateTime              @updatedAt @map("updated_at")
+
+  @@index([teacherId])
+  @@index([subjectId])
+  @@index([divisionId])
+  @@index([semesterId])
+  @@map("assignments")
+}
+
+model AssignmentFile {
+  id           String     @id @default(uuid())
+  assignmentId String     @map("assignment_id")
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  storageUrl   String     @map("storage_url")
+  fileType     String     @map("file_type")
+  fileName     String?    @map("file_name")
+  size         Int?
+  uploadedAt   DateTime   @default(now()) @map("uploaded_at")
+
+  @@index([assignmentId])
+  @@map("assignment_files")
+}
+
+model Submission {
+  id            String               @id @default(uuid())
+  assignmentId  String               @map("assignment_id")
+  assignment    Assignment           @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId     String               @map("student_id")
+  student       Student              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  status        SubmissionStatus     @default(SUBMITTED)
+  attemptNumber Int                  @default(1) @map("attempt_number")
+  fileUrl       String?              @map("file_url")
+  fileName      String?              @map("file_name")
+  content       String?
+  marks         Int?
+  feedback      String?
+  isLate        Boolean              @default(false) @map("is_late")
+  gradedAt      DateTime?            @map("graded_at")
+  submittedAt   DateTime             @default(now()) @map("submitted_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+  files         SubmissionFile[]
+  marksHistory  AssignmentMark[]
+  feedbacks     AssignmentFeedback[]
+
+  @@unique([assignmentId, studentId, attemptNumber])
+  @@map("assignment_submissions")
+}
+
+model SubmissionFile {
+  id           String     @id @default(uuid())
+  submissionId String     @map("submission_id")
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  storageUrl   String     @map("storage_url")
+  fileType     String     @map("file_type")
+  fileName     String?    @map("file_name")
+  size         Int?
+  uploadedAt   DateTime   @default(now()) @map("uploaded_at")
+
+  @@index([submissionId])
+  @@map("submission_files")
+}
+
+model AssignmentMark {
+  id            String     @id @default(uuid())
+  submissionId  String     @map("submission_id")
+  submission    Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  obtainedMarks Int        @map("obtained_marks")
+  gradedById    String     @map("graded_by")
+  gradedBy      Teacher    @relation(fields: [gradedById], references: [id], onDelete: Cascade)
+  gradedAt      DateTime   @default(now()) @map("graded_at")
+
+  @@index([submissionId])
+  @@map("assignment_marks")
+}
+
+model AssignmentFeedback {
+  id           String     @id @default(uuid())
+  submissionId String     @map("submission_id")
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  teacherId    String     @map("teacher_id")
+  teacher      Teacher    @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  feedback     String
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  @@index([submissionId])
+  @@map("assignment_feedback")
+}
+
+model AssignmentExtension {
+  id           String     @id @default(uuid())
+  assignmentId String     @map("assignment_id")
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId    String     @map("student_id")
+  student      Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  newDueDate   DateTime   @map("new_due_date")
+  reason       String?
+  approvedById String?    @map("approved_by")
+  approvedBy   User?      @relation("AssignmentExtensionApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  @@index([assignmentId])
+  @@index([studentId])
+  @@map("assignment_extensions")
+}
+
+model AssignmentRubric {
+  id           String     @id @default(uuid())
+  assignmentId String     @map("assignment_id")
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  criteria     String
+  maxMarks     Int        @map("max_marks")
+
+  @@index([assignmentId])
+  @@map("assignment_rubrics")
+}
+
+model AssignmentActivity {
+  id           String                 @id @default(uuid())
+  assignmentId String                 @map("assignment_id")
+  assignment   Assignment             @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  userId       String?                @map("user_id")
+  user         User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action       AssignmentActivityType
+  details      String?
+  createdAt    DateTime               @default(now()) @map("created_at")
+
+  @@index([assignmentId])
+  @@map("assignment_activity")
+}
+
+model AssignmentStatistic {
+  id             String     @id @default(uuid())
+  assignmentId   String     @unique @map("assignment_id")
+  assignment     Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  submissionRate Float?     @map("submission_rate")
+  averageMarks   Float?     @map("average_marks")
+  highestMarks   Int?       @map("highest_marks")
+  lowestMarks    Int?       @map("lowest_marks")
+  passPercentage Float?     @map("pass_percentage")
+  latePercentage Float?     @map("late_percentage")
+  computedAt     DateTime   @default(now()) @map("computed_at")
+
+  @@map("assignment_statistics")
+}

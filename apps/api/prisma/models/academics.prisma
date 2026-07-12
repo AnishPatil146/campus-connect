@@ -1,0 +1,124 @@
+// ────────────────────────────────────────────────────────────────
+// Chapter 5 — Academic Structure
+// ────────────────────────────────────────────────────────────────
+
+model Department {
+  id                 String              @id @default(uuid())
+  name               String
+  collegeId          String              @map("college_id")
+  college            College             @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  courses            Course[]
+  teachers           Teacher[]
+  teacherDepartments TeacherDepartment[]
+  students           Student[]
+  subjects           Subject[]
+  timetables         Timetable[]
+  deletedAt          DateTime?           @map("deleted_at")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+
+  @@unique([name, collegeId])
+  @@map("departments")
+}
+
+model Course {
+  id               String            @id @default(uuid())
+  name             String
+  departmentId     String            @map("department_id")
+  department       Department        @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  academicSessions AcademicSession[]
+  subjects         Subject[]
+  students         Student[]
+  timetables       Timetable[]
+  deletedAt        DateTime?         @map("deleted_at")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  @@unique([name, departmentId])
+  @@map("courses")
+}
+
+model Subject {
+  id                 String              @id @default(uuid())
+  name               String
+  code               String?
+  courseId           String              @map("course_id")
+  course             Course              @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  departmentId       String              @map("department_id")
+  department         Department          @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  creditHours        Int?                @map("credit_hours")
+  attendanceSessions AttendanceSession[]
+  notes              Note[]
+  assignments        Assignment[]
+  timetableSlots     TimetableSlot[]
+  teacherSubjects    TeacherSubject[]
+  teacherSchedules   TeacherSchedule[]
+  studentSchedules   StudentSchedule[]
+  substituteTeachers SubstituteTeacher[]
+  deletedAt          DateTime?           @map("deleted_at")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+
+  @@unique([code, courseId])
+  @@map("subjects")
+}
+
+model AcademicSession {
+  id              String           @id @default(uuid())
+  name            String // e.g., "2026-27"
+  courseId        String           @map("course_id")
+  course          Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  semesters       Semester[]
+  students        Student[]
+  teacherSubjects TeacherSubject[]
+  timetables      Timetable[]
+  isActive        Boolean          @default(true) @map("is_active")
+  startDate       DateTime?        @map("start_date")
+  endDate         DateTime?        @map("end_date")
+  deletedAt       DateTime?        @map("deleted_at")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  @@unique([name, courseId])
+  @@map("academic_sessions")
+}
+
+model Semester {
+  id                String          @id @default(uuid())
+  name              String // e.g., "Semester 1"
+  academicSessionId String          @map("academic_session_id")
+  academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id], onDelete: Cascade)
+  divisions         Division[]
+  notes             Note[]
+  assignments       Assignment[]
+  students          Student[]
+  timetables        Timetable[]
+  number            Int             @default(1)
+  deletedAt         DateTime?       @map("deleted_at")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  @@unique([name, academicSessionId])
+  @@map("semesters")
+}
+
+model Division {
+  id                 String              @id @default(uuid())
+  name               String // e.g., "Division A"
+  semesterId         String              @map("semester_id")
+  semester           Semester            @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  students           Student[]
+  attendanceSessions AttendanceSession[]
+  timetableSlots     TimetableSlot[]
+  assignments        Assignment[]
+  notes              Note[]
+  teacherSubjects    TeacherSubject[]
+  teacherSchedules   TeacherSchedule[]
+  timetables         Timetable[]
+  deletedAt          DateTime?           @map("deleted_at")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+
+  @@unique([name, semesterId])
+  @@map("divisions")
+}

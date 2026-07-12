@@ -77,9 +77,10 @@ function getHeaders() {
 
 // Check if API is responsive
 async function pingAPI(): Promise<boolean> {
-  // Safe check: If on the server-side in a production environment (like Vercel) 
-  // and NEXT_PUBLIC_API_URL is not set, do not attempt to call localhost.
-  if (typeof window === 'undefined' && process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_API_URL) {
+  // Safe check: If on the server-side in a production environment (like Vercel),
+  // do not attempt to contact the backend to prevent serverless function timeouts 
+  // (especially if the backend is on a free tier like Render and is sleeping).
+  if (typeof window === 'undefined' && process.env.NODE_ENV === 'production') {
     return false;
   }
   try {

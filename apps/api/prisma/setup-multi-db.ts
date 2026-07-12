@@ -658,7 +658,7 @@ async function run() {
     const dbUrl = getDatabaseUrl(collegeId);
     console.log(`⚙️ Running Prisma db push on ${collegeId}...`);
     try {
-      execSync('npx prisma db push --accept-data-loss', {
+      execSync('npx prisma db push --accept-data-loss --schema=prisma', {
         env: { ...process.env, DATABASE_URL: dbUrl },
         stdio: 'inherit',
       });

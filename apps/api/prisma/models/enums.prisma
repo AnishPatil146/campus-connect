@@ -1,0 +1,71 @@
+// ────────────────────────────────────────────────────────────────
+// Enums
+// ────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LEAVE
+  LATE
+  MEDICAL
+  EXCUSED
+}
+
+enum AttendanceSessionStatus {
+  DRAFT
+  OPEN
+  SUBMITTED
+  LOCKED
+}
+
+enum LeaveRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum TimetableSlotType {
+  THEORY
+  PRACTICAL
+  LAB
+  TUTORIAL
+}
+
+enum AnnouncementStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+}
+
+enum Priority {
+  HIGH
+  NORMAL
+  LOW
+}
+
+enum NotificationType {
+  PUSH
+  EMAIL
+  SMS
+  IN_APP
+}
+
+enum BackupStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  VERIFIED
+}

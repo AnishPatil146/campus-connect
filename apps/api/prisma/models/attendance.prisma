@@ -1,0 +1,168 @@
+// ────────────────────────────────────────────────────────────────
+// Chapter 8 — Attendance
+// ────────────────────────────────────────────────────────────────
+
+model AttendanceSession {
+  id                String                  @id @default(uuid())
+  collegeId         String                  @map("college_id")
+  academicSessionId String                  @map("academic_session_id")
+  subjectId         String                  @map("subject_id")
+  subject           Subject                 @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacherId         String                  @map("teacher_id")
+  teacher           Teacher                 @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  semesterId        String                  @map("semester_id")
+  divisionId        String                  @map("division_id")
+  division          Division                @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  classroomId       String?                 @map("classroom_id")
+  lectureNumber     Int                     @map("lecture_number")
+  attendanceDate    DateTime                @map("attendance_date")
+  startTime         String?                 @map("start_time")
+  endTime           String?                 @map("end_time")
+  status            AttendanceSessionStatus @default(DRAFT)
+  records           AttendanceRecord[]
+  isFinalized       Boolean                 @default(false) @map("is_finalized")
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
+
+  @@unique([attendanceDate, subjectId, divisionId, lectureNumber])
+  @@index([attendanceDate])
+  @@index([divisionId])
+  @@index([teacherId])
+  @@map("attendance_sessions")
+}
+
+model AttendanceRecord {
+  id                  String            @id @default(uuid())
+  attendanceSessionId String            @map("attendance_session_id")
+  attendanceSession   AttendanceSession @relation(fields: [attendanceSessionId], references: [id], onDelete: Cascade)
+  studentId           String            @map("student_id")
+  student             Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  status              AttendanceStatus
+  remarks             String?           @map("remarks")
+  markedById          String            @map("marked_by")
+  markedAt            DateTime          @default(now()) @map("marked_at")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
+  @@unique([attendanceSessionId, studentId])
+  @@index([studentId])
+  @@map("attendance_records")
+}
+
+model AttendanceSummary {
+  id                   String   @id @default(uuid())
+  studentId            String   @map("student_id")
+  subjectId            String   @map("subject_id")
+  presentCount         Int      @default(0) @map("present_count")
+  absentCount          Int      @default(0) @map("absent_count")
+  leaveCount           Int      @default(0) @map("leave_count")
+  lateCount            Int      @default(0) @map("late_count")
+  attendancePercentage Float    @default(0.0) @map("attendance_percentage")
+  lastUpdated          DateTime @updatedAt @map("last_updated")
+
+  @@unique([studentId, subjectId])
+  @@map("attendance_summary")
+}
+
+model AttendanceHistory {
+  id                 String           @id @default(uuid())
+  attendanceRecordId String           @map("attendance_record_id")
+  oldStatus          AttendanceStatus @map("old_status")
+  newStatus          AttendanceStatus @map("new_status")
+  changedById        String           @map("changed_by")
+  reason             String?
+  changedAt          DateTime         @default(now()) @map("changed_at")
+
+  @@index([attendanceRecordId])
+  @@map("attendance_history")
+}
+
+model AttendanceRequest {
+  id           String             @id @default(uuid())
+  studentId    String             @map("student_id")
+  leaveType    String             @map("leave_type")
+  reason       String?
+  fromDate     DateTime           @map("from_date")
+  toDate       DateTime           @map("to_date")
+  status       LeaveRequestStatus @default(PENDING)
+  approvedById String?            @map("approved_by")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+
+  @@index([studentId])
+  @@map("attendance_requests")
+}
+
+model AttendanceCorrection {
+  id                 String             @id @default(uuid())
+  studentId          String             @map("student_id")
+  attendanceRecordId String             @map("attendance_record_id")
+  requestedById      String             @map("requested_by")
+  reason             String
+  approvedById       String?            @map("approved_by")
+  status             LeaveRequestStatus @default(PENDING)
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  @@index([studentId])
+  @@index([attendanceRecordId])
+  @@map("attendance_corrections")
+}
+
+model AttendanceHoliday {
+  id          String   @id @default(uuid())
+  holidayName String   @map("holiday_name")
+  holidayDate DateTime @map("holiday_date")
+  holidayType String   @map("holiday_type")
+  collegeId   String   @map("college_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([collegeId])
+  @@map("attendance_holidays")
+}
+
+model AttendanceStatistic {
+  id                   String   @id @default(uuid())
+  collegeId            String   @map("college_id")
+  college              College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  collegeAttendance    Float?   @map("college_attendance")
+  departmentAttendance Float?   @map("department_attendance")
+  courseAttendance     Float?   @map("course_attendance")
+  semesterAttendance   Float?   @map("semester_attendance")
+  divisionAttendance   Float?   @map("division_attendance")
+  computedAt           DateTime @default(now()) @map("computed_at")
+
+  @@index([collegeId])
+  @@map("attendance_statistics")
+}
+
+model AttendanceLog {
+  id        String   @id @default(uuid())
+  event     String
+  userId    String?  @map("user_id")
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  details   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("attendance_logs")
+}
+
+model AttendanceReport {
+  id            String    @id @default(uuid())
+  reportType    String    @map("report_type")
+  startDate     DateTime? @map("start_date")
+  endDate       DateTime? @map("end_date")
+  generatedById String?   @map("generated_by")
+  generatedBy   User?     @relation("AttendanceReportGeneratedBy", fields: [generatedById], references: [id], onDelete: SetNull)
+  reportData    String?   @map("report_data")
+  generatedAt   DateTime  @default(now()) @map("generated_at")
+
+  @@index([generatedById])
+  @@map("attendance_reports")
+}
+
+// ────────────────────────────────────────────────────────────────
+// Chapter 9 — Timetable
+// ────────────────────────────────────────────────────────────────

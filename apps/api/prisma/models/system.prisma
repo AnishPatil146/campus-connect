@@ -1,0 +1,82 @@
+// ────────────────────────────────────────────────────────────────
+// Chapter 18 — Audit Logs
+// ────────────────────────────────────────────────────────────────
+
+model ActivityLog {
+  id         String   @id @default(uuid())
+  timestamp  DateTime @default(now())
+  userId     String?  @map("user_id")
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userName   String   @map("user_name")
+  role       String
+  action     String
+  module     String? // e.g., "student", "attendance", "auth"
+  entityType String?  @map("entity_type") // e.g., "Student", "User"
+  entityId   String?  @map("entity_id") // UUID of the affected entity
+  details    String?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([action])
+  @@index([module])
+  @@index([timestamp])
+  @@map("activity_logs")
+}
+
+// ────────────────────────────────────────────────────────────────
+// Chapter 19 — Backup
+// ────────────────────────────────────────────────────────────────
+
+model Backup {
+  id          String       @id @default(uuid())
+  fileName    String       @map("file_name")
+  filePath    String?      @map("file_path")
+  fileSize    BigInt?      @map("file_size")
+  status      BackupStatus @default(IN_PROGRESS)
+  type        String       @default("MANUAL") // "MANUAL" | "AUTOMATIC"
+  triggeredBy String?      @map("triggered_by") // userId or "SYSTEM"
+  startedAt   DateTime     @default(now()) @map("started_at")
+  completedAt DateTime?    @map("completed_at")
+  verifiedAt  DateTime?    @map("verified_at")
+  errorLog    String?      @map("error_log")
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  @@map("backups")
+}
+
+// ────────────────────────────────────────────────────────────────
+// Existing — Import History & Tasks
+// ────────────────────────────────────────────────────────────────
+
+model ImportHistory {
+  id           String   @id @default(uuid())
+  filename     String
+  importType   String   @map("import_type") // "STUDENT" | "TEACHER"
+  totalRows    Int      @map("total_rows")
+  successRows  Int      @map("success_rows")
+  failedRows   Int      @map("failed_rows")
+  status       String // "COMPLETED" | "PARTIAL" | "FAILED"
+  errorReport  String?  @map("error_report")
+  importedById String   @map("imported_by_id")
+  importedBy   User     @relation(fields: [importedById], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("import_histories")
+}
+
+model Task {
+  id           String   @id @default(uuid())
+  title        String
+  description  String?
+  dueDate      DateTime @map("due_date")
+  status       String   @default("PENDING") // "PENDING" | "COMPLETED"
+  assignedToId String   @map("assigned_to_id")
+  assignedTo   User     @relation("TeacherTasks", fields: [assignedToId], references: [id], onDelete: Cascade)
+  createdById  String   @map("created_by_id")
+  createdBy    User     @relation("CreatedTasks", fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("tasks")
+}

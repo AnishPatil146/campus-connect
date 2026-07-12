@@ -1,0 +1,226 @@
+// ────────────────────────────────────────────────────────────────
+// Chapter 10 — Notes
+// ────────────────────────────────────────────────────────────────
+
+enum NoteVisibility {
+  PRIVATE
+  CLASS
+  SEMESTER
+  COLLEGE
+  PUBLIC
+}
+
+enum NoteStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  DELETED
+}
+
+enum NoteReportType {
+  BROKEN_FILE
+  WRONG_FILE
+  DUPLICATE
+  INAPPROPRIATE
+  OTHER
+}
+
+enum NoteActivityType {
+  UPLOAD
+  DOWNLOAD
+  VIEW
+  UPDATE
+  DELETE
+  COMMENT
+  FAVORITE
+}
+
+model NoteCategory {
+  id    String @id @default(uuid())
+  name  String @unique
+  notes Note[]
+
+  @@map("note_categories")
+}
+
+model Note {
+  id          String           @id @default(uuid())
+  teacherId   String           @map("teacher_id")
+  teacher     Teacher          @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subjectId   String           @map("subject_id")
+  subject     Subject          @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  semesterId  String           @map("semester_id")
+  semester    Semester         @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  divisionId  String           @map("division_id")
+  division    Division         @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  categoryId  String           @map("category_id")
+  category    NoteCategory     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  visibility  NoteVisibility   @default(SEMESTER)
+  status      NoteStatus       @default(DRAFT)
+  publishDate DateTime?        @map("publish_date")
+  expiryDate  DateTime?        @map("expiry_date")
+  fileUrl     String           @map("file_url")
+  fileName    String?          @map("file_name")
+  fileSize    Int?             @map("file_size")
+  mimeType    String?          @map("mime_type")
+  version     Int              @default(1)
+  files       NoteFile[]
+  versions    NoteVersion[]
+  downloads   NoteDownload[]
+  views       NoteView[]
+  favorites   NoteFavorite[]
+  comments    NoteComment[]
+  permissions NotePermission[]
+  tags        NoteTag[]
+  reports     NoteReport[]
+  activities  NoteActivity[]
+  deletedAt   DateTime?        @map("deleted_at")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  @@index([teacherId])
+  @@index([subjectId])
+  @@index([semesterId])
+  @@index([divisionId])
+  @@index([categoryId])
+  @@map("notes")
+}
+
+model NoteFile {
+  id         String   @id @default(uuid())
+  noteId     String   @map("note_id")
+  note       Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  fileName   String   @map("file_name")
+  fileSize   Int      @map("file_size")
+  mimeType   String   @map("mime_type")
+  storageUrl String   @map("storage_url")
+  checksum   String
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+
+  @@index([noteId])
+  @@map("note_files")
+}
+
+model NoteVersion {
+  id          String   @id @default(uuid())
+  noteId      String   @map("note_id")
+  note        Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  version     Int
+  updatedById String   @map("updated_by")
+  updatedBy   User     @relation("NoteVersionUpdatedBy", fields: [updatedById], references: [id], onDelete: Cascade)
+  changeLog   String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([noteId])
+  @@index([updatedById])
+  @@map("note_versions")
+}
+
+model NoteView {
+  id              String   @id @default(uuid())
+  noteId          String   @map("note_id")
+  note            Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  userId          String   @map("user_id")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  viewedAt        DateTime @default(now()) @map("viewed_at")
+  durationSeconds Int?     @map("duration_seconds")
+
+  @@index([noteId])
+  @@index([userId])
+  @@map("note_views")
+}
+
+model NoteFavorite {
+  noteId    String   @map("note_id")
+  userId    String   @map("user_id")
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@id([noteId, userId])
+  @@map("note_favorites")
+}
+
+model NoteComment {
+  id        String        @id @default(uuid())
+  noteId    String        @map("note_id")
+  note      Note          @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  userId    String        @map("user_id")
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment   String
+  replyToId String?       @map("reply_to")
+  replyTo   NoteComment?  @relation("NoteCommentReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies   NoteComment[] @relation("NoteCommentReplies")
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  @@index([noteId])
+  @@index([userId])
+  @@map("note_comments")
+}
+
+model NotePermission {
+  id           String  @id @default(uuid())
+  noteId       String  @map("note_id")
+  note         Note    @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  collegeId    String? @map("college_id")
+  departmentId String? @map("department_id")
+  semesterId   String? @map("semester_id")
+  divisionId   String? @map("division_id")
+
+  @@index([noteId])
+  @@map("note_permissions")
+}
+
+model NoteTag {
+  id     String @id @default(uuid())
+  noteId String @map("note_id")
+  note   Note   @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  tag    String
+
+  @@unique([noteId, tag])
+  @@map("note_tags")
+}
+
+model NoteReport {
+  id         String         @id @default(uuid())
+  noteId     String         @map("note_id")
+  note       Note           @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  userId     String         @map("user_id")
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reportType NoteReportType @map("report_type")
+  message    String?
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  @@index([noteId])
+  @@index([userId])
+  @@map("note_reports")
+}
+
+model NoteActivity {
+  id        String           @id @default(uuid())
+  noteId    String           @map("note_id")
+  note      Note             @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  userId    String?          @map("user_id")
+  user      User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    NoteActivityType
+  details   String?
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  @@index([noteId])
+  @@map("note_activity")
+}
+
+model NoteDownload {
+  id         String   @id @default(uuid())
+  noteId     String   @map("note_id")
+  note       Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  downloadAt DateTime @default(now()) @map("download_at")
+
+  @@index([noteId])
+  @@index([userId])
+  @@map("note_downloads")
+}

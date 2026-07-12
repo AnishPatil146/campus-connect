@@ -1,0 +1,28 @@
+model BroadcastMessage {
+  id         String         @id @default(uuid())
+  collegeId  String         @map("college_id")
+  college    College        @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  senderId   String         @map("sender_id")
+  sender     User           @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  title      String
+  body       String
+  targetType String         @map("target_type") // "ALL_STUDENTS" | "DEPARTMENT" | "SEMESTER" | "DIVISION" | "TEACHERS"
+  targetId   String?        @map("target_id")
+  sentAt     DateTime       @default(now()) @map("sent_at")
+  logs       BroadcastLog[]
+
+  @@map("broadcast_messages")
+}
+
+model BroadcastLog {
+  id             String           @id @default(uuid())
+  broadcastId    String           @map("broadcast_id")
+  broadcast      BroadcastMessage @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  recipientCount Int              @default(0) @map("recipient_count")
+  deliveredCount Int              @default(0) @map("delivered_count")
+  readCount      Int              @default(0) @map("read_count")
+  failedCount    Int              @default(0) @map("failed_count")
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  @@map("broadcast_logs")
+}

@@ -1,0 +1,96 @@
+// ────────────────────────────────────────────────────────────────
+// Chapter 14 — Notifications
+// ────────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  type      NotificationType @default(IN_APP)
+  isRead    Boolean          @default(false) @map("is_read")
+  link      String? // Deep link to related resource
+  metadata  String? // JSON string for additional data
+  readAt    DateTime?        @map("read_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  recipients NotificationRecipient[]
+  logs       NotificationLog[]
+  queueItems NotificationQueue[]
+
+  @@index([userId])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+
+model NotificationQueue {
+  id               String        @id @default(uuid())
+  notificationId   String?       @map("notification_id")
+  notification     Notification? @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  recipientType    String        @map("recipient_type") // "EMAIL" | "PUSH" | "SMS"
+  recipientAddress String        @map("recipient_address")
+  subject          String?
+  body             String
+  status           String        @default("PENDING") // "PENDING" | "SENT" | "FAILED"
+  retryCount       Int           @default(0) @map("retry_count")
+  errorLog         String?       @map("error_log")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  sentAt           DateTime?     @map("sent_at")
+
+  @@map("notification_queue")
+}
+
+model NotificationTemplate {
+  id              String   @id @default(uuid())
+  name            String   @unique
+  subjectTemplate String?  @map("subject_template")
+  bodyTemplate    String   @map("body_template")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("notification_templates")
+}
+
+model NotificationRecipient {
+  id             String       @id @default(uuid())
+  notificationId String       @map("notification_id")
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  userId         String       @map("user_id")
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isDelivered    Boolean      @default(false) @map("is_delivered")
+  deliveredAt    DateTime?    @map("delivered_at")
+  isRead         Boolean      @default(false) @map("is_read")
+  readAt         DateTime?    @map("read_at")
+
+  @@map("notification_recipients")
+}
+
+model NotificationPreference {
+  id         String   @id @default(uuid())
+  userId     String   @unique @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  allowPush  Boolean  @default(true) @map("allow_push")
+  allowEmail Boolean  @default(true) @map("allow_email")
+  allowSMS   Boolean  @default(false) @map("allow_sms")
+  allowInApp Boolean  @default(true) @map("allow_in_app")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("notification_preferences")
+}
+
+model NotificationLog {
+  id             String        @id @default(uuid())
+  userId         String        @map("user_id")
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notificationId String?       @map("notification_id")
+  notification   Notification? @relation(fields: [notificationId], references: [id], onDelete: SetNull)
+  channel        String // "EMAIL" | "PUSH" | "SMS" | "IN_APP"
+  status         String // "SENT" | "DELIVERED" | "FAILED" | "OPENED"
+  errorDetails   String?       @map("error_details")
+  timestamp      DateTime      @default(now())
+
+  @@map("notification_logs")
+}

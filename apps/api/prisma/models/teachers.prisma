@@ -1,0 +1,221 @@
+enum TeacherEmploymentType {
+  FULL_TIME
+  PART_TIME
+  VISITING
+  GUEST
+}
+
+enum TeacherStatus {
+  ACTIVE
+  ON_LEAVE
+  SUSPENDED
+  RETIRED
+}
+
+model Teacher {
+  id             String                @id @default(uuid())
+  userId         String                @unique @map("user_id")
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeId     String                @unique @map("employee_id")
+  collegeId      String                @map("college_id")
+  college        College               @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  departmentId   String                @map("department_id")
+  department     Department            @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  designation    String?
+  joiningDate    DateTime              @map("joining_date")
+  employmentType TeacherEmploymentType @map("employment_type")
+  status         TeacherStatus         @default(ACTIVE)
+  createdAt      DateTime              @default(now()) @map("created_at")
+  updatedAt      DateTime              @updatedAt @map("updated_at")
+  deletedAt      DateTime?             @map("deleted_at")
+
+  profile                TeacherProfile?
+  qualifications         TeacherQualification[]
+  subjects               TeacherSubject[]
+  departments            TeacherDepartment[]
+  addresses              TeacherAddress[]
+  documents              TeacherDocument[]
+  activities             TeacherActivity[]
+  logins                 TeacherLoginHistory[]
+  histories              TeacherStatusHistory[]
+  workloads              TeacherWorkload[]
+  leaves                 TeacherLeave[]
+  attendanceSessions     AttendanceSession[]
+  notes                  Note[]
+  assignments            Assignment[]
+  gradedAssignmentMarks  AssignmentMark[]
+  assignmentFeedbacks    AssignmentFeedback[]
+  timetableSlots         TimetableSlot[]
+  teacherSchedules       TeacherSchedule[]
+  studentSchedules       StudentSchedule[]
+  substituteOriginals    SubstituteTeacher[]    @relation("SubstituteOriginalTeacher")
+  substituteReplacements SubstituteTeacher[]    @relation("SubstituteReplacementTeacher")
+  oldTimetableHistories  TimetableHistory[]     @relation("TimetableHistoryOldTeacher")
+  newTimetableHistories  TimetableHistory[]     @relation("TimetableHistoryNewTeacher")
+
+  @@map("teachers")
+}
+
+
+model TeacherProfile {
+  id         String   @id @default(uuid())
+  teacherId  String   @unique @map("teacher_id")
+  teacher    Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  firstName  String   @map("first_name")
+  middleName String?  @map("middle_name")
+  lastName   String   @map("last_name")
+  gender     String
+  dob        DateTime
+  photo      String?
+  phone      String?
+  email      String?
+  bloodGroup String?  @map("blood_group")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("teacher_profiles")
+}
+
+model TeacherQualification {
+  id             String   @id @default(uuid())
+  teacherId      String   @map("teacher_id")
+  teacher        Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  degree         String
+  university     String
+  passingYear    Int      @map("passing_year")
+  percentage     Float
+  certificateUrl String?  @map("certificate_url")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("teacher_qualifications")
+}
+
+model TeacherSubject {
+  id                String          @id @default(uuid())
+  teacherId         String          @map("teacher_id")
+  teacher           Teacher         @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subjectId         String          @map("subject_id")
+  subject           Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  divisionId        String          @map("division_id")
+  division          Division        @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  academicSessionId String          @map("academic_session_id")
+  academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id], onDelete: Cascade)
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  @@map("teacher_subjects")
+}
+
+model TeacherDepartment {
+  id                String     @id @default(uuid())
+  teacherId         String     @map("teacher_id")
+  teacher           Teacher    @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  departmentId      String     @map("department_id")
+  department        Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  primaryDepartment Boolean    @default(true) @map("primary_department")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+
+  @@map("teacher_departments")
+}
+
+model TeacherAddress {
+  id          String   @id @default(uuid())
+  teacherId   String   @map("teacher_id")
+  teacher     Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  addressLine String   @map("address_line")
+  city        String
+  state       String
+  country     String
+  postalCode  String   @map("postal_code")
+  addressType String   @map("address_type")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("teacher_addresses")
+}
+
+model TeacherDocument {
+  id           String    @id @default(uuid())
+  teacherId    String    @map("teacher_id")
+  teacher      Teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  documentName String    @map("document_name")
+  documentType String    @map("document_type")
+  storageUrl   String    @map("storage_url")
+  verified     Boolean   @default(false)
+  verifiedBy   String?   @map("verified_by")
+  verifiedAt   DateTime? @map("verified_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("teacher_documents")
+}
+
+model TeacherActivity {
+  id        String   @id @default(uuid())
+  teacherId String   @map("teacher_id")
+  teacher   Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  activity  String
+  module    String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("teacher_activity")
+}
+
+model TeacherLoginHistory {
+  id         String    @id @default(uuid())
+  teacherId  String    @map("teacher_id")
+  teacher    Teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  browser    String?
+  device     String?
+  ipAddress  String?   @map("ip_address")
+  loginTime  DateTime  @default(now()) @map("login_time")
+  logoutTime DateTime? @map("logout_time")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@map("teacher_login_history")
+}
+
+model TeacherStatusHistory {
+  id        String   @id @default(uuid())
+  teacherId String   @map("teacher_id")
+  teacher   Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  status    String
+  changedBy String   @map("changed_by")
+  remarks   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("teacher_status_history")
+}
+
+model TeacherWorkload {
+  id            String   @id @default(uuid())
+  teacherId     String   @map("teacher_id")
+  teacher       Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subjectsCount Int      @map("subjects_count")
+  weeklyHours   Int      @map("weekly_hours")
+  lecturesCount Int      @map("lectures_count")
+  labsCount     Int      @map("labs_count")
+  totalCredits  Int      @map("total_credits")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("teacher_workload")
+}
+
+model TeacherLeave {
+  id         String   @id @default(uuid())
+  teacherId  String   @map("teacher_id")
+  teacher    Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  leaveType  String   @map("leave_type")
+  reason     String
+  startDate  DateTime @map("start_date")
+  endDate    DateTime @map("end_date")
+  status     String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  approvedBy String?  @map("approved_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("teacher_leave")
+}

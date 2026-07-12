@@ -1,0 +1,137 @@
+model Timetable {
+  id                String             @id @default(uuid())
+  collegeId         String             @map("college_id")
+  college           College            @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  academicSessionId String             @map("academic_session_id")
+  academicSession   AcademicSession    @relation(fields: [academicSessionId], references: [id], onDelete: Cascade)
+  departmentId      String             @map("department_id")
+  department        Department         @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  courseId          String             @map("course_id")
+  course            Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  semesterId        String             @map("semester_id")
+  semester          Semester           @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  divisionId        String             @map("division_id")
+  division          Division           @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  active            Boolean            @default(false)
+  slots             TimetableSlot[]
+  publishes         TimetablePublish[]
+  history           TimetableHistory[]
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+
+  @@index([collegeId])
+  @@index([academicSessionId])
+  @@index([divisionId])
+  @@map("timetables")
+}
+
+model TimetableSlot {
+  id          String            @id @default(uuid())
+  timetableId String            @map("timetable_id")
+  timetable   Timetable         @relation(fields: [timetableId], references: [id], onDelete: Cascade)
+  dayOfWeek   Int               @map("day_of_week") // 0=Monday, 6=Sunday
+  slotNumber  Int               @map("slot_number") // Period number (1, 2, 3, ...)
+  startTime   String            @map("start_time") // "09:00"
+  endTime     String            @map("end_time") // "09:45"
+  type        TimetableSlotType @default(THEORY)
+  subjectId   String?           @map("subject_id")
+  subject     Subject?          @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  teacherId   String?           @map("teacher_id")
+  teacher     Teacher?          @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  divisionId  String            @map("division_id")
+  division    Division          @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  room        String?
+  isPublished Boolean           @default(false) @map("is_published")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  @@unique([dayOfWeek, slotNumber, divisionId, timetableId])
+  @@index([teacherId])
+  @@index([divisionId])
+  @@map("timetable_slots")
+}
+
+model TeacherSchedule {
+  id         String   @id @default(uuid())
+  teacherId  String   @map("teacher_id")
+  teacher    Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  dayOfWeek  Int      @map("day_of_week")
+  slotNumber Int      @map("slot_number")
+  subjectId  String   @map("subject_id")
+  subject    Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  divisionId String   @map("division_id")
+  division   Division @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  room       String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([teacherId])
+  @@map("teacher_schedule")
+}
+
+model StudentSchedule {
+  id         String   @id @default(uuid())
+  studentId  String   @map("student_id")
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  dayOfWeek  Int      @map("day_of_week")
+  slotNumber Int      @map("slot_number")
+  subjectId  String   @map("subject_id")
+  subject    Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacherId  String?  @map("teacher_id")
+  teacher    Teacher? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  room       String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([studentId])
+  @@map("student_schedule")
+}
+
+model SubstituteTeacher {
+  id                  String   @id @default(uuid())
+  originalTeacherId   String   @map("original_teacher")
+  originalTeacher     Teacher  @relation("SubstituteOriginalTeacher", fields: [originalTeacherId], references: [id], onDelete: Cascade)
+  substituteTeacherId String   @map("substitute_teacher")
+  substituteTeacher   Teacher  @relation("SubstituteReplacementTeacher", fields: [substituteTeacherId], references: [id], onDelete: Cascade)
+  subjectId           String   @map("subject_id")
+  subject             Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  date                DateTime
+  reason              String?
+  approvedById        String?  @map("approved_by")
+  approvedBy          User?    @relation("SubstituteApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("substitute_teachers")
+}
+
+model TimetableHistory {
+  id           String    @id @default(uuid())
+  timetableId  String    @map("timetable_id")
+  timetable    Timetable @relation(fields: [timetableId], references: [id], onDelete: Cascade)
+  oldTeacherId String?   @map("old_teacher")
+  oldTeacher   Teacher?  @relation("TimetableHistoryOldTeacher", fields: [oldTeacherId], references: [id], onDelete: SetNull)
+  newTeacherId String?   @map("new_teacher")
+  newTeacher   Teacher?  @relation("TimetableHistoryNewTeacher", fields: [newTeacherId], references: [id], onDelete: SetNull)
+  oldRoom      String?   @map("old_room")
+  newRoom      String?   @map("new_room")
+  changedById  String?   @map("changed_by")
+  changedBy    User?     @relation("TimetableHistoryChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+  reason       String?
+  changedAt    DateTime  @default(now()) @map("changed_at")
+
+  @@map("timetable_history")
+}
+
+model TimetablePublish {
+  id            String    @id @default(uuid())
+  timetableId   String    @map("timetable_id")
+  timetable     Timetable @relation(fields: [timetableId], references: [id], onDelete: Cascade)
+  version       Int
+  publishedById String?   @map("published_by")
+  publishedBy   User?     @relation("TimetablePublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
+  publishedAt   DateTime  @default(now()) @map("published_at")
+  active        Boolean   @default(false)
+
+  @@map("timetable_publish")
+}

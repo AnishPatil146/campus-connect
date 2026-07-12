@@ -1,0 +1,91 @@
+// Chapter 4 — Education Group & College
+// ────────────────────────────────────────────────────────────────
+
+model EducationGroup {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  colleges  College[]
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@map("education_groups")
+}
+
+model College {
+  id                   String                @id @default(uuid())
+  name                 String                @unique
+  educationGroupId     String                @map("education_group_id")
+  educationGroup       EducationGroup        @relation(fields: [educationGroupId], references: [id], onDelete: Cascade)
+  departments          Department[]
+  users                User[]
+  announcements        Announcement[]
+  events               Event[]
+  settings             CollegeSetting?
+  students             Student[]
+  teachers             Teacher[]
+  classrooms           Classroom[]
+  laboratories         Laboratory[]
+  attendanceStatistics AttendanceStatistic[]
+  timetables           Timetable[]
+  broadcasts           BroadcastMessage[]
+  deletedAt            DateTime?             @map("deleted_at")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+
+  @@map("colleges")
+}
+
+model CollegeSetting {
+  id                String   @id @default(uuid())
+  collegeId         String   @unique @map("college_id")
+  college           College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  logoUrl           String?  @map("logo_url")
+  bannerUrl         String?  @map("banner_url")
+  primaryColor      String?  @map("primary_color")
+  secondaryColor    String?  @map("secondary_color")
+  address           String?
+  phone             String?
+  website           String?
+  timezone          String   @default("Asia/Kolkata")
+  academicYearStart Int      @default(6) @map("academic_year_start") // June
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("college_settings")
+}
+
+
+
+model Classroom {
+  id         String   @id @default(uuid())
+  roomNumber String   @map("room_number")
+  building   String
+  capacity   Int
+  projector  Boolean  @default(false)
+  smartBoard Boolean  @default(false) @map("smart_board")
+  status     String
+  collegeId  String   @map("college_id")
+  college    College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([collegeId])
+  @@map("classrooms")
+}
+
+model Laboratory {
+  id        String   @id @default(uuid())
+  labName   String   @map("lab_name")
+  capacity  Int
+  software  String?
+  hardware  String?
+  status    String
+  collegeId String   @map("college_id")
+  college   College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([collegeId])
+  @@map("laboratories")
+}
