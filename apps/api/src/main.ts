@@ -31,7 +31,24 @@ async function bootstrap() {
 
   // Set global API prefix
   app.setGlobalPrefix('api/v1', {
-    exclude: ['/', 'health', 'health/database', 'health/redis', 'health/storage', 'health/socket'],
+    exclude: [
+      '/',
+      'health',
+      'api/health',
+      'api/v1/health',
+      'health/database',
+      'api/health/database',
+      'api/v1/health/database',
+      'health/redis',
+      'api/health/redis',
+      'api/v1/health/redis',
+      'health/storage',
+      'api/health/storage',
+      'api/v1/health/storage',
+      'health/socket',
+      'api/health/socket',
+      'api/v1/health/socket'
+    ],
   });
 
   // Global pipes for DTO class-validator parsing

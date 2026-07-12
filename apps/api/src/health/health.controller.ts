@@ -1,22 +1,24 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Req } from '@nestjs/common';
+import { Request } from 'express';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { v2 as cloudinary } from 'cloudinary';
 
 @ApiTags('Health Check')
-@Controller('health')
+@Controller()
 export class HealthController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redisService: RedisService,
   ) {}
 
-  @Get()
+  @Get(['health', 'api/health', 'api/v1/health'])
   @ApiOperation({ summary: 'General health check' })
-  async getGeneralHealth() {
+  async getGeneralHealth(@Req() req?: Request) {
     const timestamp = new Date().toISOString();
-    console.log(`[Health Probe] GET /health requested at: ${timestamp}`);
+    const urlPath = req?.originalUrl || req?.url || '/health';
+    console.log(`[Health Probe] GET ${urlPath} requested at: ${timestamp}`);
 
     const uptime = process.uptime();
 
@@ -48,10 +50,11 @@ export class HealthController {
     };
   }
 
-  @Get('database')
+  @Get(['health/database', 'api/health/database', 'api/v1/health/database'])
   @ApiOperation({ summary: 'Database health check' })
-  async getDatabaseHealth() {
-    console.log(`[Health Probe] GET /health/database requested at: ${new Date().toISOString()}`);
+  async getDatabaseHealth(@Req() req?: Request) {
+    const urlPath = req?.originalUrl || req?.url || '/health/database';
+    console.log(`[Health Probe] GET ${urlPath} requested at: ${new Date().toISOString()}`);
     try {
       await this.prisma.$queryRaw`SELECT 1`;
       return {
@@ -67,10 +70,11 @@ export class HealthController {
     }
   }
 
-  @Get('redis')
+  @Get(['health/redis', 'api/health/redis', 'api/v1/health/redis'])
   @ApiOperation({ summary: 'Redis Cache health check' })
-  async getRedisHealth() {
-    console.log(`[Health Probe] GET /health/redis requested at: ${new Date().toISOString()}`);
+  async getRedisHealth(@Req() req?: Request) {
+    const urlPath = req?.originalUrl || req?.url || '/health/redis';
+    console.log(`[Health Probe] GET ${urlPath} requested at: ${new Date().toISOString()}`);
     try {
       const result = await this.redisService.ping();
       return {
@@ -87,10 +91,11 @@ export class HealthController {
     }
   }
 
-  @Get('storage')
+  @Get(['health/storage', 'api/health/storage', 'api/v1/health/storage'])
   @ApiOperation({ summary: 'Cloud Storage health check' })
-  async getStorageHealth() {
-    console.log(`[Health Probe] GET /health/storage requested at: ${new Date().toISOString()}`);
+  async getStorageHealth(@Req() req?: Request) {
+    const urlPath = req?.originalUrl || req?.url || '/health/storage';
+    console.log(`[Health Probe] GET ${urlPath} requested at: ${new Date().toISOString()}`);
     try {
       await cloudinary.api.ping();
       return {
@@ -106,10 +111,11 @@ export class HealthController {
     }
   }
 
-  @Get('socket')
+  @Get(['health/socket', 'api/health/socket', 'api/v1/health/socket'])
   @ApiOperation({ summary: 'Socket.IO health check' })
-  async getSocketHealth() {
-    console.log(`[Health Probe] GET /health/socket requested at: ${new Date().toISOString()}`);
+  async getSocketHealth(@Req() req?: Request) {
+    const urlPath = req?.originalUrl || req?.url || '/health/socket';
+    console.log(`[Health Probe] GET ${urlPath} requested at: ${new Date().toISOString()}`);
     return {
       status: 'UP',
       socket: 'CONNECTED',
