@@ -42,6 +42,37 @@ export default function StudentDashboard() {
     <DashboardLayout title="Student Dashboard">
       <div className="space-y-6">
         
+        {/* Profile Completion Alert Banner */}
+        {user?.profileCompletionPercentage !== undefined && user.profileCompletionPercentage < 100 && (
+          <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-900/30 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 transition-all duration-300">
+            <div className="flex items-center gap-3.5 w-full sm:w-auto">
+              <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div className="space-y-1 min-w-0">
+                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">Complete your profile</h4>
+                <p className="text-xs text-slate-505 dark:text-slate-400">
+                  Your profile is only <span className="font-semibold text-amber-700 dark:text-amber-450">{user.profileCompletionPercentage}% complete</span>. Fill in required details to access all features.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 w-full sm:w-auto shrink-0">
+              <div className="flex-1 sm:flex-initial w-32 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-amber-500 rounded-full transition-all duration-500" 
+                  style={{ width: `${user.profileCompletionPercentage}%` }}
+                />
+              </div>
+              <Link 
+                href="/dashboard/student/profile" 
+                className="text-xs font-bold text-amber-700 dark:text-amber-455 hover:text-amber-800 dark:hover:text-amber-300 transition-colors uppercase tracking-wider shrink-0"
+              >
+                Complete Profile →
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Welcome Greeting Banner */}
         <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-6 text-white relative overflow-hidden shadow-lg shadow-blue-500/10">
           <div className="absolute top-0 right-0 transform translate-x-12 -translate-y-12 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />

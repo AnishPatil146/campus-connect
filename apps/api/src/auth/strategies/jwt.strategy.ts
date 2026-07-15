@@ -1,19 +1,54 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../../prisma/prisma.service';
+import { collegeStorage } from '../../common/college-storage';
+import { RedisService } from '../../redis/redis.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(private prisma: PrismaService) {
+  constructor(
+    private prisma: PrismaService,
+    private redis: RedisService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'super-secret-jwt-key-for-campus-connect',
+      secretOrKey: (() => {
+        const secret = process.env.JWT_SECRET;
+        if (!secret) {
+          if (process.env.NODE_ENV === 'production') {
+            throw new Error('FATAL CONFIG ERROR: JWT_SECRET environment variable is required in production!');
+          }
+          return 'super-secret-jwt-key-for-campus-connect';
+        }
+        return secret;
+      })(),
     });
   }
 
   async validate(payload: any) {
+    // 0. Validate active session (cached in Redis or stored in DB)
+    if (payload.sessionId) {
+      const cachedSession = await this.redis.getSession(payload.sub, payload.sessionId);
+      if (!cachedSession) {
+        // Fallback to DB check
+        const session = await this.prisma.refreshToken.findUnique({
+          where: { id: payload.sessionId },
+        });
+        if (!session || session.expiresAt < new Date()) {
+          throw new UnauthorizedException('Session expired or revoked');
+        }
+        // Cache it back for next requests
+        await this.redis.setSession(payload.sub, payload.sessionId, {
+          userId: payload.sub,
+          sessionId: payload.sessionId,
+          role: payload.role,
+          collegeId: payload.collegeId,
+          createdAt: new Date().toISOString(),
+        });
+      }
+    }
     // 1. Fetch user and their roles with permissions from RolePermission table
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
@@ -66,7 +101,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       );
     }
 
-
+    // Tenant isolation validation
+    const activeStore = collegeStorage.getStore();
+    if (activeStore && activeStore.collegeId) {
+      const isSuperAdmin = user.email === 'super@campusconnect.com' || payload.role === 'SUPER_ADMIN';
+      if (!isSuperAdmin && user.collegeId !== activeStore.collegeId) {
+        throw new ForbiddenException('Access denied: Tenant mismatch');
+      }
+    }
 
     return {
       id: user.id,

@@ -27,7 +27,7 @@ export class UsersService {
     }
 
     // Hash the password
-    const passwordHash = bcrypt.hashSync(dto.password, 10);
+    const passwordHash = bcrypt.hashSync(dto.password, 12);
 
     if (dto.collegeId) {
       const college = await this.prisma.college.findFirst({
@@ -232,7 +232,7 @@ export class UsersService {
     }
 
     if (dto.password) {
-      data.passwordHash = bcrypt.hashSync(dto.password, 10);
+      data.passwordHash = bcrypt.hashSync(dto.password, 12);
     }
 
     if (dto.status) {

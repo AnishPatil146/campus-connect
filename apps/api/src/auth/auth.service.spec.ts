@@ -52,6 +52,7 @@ describe('AuthService', () => {
     get: jest.fn().mockResolvedValue(undefined),
     set: jest.fn().mockResolvedValue(undefined),
     del: jest.fn().mockResolvedValue(undefined),
+    incrementAndGet: jest.fn().mockResolvedValue(1),
   };
 
   beforeEach(async () => {

@@ -34,6 +34,13 @@ export class RedisService {
     await (this.cacheManager as any).reset();
   }
 
+  async incrementAndGet(key: string, ttlSeconds: number): Promise<number> {
+    const current = await this.get<number>(key);
+    const newVal = (current || 0) + 1;
+    await this.set(key, newVal, ttlSeconds);
+    return newVal;
+  }
+
   // --- Ping / Health ----------------------------------------------------------
 
   async ping(): Promise<{ status: string; latencyMs: number }> {

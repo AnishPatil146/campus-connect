@@ -149,6 +149,36 @@ export class StudentsService {
     return student;
   }
 
+  async findByUserId(userId: string, collegeId?: string) {
+    const student = await this.prisma.student.findUnique({
+      where: { userId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            collegeId: true,
+          },
+        },
+        profile: true,
+        guardians: true,
+        addresses: true,
+        medical: true,
+      },
+    });
+
+    if (!student) {
+      return null;
+    }
+
+    if (collegeId && student.collegeId !== collegeId) {
+      throw new BadRequestException('Access denied: Student belongs to another college');
+    }
+
+    return student;
+  }
+
   async create(createDto: CreateStudentDto, collegeId: string | null, actorId: string, actorName: string, actorRole: string) {
     const existingUser = await this.prisma.user.findUnique({
       where: { email: createDto.email },
@@ -171,7 +201,7 @@ export class StudentsService {
       throw new BadRequestException(`Roll number "${rollNumber}" already exists in this division`);
     }
 
-    const defaultPasswordHash = bcrypt.hashSync('password123', 10);
+    const defaultPasswordHash = bcrypt.hashSync('password123', 12);
 
     const student = await this.prisma.$transaction(async (tx) => {
       // 1. Create User
@@ -345,6 +375,91 @@ export class StudentsService {
         });
       }
 
+      // 5. Update/Create Guardian details
+      const guardianData: any = {};
+      if (updateDto.fatherName !== undefined) guardianData.fatherName = updateDto.fatherName;
+      if (updateDto.motherName !== undefined) guardianData.motherName = updateDto.motherName;
+      if (updateDto.guardianName !== undefined) guardianData.guardianName = updateDto.guardianName;
+      if (updateDto.guardianRelationship !== undefined) guardianData.guardianRelationship = updateDto.guardianRelationship;
+      if (updateDto.guardianOccupation !== undefined) guardianData.guardianOccupation = updateDto.guardianOccupation;
+      if (updateDto.guardianPhone !== undefined) guardianData.guardianPhone = updateDto.guardianPhone;
+      if (updateDto.guardianEmail !== undefined) guardianData.guardianEmail = updateDto.guardianEmail;
+      if (updateDto.guardianAnnualIncome !== undefined) guardianData.guardianAnnualIncome = updateDto.guardianAnnualIncome;
+
+      if (Object.keys(guardianData).length > 0) {
+        const existingGuardian = await tx.studentGuardian.findFirst({
+          where: { studentId: id },
+        });
+        if (existingGuardian) {
+          await tx.studentGuardian.update({
+            where: { id: existingGuardian.id },
+            data: guardianData,
+          });
+        } else {
+          await tx.studentGuardian.create({
+            data: {
+              ...guardianData,
+              studentId: id,
+            },
+          });
+        }
+      }
+
+      // 6. Update/Create Address details
+      const addressData: any = {};
+      if (updateDto.addressLine !== undefined) addressData.addressLine = updateDto.addressLine;
+      if (updateDto.city !== undefined) addressData.city = updateDto.city;
+      if (updateDto.state !== undefined) addressData.state = updateDto.state;
+      if (updateDto.country !== undefined) addressData.country = updateDto.country;
+      if (updateDto.postalCode !== undefined) addressData.postalCode = updateDto.postalCode;
+      if (updateDto.addressType !== undefined) addressData.addressType = updateDto.addressType;
+
+      if (Object.keys(addressData).length > 0) {
+        const existingAddress = await tx.studentAddress.findFirst({
+          where: { studentId: id },
+        });
+        if (existingAddress) {
+          await tx.studentAddress.update({
+            where: { id: existingAddress.id },
+            data: addressData,
+          });
+        } else {
+          await tx.studentAddress.create({
+            data: {
+              ...addressData,
+              studentId: id,
+            },
+          });
+        }
+      }
+
+      // 7. Update/Create Medical details
+      const medicalData: any = {};
+      if (updateDto.allergies !== undefined) medicalData.allergies = updateDto.allergies;
+      if (updateDto.medicalNotes !== undefined) medicalData.medicalNotes = updateDto.medicalNotes;
+      if (updateDto.disability !== undefined) medicalData.disability = updateDto.disability;
+      if (updateDto.insurance !== undefined) medicalData.insurance = updateDto.insurance;
+      if (updateDto.bloodGroup !== undefined) medicalData.bloodGroup = updateDto.bloodGroup;
+
+      if (Object.keys(medicalData).length > 0) {
+        const existingMedical = await tx.studentMedical.findFirst({
+          where: { studentId: id },
+        });
+        if (existingMedical) {
+          await tx.studentMedical.update({
+            where: { id: existingMedical.id },
+            data: medicalData,
+          });
+        } else {
+          await tx.studentMedical.create({
+            data: {
+              ...medicalData,
+              studentId: id,
+            },
+          });
+        }
+      }
+
       return await tx.student.findUnique({
         where: { id },
         include: {
@@ -385,7 +500,7 @@ export class StudentsService {
   async resetPassword(id: string, collegeId?: string, customPassword?: string) {
     const student = await this.findOne(id, collegeId);
     const passwordToUse = customPassword || 'password123';
-    const passwordHash = bcrypt.hashSync(passwordToUse, 10);
+    const passwordHash = bcrypt.hashSync(passwordToUse, 12);
 
     await this.prisma.user.update({
       where: { id: student.userId },

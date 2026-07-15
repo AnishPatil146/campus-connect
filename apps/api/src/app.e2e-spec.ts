@@ -78,6 +78,7 @@ describe('Auth API (e2e)', () => {
     set: jest.fn().mockResolvedValue(undefined),
     del: jest.fn().mockResolvedValue(undefined),
     ping: jest.fn().mockResolvedValue({ status: 'UP', latencyMs: 1 }),
+    incrementAndGet: jest.fn().mockResolvedValue(1),
   };
 
   beforeAll(async () => {
@@ -214,6 +215,83 @@ describe('Auth API (e2e)', () => {
         .expect(400);
 
       expect(response.body.success).toBe(false);
+    });
+  });
+
+  describe('Login Locking Progression & Google Login E2E', () => {
+    beforeEach(() => {
+      mockRedis.incrementAndGet.mockResolvedValue(1);
+    });
+
+    it('should lock account after 5 failed attempts', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        ...activeUser,
+        failedLoginAttempts: 4,
+      });
+
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: 'student@college.edu', password: 'WrongPassword!' })
+        .expect(401);
+
+      expect(response.body.message).toContain('locked');
+    });
+
+    it('should suspend account after 20 failed attempts', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        ...activeUser,
+        failedLoginAttempts: 19,
+      });
+
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: 'student@college.edu', password: 'WrongPassword!' })
+        .expect(401);
+
+      expect(response.body.message).toContain('suspended');
+    });
+
+    it('should allow Google login with mock token', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(activeUser);
+
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/auth/google')
+        .send({
+          token: 'mock-google-token-student@college.edu',
+          collegeId: 'college-uuid',
+          role: 'STUDENT',
+        })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.accessToken).toBeDefined();
+    });
+
+    it('should deny Google login on role mismatch', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(activeUser);
+
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/auth/google')
+        .send({
+          token: 'mock-google-token-student@college.edu',
+          collegeId: 'college-uuid',
+          role: 'TEACHER',
+        })
+        .expect(401);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toContain('Role mismatch');
+    });
+
+    it('should reject requests on role-specific rate limits', async () => {
+      mockRedis.incrementAndGet.mockResolvedValue(10); // Exceeds threshold
+
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: 'student@college.edu', password: 'Password@123' })
+        .expect(400);
+
+      expect(response.body.message).toContain('Too many login attempts');
     });
   });
 });

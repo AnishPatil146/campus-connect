@@ -307,6 +307,25 @@ async function seedCollegeDatabase(collegeId: string, url: string) {
         },
       });
 
+      // Admin for College A
+      await prisma.user.create({
+        data: {
+          email: 'admin@collegea.edu',
+          passwordHash: defaultPasswordHash,
+          name: 'College A Admin',
+          status: 'ACTIVE',
+          collegeId: college.id,
+          userRoles: { create: { roleId: adminRole.id } },
+          userProfile: {
+            create: {
+              firstName: 'Admin',
+              lastName: 'A',
+              phone: '+91 9900990098',
+            },
+          },
+        },
+      });
+
       // Teacher: Dr. Sarah Jenkins (fallback/mock support)
       const teacherUser = await prisma.user.create({
         data: {
@@ -658,7 +677,7 @@ async function run() {
     const dbUrl = getDatabaseUrl(collegeId);
     console.log(`⚙️ Running Prisma db push on ${collegeId}...`);
     try {
-      execSync('npx prisma db push --accept-data-loss --schema=prisma', {
+      execSync('npx prisma db push --accept-data-loss --schema=prisma/schema_merged.prisma', {
         env: { ...process.env, DATABASE_URL: dbUrl },
         stdio: 'inherit',
       });

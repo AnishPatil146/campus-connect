@@ -8,6 +8,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Login Page', () => {
   test.beforeEach(async ({ page }) => {
+    page.on('console', msg => console.log('BROWSER CONSOLE:', msg.text()));
     await page.goto('/login');
   });
 
@@ -26,7 +27,8 @@ test.describe('Login Page', () => {
   });
 
   test('FRONT_E2E_003: should navigate to dashboard on valid login', async ({ page }) => {
-    // Fill credentials (these must match your seeded admin account)
+    // Fill credentials (these must match your seeded student account)
+    await page.locator('select').first().selectOption('college-a');
     await page.locator('input[type="email"]').first().fill('student@collegea.edu');
     await page.locator('input[type="password"]').first().fill('password123');
     await page.locator('button[type="submit"]').first().click();

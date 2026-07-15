@@ -1,4 +1,4 @@
-﻿import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, UseGuards, NotFoundException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { StudentsService } from './students.service';
 import { CreateStudentDto } from './dto/create-student.dto';
@@ -211,6 +211,33 @@ export class StudentsController {
 
     return {
       message: 'Students promoted successfully',
+      data,
+    };
+  }
+
+  @Put('me/profile')
+  @Roles(Role.STUDENT)
+  @ApiOperation({ summary: 'Update or complete logged-in student self profile' })
+  async updateSelfProfile(@Req() req: any, @Body() updateDto: UpdateStudentDto) {
+    const user = req.user;
+    
+    const student = await this.studentsService.findByUserId(user.id, user.collegeId);
+    if (!student) {
+      throw new NotFoundException('Student profile not found for this user');
+    }
+
+    const data = await this.studentsService.update(student.id, updateDto, user.collegeId);
+
+    await this.auditService.log(
+      user.id,
+      user.name,
+      user.role,
+      'Completed Self Profile',
+      `Student ${user.email} updated/completed their own profile.`,
+    );
+
+    return {
+      message: 'Profile updated successfully',
       data,
     };
   }

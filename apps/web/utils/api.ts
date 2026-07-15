@@ -952,5 +952,42 @@ export const api = {
     }
     return { success: false, data: null, message: 'API is offline' };
   },
+
+  async getMe(): Promise<{ success: boolean; data: any; message?: string }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/auth/me`, {
+          method: 'GET',
+          headers: getHeaders(),
+        });
+        const payload = await res.json();
+        return { success: payload.success, data: payload.data, message: payload.message };
+      } catch (err) {
+        console.warn('Failed to fetch user profile:', err);
+        return { success: false, data: null, message: 'Network error' };
+      }
+    }
+    return { success: false, data: null, message: 'API is offline' };
+  },
+
+  async updateSelfProfile(data: any): Promise<{ success: boolean; data: any; message?: string }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/students/me/profile`, {
+          method: 'PUT',
+          headers: getHeaders(),
+          body: JSON.stringify(data),
+        });
+        const payload = await res.json();
+        return { success: payload.success, data: payload.data, message: payload.message };
+      } catch (err) {
+        console.warn('Failed to update self student profile:', err);
+        return { success: false, data: null, message: 'Network error' };
+      }
+    }
+    return { success: false, data: null, message: 'API is offline' };
+  },
 };
 

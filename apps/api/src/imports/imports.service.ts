@@ -216,7 +216,7 @@ export class ImportsService {
     let failedRows = 0;
     const errorDetails: any[] = [];
 
-    const defaultPasswordHash = bcrypt.hashSync('Campus@123', 10);
+    const defaultPasswordHash = bcrypt.hashSync('Campus@123', 12);
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];

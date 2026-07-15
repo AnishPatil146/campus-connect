@@ -8,6 +8,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, collegeId: CollegeId, role: UserRole, password?: string) => Promise<boolean>;
+  loginWithGoogle: (token: string, collegeId: CollegeId, role: UserRole) => Promise<boolean>;
   logout: () => void;
 }
 
@@ -143,7 +144,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           'Content-Type': 'application/json',
           'x-college-id': collegeId
         },
-        body: JSON.stringify({ email, password: password || 'password123' })
+        body: JSON.stringify({ email, password: password || 'password123', role })
       });
       if (res.ok) {
         const payload = await res.json();
@@ -199,6 +200,80 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return false;
   };
 
+  const loginWithGoogle = async (token: string, collegeId: CollegeId, role: UserRole): Promise<boolean> => {
+    setIsLoading(true);
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+    try {
+      const res = await fetch(`${apiBaseUrl}/auth/google`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-college-id': collegeId,
+          'x-recaptcha-token': 'mock-recaptcha-token'
+        },
+        body: JSON.stringify({ token, collegeId, role })
+      });
+      if (res.ok) {
+        const payload = await res.json();
+        if (payload.success && payload.data) {
+          const apiUser = payload.data.user;
+          const loggedUser: User = {
+            id: apiUser.id,
+            email: apiUser.email,
+            name: apiUser.name,
+            role: (apiUser.role === 'COLLEGE_ADMIN' || apiUser.role === 'ADMIN') ? 'ADMIN' : apiUser.role,
+            collegeId: collegeId,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            studentProfile: apiUser.studentProfile,
+            teacherProfile: apiUser.teacherProfile,
+          };
+          setUser(loggedUser);
+          localStorage.setItem('cc_user', JSON.stringify(loggedUser));
+          localStorage.setItem('cc_token', payload.data.accessToken);
+          setIsLoading(false);
+          return true;
+        }
+      }
+    } catch (e) {
+      console.warn('API Google login failed, falling back to local mocks:', e);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    const mockEmail = token.startsWith('mock-google-token-') 
+      ? token.replace('mock-google-token-', '') 
+      : 'student@collegea.edu';
+    
+    // Check local mock users or create dynamically
+    const storedUsers = typeof window !== 'undefined' ? (localStorage.getItem('cc_mock_registered_users') || '[]') : '[]';
+    const registeredUsers = JSON.parse(storedUsers);
+    const dynamicUsers = registeredUsers.reduce((acc: any, u: any) => {
+      acc[u.email.toLowerCase()] = u;
+      return acc;
+    }, {});
+
+    const matchedUser = MOCK_USERS[mockEmail.toLowerCase()] || dynamicUsers[mockEmail.toLowerCase()] || {
+      id: `usr-mock-${Date.now()}`,
+      email: mockEmail,
+      name: mockEmail.split('@')[0],
+      role: role,
+      collegeId: collegeId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    if (matchedUser.collegeId === collegeId && matchedUser.role === role) {
+      setUser(matchedUser);
+      localStorage.setItem('cc_user', JSON.stringify(matchedUser));
+      localStorage.setItem('cc_token', 'mock-token-12345');
+      setIsLoading(false);
+      return true;
+    }
+
+    setIsLoading(false);
+    return false;
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem('cc_user');
@@ -212,6 +287,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!user,
         isLoading,
         login,
+        loginWithGoogle,
         logout,
       }}
     >

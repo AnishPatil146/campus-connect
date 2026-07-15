@@ -6,8 +6,9 @@
     "module": "CommonJS",
     "moduleResolution": "node",
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    "types": ["jest", "node", "express", "multer", "supertest"]
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*spec.ts"]
+  "exclude": ["node_modules", "dist"]
 }

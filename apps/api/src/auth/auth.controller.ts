@@ -10,6 +10,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
+import { GoogleLoginDto } from './dto/google-login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @ApiTags('Authentication')
@@ -25,7 +26,9 @@ export class AuthController {
 
   @Post('register')
   @ApiOperation({ summary: 'Register a new student or teacher account' })
-  async register(@Body() registerDto: RegisterDto) {
+  async register(@Body() registerDto: RegisterDto, @Req() req: Request) {
+    const recaptchaToken = req.headers['x-recaptcha-token'] as string;
+    await this.authService.verifyRecaptcha(recaptchaToken);
     const result = await this.authService.register(registerDto);
     return {
       success: true,
@@ -38,14 +41,41 @@ export class AuthController {
   @HttpCode(200)
   @ApiOperation({ summary: 'Login using email and password' })
   async login(@Body() loginDto: LoginDto, @Req() req: Request) {
-    const ipAddress = req.ip || req.socket.remoteAddress;
+    const ipAddress = (req.headers['cf-connecting-ip'] as string) || 
+                      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || 
+                      req.ip || 
+                      req.socket.remoteAddress;
     const userAgent = req.headers['user-agent'];
-    const result = await this.authService.login(loginDto, ipAddress, userAgent);
+    const recaptchaToken = req.headers['x-recaptcha-token'] as string;
+    const collegeIdHeader = req.headers['x-college-id'] as string;
+
+    await this.authService.verifyRecaptcha(recaptchaToken);
+    const result = await this.authService.login(loginDto, ipAddress, userAgent, collegeIdHeader);
 
     return {
       message: result.needsWorkspaceSelection
         ? 'Multiple roles detected, please select a workspace'
         : 'Login successful',
+      data: result,
+    };
+  }
+
+  @Post('google')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Login or register using Google Sign-In token' })
+  async googleLogin(@Body() googleLoginDto: GoogleLoginDto, @Req() req: Request) {
+    const ipAddress = (req.headers['cf-connecting-ip'] as string) || 
+                      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || 
+                      req.ip || 
+                      req.socket.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+    const recaptchaToken = req.headers['x-recaptcha-token'] as string;
+
+    await this.authService.verifyRecaptcha(recaptchaToken);
+    const result = await this.authService.googleLogin(googleLoginDto, ipAddress, userAgent);
+
+    return {
+      message: 'Google login successful',
       data: result,
     };
   }
@@ -150,9 +180,10 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Retrieve currently logged in user profile' })
   async getMe(@Req() req: any) {
+    const result = await this.authService.getMe(req.user.id, req.user.role);
     return {
       message: 'User profile retrieved successfully',
-      data: req.user,
+      data: result,
     };
   }
 

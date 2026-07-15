@@ -31,7 +31,7 @@ export class TeachersService {
       throw new NotFoundException(`Department with ID "${dto.departmentId}" not found in this college`);
     }
 
-    const passwordHash = bcrypt.hashSync(dto.password || 'Welcome@123', 10);
+    const passwordHash = bcrypt.hashSync(dto.password || 'Welcome@123', 12);
 
     const teacher = await this.prisma.$transaction(async (tx) => {
       // 1. Create User with role and profile
@@ -41,6 +41,7 @@ export class TeachersService {
           passwordHash,
           name: dto.name,
           collegeId,
+          mustChangePassword: !dto.password,
           userRoles: {
             create: {
               role: {

@@ -23,7 +23,7 @@ import { sendPasswordResetEmail } from 'firebase/auth';
 import { api } from '../utils/api';
 
 export default function LoginContainer({ initialRole, brandingMessage }: { initialRole?: UserRole; brandingMessage?: string }) {
-  const { login, isLoading } = useAuth();
+  const { login, loginWithGoogle, isLoading } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
 
@@ -35,6 +35,7 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
   
   // Custom password visibility toggle
   const [showPasswordText, setShowPasswordText] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   // Forgot password states
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -119,61 +120,64 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
     }
   };
 
+  const handleGoogleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsGoogleLoading(true);
+
+    const mockToken = `mock-google-token-${email || (role === 'STUDENT' ? 'student@collegea.edu' : role === 'TEACHER' ? 'teacher@collegea.edu' : 'admin@collegea.edu')}`;
+    const success = await loginWithGoogle(mockToken, collegeId, role);
+    if (success) {
+      redirectUser(role);
+    } else {
+      setError('Invalid credentials or tenant/role mismatch. Please check your selected college and role.');
+    }
+    setIsGoogleLoading(false);
+  };
+
   const handleSignUpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSignUpError(null);
     setSignUpSuccess(null);
 
-    if (!signUpFirstName || !signUpSurname || !signUpGmail || !signUpPassword) {
-      setSignUpError('First Name, Surname, Gmail, and Password are required.');
+    if (!signUpGmail || !signUpPassword) {
+      setSignUpError('Gmail and Password are required.');
       return;
     }
     if (!/^[^@]+@gmail\.com$/.test(signUpGmail)) {
       setSignUpError('Please enter a valid Gmail address (e.g., name@gmail.com).');
       return;
     }
-    if (signUpRole === 'STUDENT' && signUpCourseType !== 'DEGREE' && signUpSubjects.length < 2) {
-      setSignUpError('Please select at least 2 subjects.');
-      return;
-    }
 
     setIsSigningUp(true);
     try {
-      // Student-specific required fields validation
-      if (signUpRole === 'STUDENT') {
-        if (!signUpPhone) {
-          setSignUpError('Phone Number is required.');
-          return;
-        }
-        if (!signUpFatherName || !signUpMotherName) {
-          setSignUpError('Both Father\'s and Mother\'s names are required.');
-          return;
-        }
-      }
+      const emailPrefix = signUpGmail.split('@')[0];
+      const derivedFirstName = signUpFirstName || emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+      const derivedSurname = signUpSurname || 'Student';
 
       const payload = {
-        name: `${signUpFirstName} ${signUpSurname}`.trim(),
-        firstName: signUpFirstName,
-        lastName: signUpSurname,
-        surname: signUpSurname,
+        name: `${derivedFirstName} ${derivedSurname}`.trim(),
+        firstName: derivedFirstName,
+        lastName: derivedSurname,
+        surname: derivedSurname,
         email: signUpGmail,
         password: signUpPassword,
         role: signUpRole,
         collegeId: collegeId,
-        rollNumber: signUpRole === 'STUDENT' ? (signUpRollNo || null) : undefined,
+        rollNumber: signUpRole === 'STUDENT' ? (signUpRollNo || `ROLL-${Date.now()}`) : undefined,
         admissionNumber: signUpRole === 'STUDENT' ? (signUpAdmissionNo || `ADM-${Math.floor(100000 + Math.random() * 900000)}`) : undefined,
         gender: signUpRole === 'STUDENT' ? 'Male' : undefined,
-        mobile: signUpRole === 'STUDENT' ? (signUpPhone || null) : (signUpMobile || null),
-        address: signUpRole === 'STUDENT' ? (signUpAddress || null) : undefined,
-        parentName: signUpRole === 'STUDENT' ? `Father: ${signUpFatherName}, Mother: ${signUpMotherName}` : undefined,
-        motherName: signUpRole === 'STUDENT' ? (signUpMotherName || null) : undefined,
-        fatherName: signUpRole === 'STUDENT' ? (signUpFatherName || null) : undefined,
-        parentMobile: signUpRole === 'STUDENT' ? (signUpParentMobile || null) : undefined,
+        mobile: signUpRole === 'STUDENT' ? (signUpPhone || 'N/A') : (signUpMobile || 'N/A'),
+        address: signUpRole === 'STUDENT' ? (signUpAddress || 'N/A') : undefined,
+        parentName: signUpRole === 'STUDENT' ? `Father: ${signUpFatherName || 'N/A'}, Mother: ${signUpMotherName || 'N/A'}` : undefined,
+        motherName: signUpRole === 'STUDENT' ? (signUpMotherName || 'N/A') : undefined,
+        fatherName: signUpRole === 'STUDENT' ? (signUpFatherName || 'N/A') : undefined,
+        parentMobile: signUpRole === 'STUDENT' ? (signUpParentMobile || 'N/A') : undefined,
         divisionId: signUpRole === 'STUDENT' ? (signUpClassroom === 'Division B' ? 'div-b' : 'div-a') : undefined,
         departmentId: signUpRole === 'TEACHER' ? (signUpDeptId || 'dept-id') : undefined,
         courseType: signUpRole === 'STUDENT' ? signUpCourseType : undefined,
         stream: signUpRole === 'STUDENT' ? signUpStream : undefined,
-        subjects: signUpRole === 'STUDENT' ? (signUpCourseType === 'DEGREE' ? [signUpDegree] : signUpSubjects) : undefined,
+        subjects: signUpRole === 'STUDENT' ? (signUpCourseType === 'DEGREE' ? [signUpDegree] : signUpSubjects.length > 0 ? signUpSubjects : ['English']) : undefined,
         semester: signUpRole === 'STUDENT' ? signUpSemester : undefined,
         classroom: signUpRole === 'STUDENT' ? signUpClassroom : undefined,
         degree: signUpRole === 'STUDENT' ? signUpDegree : (signUpRole === 'TEACHER' ? signUpDegree : undefined),
@@ -936,10 +940,29 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
 
                   <Button
                     type="submit"
-                    isLoading={isLoading}
+                    isLoading={isLoading || isGoogleLoading}
                     className="w-full h-11 rounded-xl text-xs font-semibold shadow-md bg-blue-600 hover:bg-blue-700 text-white border-transparent transition-all mt-4 cursor-pointer"
                   >
                     Login
+                  </Button>
+
+                  <div className="relative flex items-center justify-center my-3.5">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-slate-200 dark:border-slate-800"></div>
+                    </div>
+                    <span className="relative px-3 bg-white dark:bg-slate-900 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">or</span>
+                  </div>
+
+                  <Button
+                    type="button"
+                    onClick={handleGoogleLoginSubmit}
+                    isLoading={isGoogleLoading || isLoading}
+                    className="w-full h-11 rounded-xl text-xs font-semibold shadow-sm border border-slate-200 dark:border-slate-800 bg-white hover:bg-slate-50 text-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-slate-200 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
+                      <path fill="#EA4335" d="M12.24 10.285V14.4h6.887c-.275 1.565-1.88 4.604-6.887 4.604-4.33 0-7.859-3.578-7.859-8s3.53-8 7.859-8c2.46 0 4.105 1.025 5.047 1.926l3.227-3.1c-2.07-1.92-4.75-3.08-8.274-3.08-6.63 0-12 5.37-12 12s5.37 12 12 12c6.926 0 11.52-4.84 11.52-11.72 0-.788-.085-1.39-.188-1.99H12.24z"/>
+                    </svg>
+                    <span>Sign in with Google</span>
                   </Button>
 
                   <button

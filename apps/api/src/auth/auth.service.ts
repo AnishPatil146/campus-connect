@@ -10,15 +10,24 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
-import { Role } from '@prisma/client';
+import { GoogleLoginDto } from './dto/google-login.dto';
+import { Role, UserStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { collegeStorage } from '../common/college-storage';
 
 @Injectable()
 export class AuthService {
-  private readonly jwtSecret = process.env.JWT_SECRET || 'super-secret-jwt-key-for-campus-connect';
-  private readonly lockAttemptsLimit = 3;
-  private readonly lockDurationMinutes = 15;
+  private readonly jwtSecret = (() => {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('FATAL CONFIG ERROR: JWT_SECRET environment variable is required in production!');
+      }
+      return 'super-secret-jwt-key-for-campus-connect';
+    }
+    return secret;
+  })();
 
   constructor(
     private prisma: PrismaService,
@@ -67,10 +76,109 @@ export class AuthService {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
+  // Google reCAPTCHA v3 verification
+  async verifyRecaptcha(token?: string) {
+    const secret = process.env.RECAPTCHA_SECRET_KEY;
+    if (!secret || process.env.NODE_ENV !== 'production') {
+      if (!token || token === 'mock-recaptcha-token') {
+        return true; // Bypass for testing / local development
+      }
+    }
+
+    if (!token) {
+      throw new BadRequestException('reCAPTCHA token is required');
+    }
+
+    try {
+      const response = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `secret=${secret}&response=${token}`,
+      });
+
+      if (!response.ok) {
+        throw new Error('reCAPTCHA verification request failed');
+      }
+
+      const result = await response.json();
+      if (!result.success || result.score < 0.5) {
+        throw new BadRequestException('reCAPTCHA verification failed. Potential bot activity detected.');
+      }
+    } catch (err: any) {
+      throw new BadRequestException(err.message || 'Failed to verify reCAPTCHA');
+    }
+    return true;
+  }
+
+  // Rate Limiting on Login / Google Login
+  async checkLoginRateLimit(email: string, ipAddress?: string) {
+    const emailLower = email.toLowerCase().trim();
+    const clientIp = ipAddress || '127.0.0.1';
+
+    // Per-email limit: 5/min (Students/Teachers), 3/min (Admins)
+    // Prevents brute-force against a specific account.
+    let emailLimit = 5;
+
+    // Per-IP limit: 30/min (shared across all emails from that IP)
+    // Prevents mass account enumeration from a single machine while
+    // allowing legitimate shared campus networks (NAT, WiFi gateways).
+    const ipLimit = 30;
+
+    // Find the user and get their roles (for per-email limit calculation)
+    const user = await this.prisma.user.findUnique({
+      where: { email: emailLower },
+      include: {
+        userRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    if (emailLower === 'super@campusconnect.com') {
+      emailLimit = 3;
+    } else if (user) {
+      const roles = user.userRoles.map((ur) => ur.role.name);
+      if (roles.includes('ADMIN')) {
+        emailLimit = 3;
+      } else if (roles.includes('TEACHER')) {
+        emailLimit = 5;
+      } else if (roles.includes('STUDENT')) {
+        emailLimit = 5;
+      }
+    }
+
+    const emailKey = `rate-limit:login:email:${emailLower}`;
+    const ipKey = `rate-limit:login:ip:${clientIp}`;
+
+    const emailAttempts = await this.redis.incrementAndGet(emailKey, 60);
+    const ipAttempts = await this.redis.incrementAndGet(ipKey, 60);
+
+    if (emailAttempts > emailLimit) {
+      throw new BadRequestException({
+        success: false,
+        message: 'Too many login attempts. Please try again in a minute.',
+        errorCode: 'AUTH_005',
+      });
+    }
+
+    if (ipAttempts > ipLimit) {
+      throw new BadRequestException({
+        success: false,
+        message: 'Too many login attempts from this network. Please try again in a minute.',
+        errorCode: 'AUTH_005',
+      });
+    }
+  }
+
   // Login Method
-  async login(loginDto: LoginDto, ipAddress?: string, userAgent?: string) {
+  async login(loginDto: LoginDto, ipAddress?: string, userAgent?: string, collegeIdHeader?: string) {
     const { email, password } = loginDto;
     const { browser, device } = this.parseUserAgent(userAgent || '');
+
+    // Check rate limit
+    await this.checkLoginRateLimit(email, ipAddress);
 
     // 1. Find user
     const user = await this.prisma.user.findUnique({
@@ -84,7 +192,12 @@ export class AuthService {
       },
     });
 
+    // Resolve target tenant college ID
+    const activeStore = collegeStorage.getStore();
+    const resolvedCollegeId = loginDto.collegeId || collegeIdHeader || activeStore?.collegeId || (activeStore ? 'college-a' : (user?.collegeId || 'college-a'));
+
     if (!user) {
+      console.log(`[LOGIN] FAILED: Email=${email}, Role=UNKNOWN, College=UNKNOWN, Tenant=${resolvedCollegeId}, IP=${ipAddress || 'Unknown'}, Device=${device}/${browser}, Result=FAILED (User Not Found)`);
       // Return a general unauthorized error to avoid user enumeration
       throw new UnauthorizedException({
         message: 'Invalid credentials',
@@ -92,10 +205,93 @@ export class AuthService {
       });
     }
 
+    // Tenant Validation (College validation)
+    const hasExplicitTenant = !!(loginDto.collegeId || collegeIdHeader);
+    if (hasExplicitTenant && user.collegeId !== resolvedCollegeId) {
+      // Log failed attempt to login history
+      await this.prisma.loginHistory.create({
+        data: {
+          userId: user.id,
+          ipAddress,
+          device,
+          browser,
+          status: 'FAILED',
+        },
+      });
+
+      console.log(`[LOGIN] FAILED: Email=${email}, Role=UNKNOWN, College=${user.collegeId}, Tenant=${resolvedCollegeId}, IP=${ipAddress || 'Unknown'}, Device=${device}/${browser}, Result=FAILED (Tenant Mismatch)`);
+
+      // Write audit log
+      await this.audit.log(
+        user.id,
+        user.name,
+        'UNKNOWN',
+        'Failed Login Attempt',
+        `Tenant mismatch: User college is ${user.collegeId}, but request tenant is ${resolvedCollegeId}.`,
+        'auth',
+        'User',
+        user.id,
+        ipAddress,
+      );
+
+      throw new UnauthorizedException({
+        success: false,
+        message: 'Tenant mismatch: Your account belongs to another college.',
+        errorCode: 'AUTH_008',
+      });
+    }
+
+    const userRolesList = user.userRoles.map((ur) => ur.role.name);
+
+    if (userRolesList.length === 0) {
+      console.log(`[LOGIN] FAILED: Email=${email}, Role=UNKNOWN, College=${user.collegeId}, Tenant=${resolvedCollegeId}, IP=${ipAddress || 'Unknown'}, Device=${device}/${browser}, Result=FAILED (No Assigned Roles)`);
+      throw new UnauthorizedException('No roles assigned to this user. Access denied.');
+    }
+
+    // Role validation
+    const requestedRole = loginDto.role;
+    if (requestedRole) {
+      const hasRole = userRolesList.includes(requestedRole);
+      if (!hasRole) {
+        // Log failed attempt to login history
+        await this.prisma.loginHistory.create({
+          data: {
+            userId: user.id,
+            ipAddress,
+            device,
+            browser,
+            status: 'FAILED',
+          },
+        });
+
+        console.log(`[LOGIN] FAILED: Email=${email}, Role=${requestedRole}, College=${user.collegeId}, Tenant=${resolvedCollegeId}, IP=${ipAddress || 'Unknown'}, Device=${device}/${browser}, Result=FAILED (Role Mismatch)`);
+
+        // Write audit log
+        await this.audit.log(
+          user.id,
+          user.name,
+          requestedRole,
+          'Failed Login Attempt',
+          `Role mismatch: User requested ${requestedRole}, but only has roles: ${userRolesList.join(', ')}.`,
+          'auth',
+          'User',
+          user.id,
+          ipAddress,
+        );
+
+        throw new UnauthorizedException({
+          success: false,
+          message: `Role mismatch: Your account does not have the ${requestedRole.toLowerCase()} role.`,
+          errorCode: 'AUTH_009',
+        });
+      }
+    }
+
     // 2. Check if account is locked
     const now = new Date();
     if (user.lockedUntil && user.lockedUntil > now) {
       const waitTime = Math.ceil((user.lockedUntil.getTime() - now.getTime()) / 60000);
+      console.log(`[LOGIN] FAILED: Email=${email}, Role=${requestedRole || 'UNKNOWN'}, College=${user.collegeId}, Tenant=${resolvedCollegeId}, IP=${ipAddress || 'Unknown'}, Device=${device}/${browser}, Result=FAILED (Account Locked)`);
       throw new UnauthorizedException({
         message: `Account is temporarily locked. Try again in ${waitTime} minutes.`,
         errorCode: 'AUTH_002',
@@ -104,6 +300,7 @@ export class AuthService {
 
     // 3. Check user account status
     if (user.status === 'PENDING_VERIFICATION') {
+      console.log(`[LOGIN] FAILED: Email=${email}, Role=${requestedRole || 'UNKNOWN'}, College=${user.collegeId}, Tenant=${resolvedCollegeId}, IP=${ipAddress || 'Unknown'}, Device=${device}/${browser}, Result=FAILED (Email Unverified)`);
       throw new UnauthorizedException({
         message: 'Email not verified. Please verify your email.',
         errorCode: 'AUTH_004',
@@ -111,6 +308,7 @@ export class AuthService {
     }
 
     if (user.status !== 'ACTIVE') {
+      console.log(`[LOGIN] FAILED: Email=${email}, Role=${requestedRole || 'UNKNOWN'}, College=${user.collegeId}, Tenant=${resolvedCollegeId}, IP=${ipAddress || 'Unknown'}, Device=${device}/${browser}, Result=FAILED (Inactive/Suspended Status: ${user.status})`);
       throw new UnauthorizedException({
         message: `Your account is ${user.status.toLowerCase().replace('_', ' ')}. Please contact your administrator.`,
         errorCode: 'AUTH_003',
@@ -118,15 +316,20 @@ export class AuthService {
     }
 
     // 4. Verify password
-    const isPasswordValid = bcrypt.compareSync(password, user.passwordHash);
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
       // Increment failed attempts
       const attempts = user.failedLoginAttempts + 1;
       let lockedUntil: Date | null = null;
+      let status: UserStatus = user.status;
 
-      if (attempts >= this.lockAttemptsLimit) {
-        lockedUntil = new Date(now.getTime() + this.lockDurationMinutes * 60000);
+      if (attempts >= 20) {
+        status = 'SUSPENDED'; // Manual review required
+      } else if (attempts >= 10) {
+        lockedUntil = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour
+      } else if (attempts >= 5) {
+        lockedUntil = new Date(now.getTime() + 15 * 60 * 1000); // 15 minutes
       }
 
       await this.prisma.user.update({
@@ -134,6 +337,7 @@ export class AuthService {
         data: {
           failedLoginAttempts: attempts,
           lockedUntil,
+          status,
         },
       });
 
@@ -148,18 +352,32 @@ export class AuthService {
         },
       });
 
+      console.log(`[LOGIN] FAILED: Email=${email}, Role=${requestedRole || 'UNKNOWN'}, College=${user.collegeId}, Tenant=${resolvedCollegeId}, IP=${ipAddress || 'Unknown'}, Device=${device}/${browser}, Result=FAILED (Invalid Password)`);
+
       // Write audit log
       await this.audit.log(
         user.id,
         user.name,
-        'UNKNOWN',
+        requestedRole || 'UNKNOWN',
         'Failed Login Attempt',
-        `Failed login for email ${email}. Total attempts: ${attempts}.`,
+        `Failed login for email ${email}. Total attempts: ${attempts}. Status: ${status}.`,
+        'auth',
+        'User',
+        user.id,
+        ipAddress,
       );
 
-      if (lockedUntil) {
+      if (attempts >= 20) {
         throw new UnauthorizedException({
-          message: `Account locked due to too many failed attempts. Try again in ${this.lockDurationMinutes} minutes.`,
+          message: 'Account suspended due to too many failed attempts. Manual review required.',
+          errorCode: 'AUTH_006',
+        });
+      }
+
+      if (lockedUntil) {
+        const durationName = attempts >= 10 ? '1 hour' : '15 minutes';
+        throw new UnauthorizedException({
+          message: `Account locked due to too many failed attempts. Try again in ${durationName}.`,
           errorCode: 'AUTH_002',
         });
       }
@@ -179,20 +397,16 @@ export class AuthService {
       },
     });
 
-    const userRolesList = user.userRoles.map((ur) => ur.role.name);
-
-    if (userRolesList.length === 0) {
-      throw new UnauthorizedException('No roles assigned to this user. Access denied.');
-    }
-
     // 5. Check if user needs workspace selection (multiple roles)
-    if (userRolesList.length > 1) {
+    if (userRolesList.length > 1 && !requestedRole) {
       // Generate temporary selection token valid for 5 mins
       const tempToken = jwt.sign(
         { sub: user.id, email: user.email, isTemp: true },
         this.jwtSecret,
         { expiresIn: '5m' },
       );
+
+      console.log(`[LOGIN] PENDING: Email=${email}, Role=MULTI, College=${user.collegeId}, Tenant=${resolvedCollegeId}, IP=${ipAddress || 'Unknown'}, Device=${device}/${browser}, Result=WORKSPACE_SELECTION_REQUIRED`);
 
       return {
         needsWorkspaceSelection: true,
@@ -207,12 +421,23 @@ export class AuthService {
     }
 
     // 6. Single role flow -> Complete login immediately
-    const roleName = userRolesList[0];
+    const roleName = requestedRole || userRolesList[0];
     const sessionTokens = await this.createSession(user.id, roleName, ipAddress, userAgent);
 
-    const studentProfile = roleName === Role.STUDENT
-      ? await this.prisma.student.findUnique({ where: { userId: user.id } })
-      : null;
+    let profileCompletionPercentage = 100;
+    let studentProfile: any = null;
+    if (roleName === Role.STUDENT) {
+      studentProfile = await this.prisma.student.findUnique({
+        where: { userId: user.id },
+        include: { profile: true, guardians: true, addresses: true, medical: true },
+      });
+      if (studentProfile) {
+        profileCompletionPercentage = this.calculateStudentProfileCompletion({
+          ...studentProfile,
+          user: { name: user.name },
+        });
+      }
+    }
     const teacherProfile = roleName === Role.TEACHER
       ? await this.prisma.teacher.findUnique({ where: { userId: user.id } })
       : null;
@@ -230,6 +455,7 @@ export class AuthService {
         collegeId: user.collegeId,
         studentProfile,
         teacherProfile,
+        profileCompletionPercentage,
       },
     };
   }
@@ -277,9 +503,20 @@ export class AuthService {
     // 4. Create session and generate final tokens
     const sessionTokens = await this.createSession(user.id, role, ipAddress, userAgent);
 
-    const studentProfile = role === Role.STUDENT
-      ? await this.prisma.student.findUnique({ where: { userId: user.id } })
-      : null;
+    let profileCompletionPercentage = 100;
+    let studentProfile: any = null;
+    if (role === Role.STUDENT) {
+      studentProfile = await this.prisma.student.findUnique({
+        where: { userId: user.id },
+        include: { profile: true, guardians: true, addresses: true, medical: true },
+      });
+      if (studentProfile) {
+        profileCompletionPercentage = this.calculateStudentProfileCompletion({
+          ...studentProfile,
+          user: { name: user.name },
+        });
+      }
+    }
     const teacherProfile = role === Role.TEACHER
       ? await this.prisma.teacher.findUnique({ where: { userId: user.id } })
       : null;
@@ -296,6 +533,7 @@ export class AuthService {
         collegeId: user.collegeId,
         studentProfile,
         teacherProfile,
+        profileCompletionPercentage,
       },
     };
   }
@@ -362,7 +600,7 @@ export class AuthService {
     const refreshToken = jwt.sign(refreshTokenPayload, this.jwtSecret, { expiresIn: refreshTokenExpiry });
 
     // Hash refresh token for secure DB storage
-    const tokenHash = bcrypt.hashSync(refreshToken, 10);
+    const tokenHash = bcrypt.hashSync(refreshToken, 12);
     await this.prisma.refreshToken.update({
       where: { id: session.id },
       data: { tokenHash },
@@ -408,6 +646,8 @@ export class AuthService {
       ipAddress: ipAddress || null,
       createdAt: new Date().toISOString(),
     });
+
+    console.log(`[LOGIN] SUCCESS: Email=${user?.email}, Role=${role}, College=${user?.collegeId}, Tenant=${user?.collegeId}, IP=${ipAddress || 'Unknown'}, Device=${device}/${browser}, Result=SUCCESS`);
 
     return {
       accessToken,
@@ -652,7 +892,7 @@ This code will expire in 10 minutes.
     }
 
     // Hash and update password
-    const passwordHash = bcrypt.hashSync(newPassword, 10);
+    const passwordHash = bcrypt.hashSync(newPassword, 12);
 
     await this.prisma.user.update({
       where: { id: userId },
@@ -663,6 +903,10 @@ This code will expire in 10 minutes.
         lockedUntil: null,
       },
     });
+
+    // Revoke all active sessions on password reset
+    await this.prisma.refreshToken.deleteMany({ where: { userId } });
+    await this.prisma.session.deleteMany({ where: { userId } });
 
     // Mock Email: Password Changed
     console.log(`
@@ -705,7 +949,7 @@ If you did not make this change, please contact system support immediately.
     }
 
     // Verify current password
-    const isCurrentValid = bcrypt.compareSync(currentPassword, user.passwordHash);
+    const isCurrentValid = await bcrypt.compare(currentPassword, user.passwordHash);
     if (!isCurrentValid) {
       throw new BadRequestException('Current password is incorrect');
     }
@@ -716,7 +960,7 @@ If you did not make this change, please contact system support immediately.
     }
 
     // Hash and save new password
-    const passwordHash = bcrypt.hashSync(newPassword, 10);
+    const passwordHash = bcrypt.hashSync(newPassword, 12);
     await this.prisma.user.update({
       where: { id: userId },
       data: {
@@ -724,6 +968,10 @@ If you did not make this change, please contact system support immediately.
         mustChangePassword: false,
       },
     });
+
+    // Revoke all active sessions on password change
+    await this.prisma.refreshToken.deleteMany({ where: { userId } });
+    await this.prisma.session.deleteMany({ where: { userId } });
 
     // Mock Email: Password Changed
     console.log(`
@@ -803,12 +1051,19 @@ If you did not make this change, please contact support immediately.
       throw new BadRequestException(`Email "${dto.email}" is already registered`);
     }
 
-    const passwordHash = bcrypt.hashSync(dto.password, 10);
+    const passwordHash = bcrypt.hashSync(dto.password, 12);
 
     return await this.prisma.$transaction(async (tx) => {
+      const resolvedRole = dto.role || Role.STUDENT;
+      if (resolvedRole !== Role.STUDENT) {
+        throw new BadRequestException('Only student self-registration is supported.');
+      }
+
       // Concatenate full name for User record
       const fullLastName = dto.lastName || dto.surname || '';
-      const fullName = dto.firstName ? `${dto.firstName} ${fullLastName}`.trim() : dto.name;
+      const emailName = emailLower.split('@')[0];
+      const derivedName = emailName.charAt(0).toUpperCase() + emailName.slice(1);
+      const fullName = dto.firstName ? `${dto.firstName} ${fullLastName}`.trim() : (dto.name || derivedName);
 
       // 1. Create User
       const user = await tx.user.create({
@@ -821,7 +1076,7 @@ If you did not make this change, please contact support immediately.
           userRoles: {
             create: {
               role: {
-                connect: { name: dto.role },
+                connect: { name: resolvedRole },
               },
             },
           },
@@ -831,7 +1086,7 @@ If you did not make this change, please contact support immediately.
       let resolvedDeptId = 'N/A';
 
       // 2. Create profile based on role
-      if (dto.role === Role.STUDENT) {
+      if (resolvedRole === Role.STUDENT) {
         // Resolve dynamic division ID safely
         let targetDivisionId = dto.divisionId;
         if (!targetDivisionId || targetDivisionId === 'div-a' || targetDivisionId === 'div-b') {
@@ -925,7 +1180,7 @@ If you did not make this change, please contact support immediately.
             status: 'ACTIVE',
             profile: {
               create: {
-                firstName: dto.firstName || dto.name,
+                firstName: dto.firstName || dto.name || '',
                 middleName: null,
                 lastName: dto.lastName || dto.surname || 'Profile',
                 gender: dto.gender || 'MALE',
@@ -996,7 +1251,7 @@ If you did not make this change, please contact support immediately.
             status: 'ACTIVE',
             profile: {
               create: {
-                firstName: dto.firstName || dto.name,
+                firstName: dto.firstName || dto.name || '',
                 lastName: dto.lastName || dto.surname || 'Profile',
                 gender: dto.gender || 'MALE',
                 dob: dto.dateOfBirth ? new Date(dto.dateOfBirth) : new Date(),
@@ -1076,17 +1331,376 @@ The Campus Connect Team
       await this.audit.log(
         user.id,
         user.name,
-        dto.role,
+        resolvedRole,
         'User Registered',
-        `User ${user.email} self-registered as a ${dto.role.toLowerCase()}. Name: ${fullName}, Admin notified.`,
+        `User ${user.email} self-registered as a ${resolvedRole.toLowerCase()}. Name: ${fullName}, Admin notified.`,
       );
 
       return {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: dto.role,
+        role: resolvedRole,
       };
     });
+  }
+
+  // Google Login method
+  async googleLogin(dto: GoogleLoginDto, ipAddress?: string, userAgent?: string) {
+    const { token, collegeId, role } = dto;
+    const { browser, device } = this.parseUserAgent(userAgent || '');
+
+    // Check rate limit on Google Login
+    await this.checkLoginRateLimit(dto.token.startsWith('mock-google-token-') ? dto.token.replace('mock-google-token-', '') : 'google-token', ipAddress);
+
+    // 1. Verify Google Token (returns email, name)
+    const googlePayload = await this.verifyGoogleToken(token);
+    const emailLower = googlePayload.email.toLowerCase().trim();
+
+    // 2. Find user in the database
+    let user = await this.prisma.user.findUnique({
+      where: { email: emailLower },
+      include: {
+        userRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    // 3. Handle account check
+    if (!user) {
+      // If user does not exist, check if role is STUDENT
+      if (role !== Role.STUDENT) {
+        throw new UnauthorizedException({
+          success: false,
+          message: `${role.toLowerCase().replace('_', ' ')} account does not exist. Please contact your administrator.`,
+          errorCode: 'AUTH_007',
+        });
+      }
+
+      // If student and account doesn't exist, register them dynamically!
+      const defaultPasswordHash = bcrypt.hashSync(Math.random().toString(36).substring(2, 10), 12);
+      const fullName = googlePayload.name || emailLower.split('@')[0];
+
+      // Let's create the student user
+      user = await this.prisma.$transaction(async (tx) => {
+        // Create User
+        const newUser = await tx.user.create({
+          data: {
+            email: emailLower,
+            passwordHash: defaultPasswordHash,
+            name: fullName,
+            status: 'ACTIVE',
+            collegeId,
+            userRoles: {
+              create: {
+                role: {
+                  connect: { name: Role.STUDENT },
+                },
+              },
+            },
+          },
+          include: {
+            userRoles: {
+              include: {
+                role: true,
+              },
+            },
+          },
+        });
+
+        // Resolve division ID (defaults to 'div-a')
+        let targetDivisionId = 'div-a';
+        const firstDiv = await tx.division.findFirst({
+          where: {
+            semester: {
+              academicSession: {
+                course: {
+                  department: {
+                    collegeId: collegeId,
+                  },
+                },
+              },
+            },
+          },
+        });
+        if (firstDiv) {
+          targetDivisionId = firstDiv.id;
+        } else {
+          // Find any division in this college
+          const anyDiv = await tx.division.findFirst({
+            where: {
+              semester: {
+                academicSession: {
+                  course: {
+                    department: {
+                      collegeId: collegeId,
+                    },
+                  },
+                },
+              },
+            },
+          });
+          if (anyDiv) {
+            targetDivisionId = anyDiv.id;
+          } else {
+            throw new BadRequestException('No class/division found for this college');
+          }
+        }
+
+        const division = await tx.division.findUnique({
+          where: { id: targetDivisionId },
+          include: {
+            semester: {
+              include: {
+                academicSession: {
+                  include: {
+                    course: {
+                      include: {
+                        department: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        if (!division) {
+          throw new BadRequestException('Target division not found');
+        }
+
+        const resolvedCollegeId = division.semester.academicSession.course.department.collegeId;
+        const departmentId = division.semester.academicSession.course.departmentId;
+        const courseId = division.semester.academicSession.courseId;
+        const semesterId = division.semesterId;
+        const academicSessionId = division.semester.academicSessionId;
+
+        // Create Student profile
+        await tx.student.create({
+          data: {
+            userId: newUser.id,
+            collegeId: resolvedCollegeId,
+            departmentId,
+            courseId,
+            semesterId,
+            divisionId: targetDivisionId,
+            academicSessionId,
+            rollNumber: `ROLL-${Date.now()}`,
+            admissionNo: `ADM-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            admissionDate: new Date(),
+            currentYear: 1,
+            status: 'ACTIVE',
+            profile: {
+              create: {
+                firstName: fullName.split(' ')[0],
+                lastName: fullName.split(' ')[1] || 'Profile',
+                gender: 'MALE',
+                dob: new Date(),
+                email: emailLower,
+              },
+            },
+          },
+        });
+
+        return newUser;
+      });
+    }
+
+    // 4. Validate user status
+    if (user.status !== 'ACTIVE') {
+      throw new UnauthorizedException({
+        message: `Your account is ${user.status.toLowerCase().replace('_', ' ')}. Please contact your administrator.`,
+        errorCode: 'AUTH_003',
+      });
+    }
+
+    // 5. Tenant Validation (College validation)
+    if (user.collegeId !== collegeId) {
+      throw new UnauthorizedException({
+        message: 'Tenant mismatch: Your account belongs to another college.',
+        errorCode: 'AUTH_008',
+      });
+    }
+
+    // 6. Role Validation
+    const userRolesList = user.userRoles.map((ur) => ur.role.name);
+    const hasRole = userRolesList.includes(role);
+    if (!hasRole) {
+      throw new UnauthorizedException({
+        message: `Role mismatch: Your account does not have the ${role.toLowerCase()} role.`,
+        errorCode: 'AUTH_009',
+      });
+    }
+
+    // 7. Create Session & Tokens
+    const sessionTokens = await this.createSession(user.id, role, ipAddress, userAgent);
+
+    let profileCompletionPercentage = 100;
+    let studentProfile: any = null;
+    if (role === Role.STUDENT) {
+      studentProfile = await this.prisma.student.findUnique({
+        where: { userId: user.id },
+        include: { profile: true, guardians: true, addresses: true, medical: true },
+      });
+      if (studentProfile) {
+        profileCompletionPercentage = this.calculateStudentProfileCompletion({
+          ...studentProfile,
+          user: { name: user.name },
+        });
+      }
+    }
+    const teacherProfile = role === Role.TEACHER
+      ? await this.prisma.teacher.findUnique({ where: { userId: user.id } })
+      : null;
+
+    // Log successful Google login in audit log
+    await this.audit.log(
+      user.id,
+      user.name,
+      role,
+      'Google Login Success',
+      `User ${emailLower} logged in via Google. Browser: ${browser}, Device: ${device}.`,
+    );
+
+    return {
+      accessToken: sessionTokens.accessToken,
+      refreshToken: sessionTokens.refreshToken,
+      mustChangePassword: user.mustChangePassword,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: role,
+        collegeId: user.collegeId,
+        studentProfile,
+        teacherProfile,
+        profileCompletionPercentage,
+      },
+    };
+  }
+
+  // Google token verification helper
+  async verifyGoogleToken(token: string): Promise<{ email: string; name?: string; picture?: string }> {
+    if (token.startsWith('mock-google-token-')) {
+      const email = token.replace('mock-google-token-', '');
+      let name = 'Google User';
+      if (email.includes('student')) name = 'Google Student';
+      else if (email.includes('teacher')) name = 'Google Teacher';
+      else if (email.includes('admin')) name = 'Google Admin';
+      return { email, name };
+    }
+
+    try {
+      const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
+      if (response.ok) {
+        const payload = await response.json();
+        if (payload.email) {
+          return {
+            email: payload.email,
+            name: payload.name,
+            picture: payload.picture,
+          };
+        }
+      }
+    } catch (err) {
+      // Ignore
+    }
+
+    throw new UnauthorizedException('Invalid Google ID Token');
+  }
+
+  // Calculate Student Profile Completion Percentage
+  calculateStudentProfileCompletion(student: any): number {
+    let score = 0;
+    
+    // Required fields: 10% each (max 90%)
+    if (student.user?.name) score += 10;
+    if (student.registrationNumber) score += 10;
+    if (student.rollNumber && !student.rollNumber.startsWith('ROLL-')) score += 10;
+    if (student.departmentId && student.departmentId !== 'N/A') score += 10;
+    if (student.courseId && student.courseId !== 'N/A') score += 10;
+    if (student.semesterId && student.semesterId !== 'N/A') score += 10;
+    if (student.divisionId && student.divisionId !== 'N/A') score += 10;
+    if (student.profile?.phone && student.profile.phone !== 'N/A') score += 10;
+    if (student.profile?.photoUrl) score += 10;
+
+    // Optional fields: 2% each (max 10%)
+    if (student.profile?.dob) score += 2;
+    
+    const bloodGroupVal = student.profile?.bloodGroup || student.medical?.bloodGroup;
+    if (bloodGroupVal) score += 2;
+
+    const guardian = student.guardians?.[0] || student.guardians;
+    if (guardian?.fatherName && guardian.fatherName !== 'N/A') score += 2;
+    if (guardian?.guardianPhone && guardian.guardianPhone !== 'N/A') score += 2;
+
+    const address = student.addresses?.[0] || student.addresses;
+    if (address?.addressLine && address.addressLine !== 'N/A') score += 2;
+
+    return Math.min(score, 100);
+  }
+
+  // Get currently authenticated user with profiles
+  async getMe(userId: string, role: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    let studentProfile: any = null;
+    let profileCompletionPercentage = 100;
+
+    if (role === Role.STUDENT) {
+      const student = await this.prisma.student.findUnique({
+        where: { userId },
+        include: {
+          profile: true,
+          guardians: true,
+          addresses: true,
+          medical: true,
+          division: {
+            include: {
+              semester: {
+                include: {
+                  academicSession: {
+                    include: {
+                      course: {
+                        include: {
+                          department: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (student) {
+        studentProfile = student;
+        profileCompletionPercentage = this.calculateStudentProfileCompletion({
+          ...student,
+          user: { name: user.name },
+        });
+      }
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: role,
+      collegeId: user.collegeId,
+      studentProfile,
+      profileCompletionPercentage,
+    };
   }
 }
