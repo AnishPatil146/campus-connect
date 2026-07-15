@@ -125,15 +125,35 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
     setError(null);
     setIsGoogleLoading(true);
 
-    const mockToken = `mock-google-token-${email || (role === 'STUDENT' ? 'student@collegea.edu' : role === 'TEACHER' ? 'teacher@collegea.edu' : 'admin@collegea.edu')}`;
-    const success = await loginWithGoogle(mockToken, collegeId, role);
-    if (success) {
-      redirectUser(role);
-    } else {
-      setError('Invalid credentials or tenant/role mismatch. Please check your selected college and role.');
+    try {
+      // Trigger the real Google OAuth popup via Firebase
+      const { signInWithPopup } = await import('firebase/auth');
+      const { auth: firebaseAuth, googleProvider } = await import('../config/firebase');
+
+      const result = await signInWithPopup(firebaseAuth, googleProvider);
+      // Get the real Firebase ID token to send to our backend
+      const idToken = await result.user.getIdToken();
+
+      const success = await loginWithGoogle(idToken, collegeId, role);
+      if (success) {
+        redirectUser(role);
+      } else {
+        setError('Google login failed. Make sure your Google account email is registered in this college and matches the selected role.');
+      }
+    } catch (err: any) {
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        // User closed the popup — not an error
+      } else if (err.code === 'auth/popup-blocked') {
+        setError('Popup was blocked by your browser. Please allow popups for this site and try again.');
+      } else {
+        setError('Google sign-in failed. Please try again or use email/password login.');
+        console.error('[Google Login]', err);
+      }
+    } finally {
+      setIsGoogleLoading(false);
     }
-    setIsGoogleLoading(false);
   };
+
 
   const handleSignUpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
