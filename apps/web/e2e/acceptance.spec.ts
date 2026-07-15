@@ -1,4 +1,4 @@
-import { test, expect, devices, Page } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 
 /**
  * ═══════════════════════════════════════════════════════════════════
@@ -31,20 +31,7 @@ async function performLogin(page: Page, college: string, email: string, password
   await page.locator('button[type="submit"]').first().click();
 }
 
-async function performLogout(page: Page) {
-  // Try sidebar logout button, fall back to direct navigation
-  const logoutBtn = page.getByRole('button', { name: /logout/i }).first();
-  if (await logoutBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await logoutBtn.click();
-  } else {
-    // Many dashboard layouts have a profile dropdown with logout
-    const profileTrigger = page.locator('[data-testid="user-menu"], [aria-label*="profile"], [aria-label*="user"]').first();
-    if (await profileTrigger.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await profileTrigger.click();
-      await page.getByRole('menuitem', { name: /logout/i }).click();
-    }
-  }
-}
+
 
 // ─── TC9 — Device Compatibility ──────────────────────────────────────────────
 // NOTE: Additional browser projects (Firefox, WebKit) should be added in
