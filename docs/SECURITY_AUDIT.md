@@ -4,22 +4,22 @@ This document outlines the security status, threat models, vulnerabilities, and 
 
 ---
 
-## 1. Key Vulnerabilities & Risks Identified
+## 1. Key Vulnerabilities & Risks Identified (RESOLVED)
 
-### 🚨 Critical Severity: Hardcoded Fallback JWT Secret
-* **Location:** [auth.service.ts](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/api/src/auth/auth.service.ts#L20) and [jwt.strategy.ts](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/api/src/auth/strategies/jwt.strategy.ts#L13)
-* **Risk:** The code contains a hardcoded fallback string: `'super-secret-jwt-key-for-campus-connect'`. If the `JWT_SECRET` environment variable is not defined, NestJS will fall back to this known string, allowing attackers to sign arbitrary JWT tokens and compromise any user account.
-* **Remediation:** Remove the fallback string. Throw a startup error if `process.env.JWT_SECRET` is not set.
+### 🚨 Critical Severity: Hardcoded Fallback JWT Secret — RESOLVED
+* **Location:** [auth.service.ts](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/api/src/auth/auth.service.ts) and [jwt.strategy.ts](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/api/src/auth/strategies/jwt.strategy.ts)
+* **Risk:** The code originally contained a hardcoded fallback string. If the `JWT_SECRET` environment variable was missing, the system would fallback to a known string, allowing arbitrary signature validation.
+* **Resolution:** Removed the fallback string completely. Added strict checks at startup in both `AuthService` and `JwtStrategy` that throw a fatal error if `process.env.JWT_SECRET` is undefined, preventing application startup in an insecure state.
 
-### ⚠️ Medium Severity: CORS Reflective Origin Fallback
-* **Location:** [main.ts](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/api/src/main.ts#L27)
-* **Risk:** If `process.env.ALLOWED_ORIGINS` is not defined, the CORS configuration defaults to `true`, which reflects the request's origin. With `credentials: true` enabled, this is highly vulnerable to CSRF and cross-origin data extraction.
-* **Remediation:** In production mode, force an error if `ALLOWED_ORIGINS` is not defined, or set it to a strict list. Disable reflective CORS in production.
+### ⚠️ Medium Severity: CORS Reflective Origin Fallback — RESOLVED
+* **Location:** [main.ts](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/api/src/main.ts)
+* **Risk:** Defaulted to `true` when `ALLOWED_ORIGINS` was not set, reflecting the request origin and allowing credential inclusion.
+* **Resolution:** Implemented a strict whitelist check. If `ALLOWED_ORIGINS` is not defined in the environment, it falls back to a list of strict local and production Vercel domains (`localhost:3000`, `localhost:3001`, and production app domains). Reflective origin reflection is disabled.
 
-### ⚠️ Medium Severity: Delayed Redis Session Revocation on Password/Status Change
-* **Location:** [auth.service.ts](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/api/src/auth/auth.service.ts#L842)
-* **Risk:** When a user changes their password via `changePassword` or is suspended by an Admin, their active session cache in Redis is not immediately purged. The user can still call APIs using their existing Access Token until its 30-minute expiration occurs.
-* **Remediation:** In validation guards/strategies or within services, trigger a cache deletion for the user's active session keys when passwords update or accounts are deactivated.
+### ⚠️ Medium Severity: Delayed Redis Session Revocation on Password/Status Change — RESOLVED
+* **Location:** [auth.service.ts](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/api/src/auth/auth.service.ts) and [redis.service.ts](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/api/src/redis/redis.service.ts)
+* **Risk:** Updating user passwords or logging out did not evict the user's active session keys from the Redis cache, letting stolen/compromised session tokens bypass database verification until expiration.
+* **Resolution:** Created a wildcard session purger method `deleteUserSessions(userId)` using Redis client scanning. Integrated this purger inside the `resetPassword`, `changePassword`, and `logoutAll` flows of `AuthService` to immediately invalidate all cached session tokens.
 
 ---
 

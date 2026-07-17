@@ -498,7 +498,7 @@ async function run() {
   // executing boundary tests.
   console.log('  Pre-flight: checking if per-email rate-limit windows are clear...');
   const probeRes = await post('/auth/login', {
-    email: ACCOUNTS.STUDENT_A.email, password: 'preflight-probe', role: 'STUDENT',
+    email: 'preflight-probe@collegea.edu', password: 'preflight-probe', role: 'STUDENT',
   }, {
     'x-college-id':    ACCOUNTS.STUDENT_A.collegeId,
     'x-forwarded-for': '10.0.9.1',  // distinct probe IP

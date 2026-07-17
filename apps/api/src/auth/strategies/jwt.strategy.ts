@@ -17,10 +17,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       secretOrKey: (() => {
         const secret = process.env.JWT_SECRET;
         if (!secret) {
-          if (process.env.NODE_ENV === 'production') {
-            throw new Error('FATAL CONFIG ERROR: JWT_SECRET environment variable is required in production!');
-          }
-          return 'super-secret-jwt-key-for-campus-connect';
+          throw new Error('FATAL CONFIG ERROR: JWT_SECRET environment variable is required!');
         }
         return secret;
       })(),

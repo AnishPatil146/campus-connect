@@ -23,8 +23,28 @@ async function bootstrap() {
   }));
 
   // Enable CORS with secure configurations
+  const defaultAllowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'https://campus-connect.vercel.app',
+  ];
   app.enableCors({
-    origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : true,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      
+      const allowedOrigins = process.env.ALLOWED_ORIGINS 
+        ? process.env.ALLOWED_ORIGINS.split(',') 
+        : defaultAllowedOrigins;
+
+      const isAllowed = allowedOrigins.includes(origin) ||
+        /^https:\/\/campus-connect-[a-zA-Z0-9-]+\.vercel\.app$/.test(origin);
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });

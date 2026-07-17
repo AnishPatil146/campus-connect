@@ -83,6 +83,24 @@ export class RedisService {
     await this.del(this.sessionKey(userId, sessionId));
   }
 
+  async deleteUserSessions(userId: string): Promise<void> {
+    const store = (this.cacheManager as any).store;
+    const client = store?.client;
+    if (client && typeof client.keys === 'function') {
+      try {
+        const pattern = `session:${userId}:*`;
+        const keys = await client.keys(pattern);
+        if (keys && keys.length > 0) {
+          for (const key of keys) {
+            await this.cacheManager.del(key);
+          }
+        }
+      } catch (err) {
+        console.error(`Failed to delete user sessions from Redis for user ${userId}:`, err);
+      }
+    }
+  }
+
   // --- OTP Storage ------------------------------------------------------------
 
   private otpKey(email: string): string {

@@ -326,6 +326,25 @@ async function seedCollegeDatabase(collegeId: string, url: string) {
         },
       });
 
+      // HOD Admin for College A
+      await prisma.user.create({
+        data: {
+          email: 'admin@collegea.com',
+          passwordHash: defaultPasswordHash,
+          name: 'College A HOD',
+          status: 'ACTIVE',
+          collegeId: college.id,
+          userRoles: { create: { roleId: adminRole.id } },
+          userProfile: {
+            create: {
+              firstName: 'HOD',
+              lastName: 'A',
+              phone: '+91 9900990097',
+            },
+          },
+        },
+      });
+
       // Teacher: Dr. Sarah Jenkins (fallback/mock support)
       const teacherUser = await prisma.user.create({
         data: {

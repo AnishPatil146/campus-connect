@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuth } from './AuthProvider';
 import { useTheme } from './ThemeProvider';
 import { getCollegeName, getCollegeLogo } from '@campus-connect/utils';
-import { LogOut, User as UserIcon, Settings, GraduationCap, BookOpen, Menu, X, Bell, Sun, Moon, LayoutDashboard, LineChart, Calendar, Clock, Sparkles, Megaphone, Users, Building2, Activity, FolderInput } from 'lucide-react';
+import { LogOut, User as UserIcon, Settings, GraduationCap, BookOpen, Menu, X, Bell, Sun, Moon, LayoutDashboard, LineChart, Calendar, Clock, Sparkles, Megaphone, Users, Building2, Activity, FolderInput, ClipboardCheck } from 'lucide-react';
 import { CommandPalette } from './CommandPalette';
 
 interface DashboardLayoutProps {
@@ -47,7 +47,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
     );
   } else if (user.role === 'TEACHER') {
     sidebarItems.push(
-      { name: 'Dashboard', path: '/dashboard/teacher', icon: <BookOpen className="h-5 w-5" /> }
+      { name: 'Dashboard', path: '/dashboard/teacher', icon: <LayoutDashboard className="h-5 w-5" /> },
+      { name: 'Attendance Work Center', path: '/dashboard/teacher/attendance', icon: <ClipboardCheck className="h-5 w-5" /> },
+      { name: 'Notes & Learning Hub', path: '/dashboard/student/notes', icon: <BookOpen className="h-5 w-5" /> }
     );
   } else if (user.role === 'ADMIN') {
     sidebarItems.push(
@@ -56,6 +58,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
       { name: 'Teacher Management', path: '/dashboard/admin/teachers', icon: <Users className="h-5 w-5" /> },
       { name: 'Academic Management', path: '/dashboard/admin/academic', icon: <Building2 className="h-5 w-5" /> },
       { name: 'Timetable Management', path: '/dashboard/admin/timetable', icon: <Clock className="h-5 w-5" /> },
+      { name: 'Attendance Command Center', path: '/dashboard/admin/attendance', icon: <ClipboardCheck className="h-5 w-5" /> },
       { name: 'Learning Center', path: '/dashboard/admin/learning-center', icon: <BookOpen className="h-5 w-5" /> },
       { name: 'Event Management', path: '/dashboard/admin/events', icon: <Sparkles className="h-5 w-5" /> },
       { name: 'Announcement Center', path: '/dashboard/admin/announcements', icon: <Megaphone className="h-5 w-5" /> },

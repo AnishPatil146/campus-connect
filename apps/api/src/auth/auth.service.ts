@@ -14,17 +14,13 @@ import { GoogleLoginDto } from './dto/google-login.dto';
 import { Role, UserStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { collegeStorage } from '../common/college-storage';
 
 @Injectable()
 export class AuthService {
   private readonly jwtSecret = (() => {
     const secret = process.env.JWT_SECRET;
     if (!secret) {
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error('FATAL CONFIG ERROR: JWT_SECRET environment variable is required in production!');
-      }
-      return 'super-secret-jwt-key-for-campus-connect';
+      throw new Error('FATAL CONFIG ERROR: JWT_SECRET environment variable is required!');
     }
     return secret;
   })();
@@ -74,6 +70,51 @@ export class AuthService {
   // Generate OTP helper (6-digit random code)
   private generateOtp(): string {
     return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  private printLoginAttempt(details: {
+    email: string;
+    role?: string;
+    collegeId?: string;
+    ipAddress?: string;
+    device: string;
+    browser: string;
+    resolvedCollegeId: string;
+    validation: {
+      userFound: boolean;
+      passwordMatch: boolean;
+      roleMatch: boolean;
+      collegeMatch: boolean;
+      jwtGenerated: boolean;
+    };
+    result: 'SUCCESS' | 'FAILURE' | 'PENDING';
+    rootCause?: string;
+  }) {
+    console.log(`
+---------------------------------------------------------
+LOGIN ATTEMPT
+
+Email: ${details.email}
+Role: ${details.role || 'UNKNOWN'}
+College: ${details.collegeId || 'UNKNOWN'}
+IP: ${details.ipAddress || 'UNKNOWN'}
+Device: ${details.device}/${details.browser}
+Tenant: ${details.resolvedCollegeId}
+
+---------------------------------------------------------
+VALIDATION
+
+User Found: ${details.validation.userFound ? 'TRUE' : 'FALSE'}
+Password Match: ${details.validation.passwordMatch ? 'TRUE' : 'FALSE'}
+Role Match: ${details.validation.roleMatch ? 'TRUE' : 'FALSE'}
+College Match: ${details.validation.collegeMatch ? 'TRUE' : 'FALSE'}
+JWT Generated: ${details.validation.jwtGenerated ? 'TRUE' : 'FALSE'}
+
+---------------------------------------------------------
+FINAL RESULT: ${details.result}
+${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}` : ''}
+---------------------------------------------------------
+`);
   }
 
   // Google reCAPTCHA v3 verification
@@ -177,82 +218,49 @@ export class AuthService {
     const { email, password } = loginDto;
     const { browser, device } = this.parseUserAgent(userAgent || '');
 
-    // Check rate limit
-    await this.checkLoginRateLimit(email, ipAddress);
+    let userFound = false;
+    let passwordMatch = false;
+    let roleMatch = false;
+    let collegeMatch = false;
+    let jwtGenerated = false;
+    let resolvedCollegeId = collegeIdHeader || loginDto.collegeId || 'college-a';
+    let rootCause = '';
+    let loginResult: 'SUCCESS' | 'FAILURE' | 'PENDING' = 'FAILURE';
 
-    // 1. Find user
-    const user = await this.prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
+    try {
+      // Check rate limit
+      await this.checkLoginRateLimit(email, ipAddress);
+
+      // 1. Find user
+      const user = await this.prisma.user.findUnique({
+        where: { email: email.toLowerCase() },
+        include: {
+          userRoles: {
+            include: {
+              role: true,
+            },
           },
         },
-      },
-    });
-
-    // Resolve target tenant college ID
-    const activeStore = collegeStorage.getStore();
-    const resolvedCollegeId = loginDto.collegeId || collegeIdHeader || activeStore?.collegeId || (activeStore ? 'college-a' : (user?.collegeId || 'college-a'));
-
-    if (!user) {
-      console.log(`[LOGIN] FAILED: Email=${email}, Role=UNKNOWN, College=UNKNOWN, Tenant=${resolvedCollegeId}, IP=${ipAddress || 'Unknown'}, Device=${device}/${browser}, Result=FAILED (User Not Found)`);
-      // Return a general unauthorized error to avoid user enumeration
-      throw new UnauthorizedException({
-        message: 'Invalid credentials',
-        errorCode: 'AUTH_001',
-      });
-    }
-
-    // Tenant Validation (College validation)
-    const hasExplicitTenant = !!(loginDto.collegeId || collegeIdHeader);
-    if (hasExplicitTenant && user.collegeId !== resolvedCollegeId) {
-      // Log failed attempt to login history
-      await this.prisma.loginHistory.create({
-        data: {
-          userId: user.id,
-          ipAddress,
-          device,
-          browser,
-          status: 'FAILED',
-        },
       });
 
-      console.log(`[LOGIN] FAILED: Email=${email}, Role=UNKNOWN, College=${user.collegeId}, Tenant=${resolvedCollegeId}, IP=${ipAddress || 'Unknown'}, Device=${device}/${browser}, Result=FAILED (Tenant Mismatch)`);
+      // Update resolvedCollegeId if user has a collegeId and none was requested
+      resolvedCollegeId = loginDto.collegeId || collegeIdHeader || user?.collegeId || 'college-a';
 
-      // Write audit log
-      await this.audit.log(
-        user.id,
-        user.name,
-        'UNKNOWN',
-        'Failed Login Attempt',
-        `Tenant mismatch: User college is ${user.collegeId}, but request tenant is ${resolvedCollegeId}.`,
-        'auth',
-        'User',
-        user.id,
-        ipAddress,
-      );
+      if (!user) {
+        userFound = false;
+        rootCause = 'User Not Found';
+        throw new UnauthorizedException({
+          message: 'Invalid credentials',
+          errorCode: 'AUTH_001',
+        });
+      }
+      userFound = true;
 
-      throw new UnauthorizedException({
-        success: false,
-        message: 'Tenant mismatch: Your account belongs to another college.',
-        errorCode: 'AUTH_008',
-      });
-    }
-
-    const userRolesList = user.userRoles.map((ur) => ur.role.name);
-
-    if (userRolesList.length === 0) {
-      console.log(`[LOGIN] FAILED: Email=${email}, Role=UNKNOWN, College=${user.collegeId}, Tenant=${resolvedCollegeId}, IP=${ipAddress || 'Unknown'}, Device=${device}/${browser}, Result=FAILED (No Assigned Roles)`);
-      throw new UnauthorizedException('No roles assigned to this user. Access denied.');
-    }
-
-    // Role validation
-    const requestedRole = loginDto.role;
-    if (requestedRole) {
-      const hasRole = userRolesList.includes(requestedRole);
-      if (!hasRole) {
+      // Tenant Validation (College validation)
+      const hasExplicitTenant = !!(loginDto.collegeId || collegeIdHeader);
+      if (hasExplicitTenant && user.collegeId !== resolvedCollegeId) {
+        collegeMatch = false;
+        rootCause = 'Tenant Mismatch';
         // Log failed attempt to login history
         await this.prisma.loginHistory.create({
           data: {
@@ -264,15 +272,13 @@ export class AuthService {
           },
         });
 
-        console.log(`[LOGIN] FAILED: Email=${email}, Role=${requestedRole}, College=${user.collegeId}, Tenant=${resolvedCollegeId}, IP=${ipAddress || 'Unknown'}, Device=${device}/${browser}, Result=FAILED (Role Mismatch)`);
-
         // Write audit log
         await this.audit.log(
           user.id,
           user.name,
-          requestedRole,
+          'UNKNOWN',
           'Failed Login Attempt',
-          `Role mismatch: User requested ${requestedRole}, but only has roles: ${userRolesList.join(', ')}.`,
+          `Tenant mismatch: User college is ${user.collegeId}, but request tenant is ${resolvedCollegeId}.`,
           'auth',
           'User',
           user.id,
@@ -281,183 +287,292 @@ export class AuthService {
 
         throw new UnauthorizedException({
           success: false,
-          message: `Role mismatch: Your account does not have the ${requestedRole.toLowerCase()} role.`,
-          errorCode: 'AUTH_009',
+          message: 'Tenant mismatch: Your account belongs to another college.',
+          errorCode: 'AUTH_008',
         });
       }
-    }
+      collegeMatch = true;
 
-    // 2. Check if account is locked
-    const now = new Date();
-    if (user.lockedUntil && user.lockedUntil > now) {
-      const waitTime = Math.ceil((user.lockedUntil.getTime() - now.getTime()) / 60000);
-      console.log(`[LOGIN] FAILED: Email=${email}, Role=${requestedRole || 'UNKNOWN'}, College=${user.collegeId}, Tenant=${resolvedCollegeId}, IP=${ipAddress || 'Unknown'}, Device=${device}/${browser}, Result=FAILED (Account Locked)`);
-      throw new UnauthorizedException({
-        message: `Account is temporarily locked. Try again in ${waitTime} minutes.`,
-        errorCode: 'AUTH_002',
-      });
-    }
+      const userRolesList = user.userRoles.map((ur) => ur.role.name);
 
-    // 3. Check user account status
-    if (user.status === 'PENDING_VERIFICATION') {
-      console.log(`[LOGIN] FAILED: Email=${email}, Role=${requestedRole || 'UNKNOWN'}, College=${user.collegeId}, Tenant=${resolvedCollegeId}, IP=${ipAddress || 'Unknown'}, Device=${device}/${browser}, Result=FAILED (Email Unverified)`);
-      throw new UnauthorizedException({
-        message: 'Email not verified. Please verify your email.',
-        errorCode: 'AUTH_004',
-      });
-    }
-
-    if (user.status !== 'ACTIVE') {
-      console.log(`[LOGIN] FAILED: Email=${email}, Role=${requestedRole || 'UNKNOWN'}, College=${user.collegeId}, Tenant=${resolvedCollegeId}, IP=${ipAddress || 'Unknown'}, Device=${device}/${browser}, Result=FAILED (Inactive/Suspended Status: ${user.status})`);
-      throw new UnauthorizedException({
-        message: `Your account is ${user.status.toLowerCase().replace('_', ' ')}. Please contact your administrator.`,
-        errorCode: 'AUTH_003',
-      });
-    }
-
-    // 4. Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-
-    if (!isPasswordValid) {
-      // Increment failed attempts
-      const attempts = user.failedLoginAttempts + 1;
-      let lockedUntil: Date | null = null;
-      let status: UserStatus = user.status;
-
-      if (attempts >= 20) {
-        status = 'SUSPENDED'; // Manual review required
-      } else if (attempts >= 10) {
-        lockedUntil = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour
-      } else if (attempts >= 5) {
-        lockedUntil = new Date(now.getTime() + 15 * 60 * 1000); // 15 minutes
+      if (userRolesList.length === 0) {
+        roleMatch = false;
+        rootCause = 'No Assigned Roles';
+        throw new UnauthorizedException('No roles assigned to this user. Access denied.');
       }
 
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: {
-          failedLoginAttempts: attempts,
-          lockedUntil,
-          status,
-        },
-      });
+      // Role validation
+      const requestedRole = loginDto.role;
+      if (requestedRole) {
+        const hasRole = userRolesList.includes(requestedRole);
+        if (!hasRole) {
+          roleMatch = false;
+          rootCause = 'Role Mismatch';
+          // Log failed attempt to login history
+          await this.prisma.loginHistory.create({
+            data: {
+              userId: user.id,
+              ipAddress,
+              device,
+              browser,
+              status: 'FAILED',
+            },
+          });
 
-      // Write failed attempt to login history
-      await this.prisma.loginHistory.create({
-        data: {
-          userId: user.id,
-          ipAddress,
-          device,
-          browser,
-          status: 'FAILED',
-        },
-      });
+          // Write audit log
+          await this.audit.log(
+            user.id,
+            user.name,
+            requestedRole,
+            'Failed Login Attempt',
+            `Role mismatch: User requested ${requestedRole}, but only has roles: ${userRolesList.join(', ')}.`,
+            'auth',
+            'User',
+            user.id,
+            ipAddress,
+          );
 
-      console.log(`[LOGIN] FAILED: Email=${email}, Role=${requestedRole || 'UNKNOWN'}, College=${user.collegeId}, Tenant=${resolvedCollegeId}, IP=${ipAddress || 'Unknown'}, Device=${device}/${browser}, Result=FAILED (Invalid Password)`);
-
-      // Write audit log
-      await this.audit.log(
-        user.id,
-        user.name,
-        requestedRole || 'UNKNOWN',
-        'Failed Login Attempt',
-        `Failed login for email ${email}. Total attempts: ${attempts}. Status: ${status}.`,
-        'auth',
-        'User',
-        user.id,
-        ipAddress,
-      );
-
-      if (attempts >= 20) {
-        throw new UnauthorizedException({
-          message: 'Account suspended due to too many failed attempts. Manual review required.',
-          errorCode: 'AUTH_006',
-        });
+          throw new UnauthorizedException({
+            success: false,
+            message: `Role mismatch: Your account does not have the ${requestedRole.toLowerCase()} role.`,
+            errorCode: 'AUTH_009',
+          });
+        }
       }
+      roleMatch = true;
 
-      if (lockedUntil) {
-        const durationName = attempts >= 10 ? '1 hour' : '15 minutes';
+      // 2. Check if account is locked
+      const now = new Date();
+      if (user.lockedUntil && user.lockedUntil > now) {
+        const waitTime = Math.ceil((user.lockedUntil.getTime() - now.getTime()) / 60000);
+        rootCause = 'Account Locked';
         throw new UnauthorizedException({
-          message: `Account locked due to too many failed attempts. Try again in ${durationName}.`,
+          message: `Account is temporarily locked. Try again in ${waitTime} minutes.`,
           errorCode: 'AUTH_002',
         });
       }
 
-      throw new UnauthorizedException({
-        message: 'Invalid credentials',
-        errorCode: 'AUTH_001',
+      // 3. Check user account status
+      if (user.status === 'PENDING_VERIFICATION') {
+        rootCause = 'Email Unverified';
+        throw new UnauthorizedException({
+          message: 'Email not verified. Please verify your email.',
+          errorCode: 'AUTH_004',
+        });
+      }
+
+      if (user.status !== 'ACTIVE') {
+        rootCause = `Inactive/Suspended Status: ${user.status}`;
+        throw new UnauthorizedException({
+          message: `Your account is ${user.status.toLowerCase().replace('_', ' ')}. Please contact your administrator.`,
+          errorCode: 'AUTH_003',
+        });
+      }
+
+      // 4. Verify password
+      const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+
+      if (!isPasswordValid) {
+        passwordMatch = false;
+        rootCause = 'Invalid Password';
+        // Increment failed attempts
+        const attempts = user.failedLoginAttempts + 1;
+        let lockedUntil: Date | null = null;
+        let status: UserStatus = user.status;
+
+        if (attempts >= 20) {
+          status = 'SUSPENDED'; // Manual review required
+        } else if (attempts >= 10) {
+          lockedUntil = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour
+        } else if (attempts >= 5) {
+          lockedUntil = new Date(now.getTime() + 15 * 60 * 1000); // 15 minutes
+        }
+
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            failedLoginAttempts: attempts,
+            lockedUntil,
+            status,
+          },
+        });
+
+        // Write failed attempt to login history
+        await this.prisma.loginHistory.create({
+          data: {
+            userId: user.id,
+            ipAddress,
+            device,
+            browser,
+            status: 'FAILED',
+          },
+        });
+
+        // Write audit log
+        await this.audit.log(
+          user.id,
+          user.name,
+          requestedRole || 'UNKNOWN',
+          'Failed Login Attempt',
+          `Failed login for email ${email}. Total attempts: ${attempts}. Status: ${status}.`,
+          'auth',
+          'User',
+          user.id,
+          ipAddress,
+        );
+
+        if (attempts >= 20) {
+          throw new UnauthorizedException({
+            message: 'Account suspended due to too many failed attempts. Manual review required.',
+            errorCode: 'AUTH_006',
+          });
+        }
+
+        if (lockedUntil) {
+          const durationName = attempts >= 10 ? '1 hour' : '15 minutes';
+          throw new UnauthorizedException({
+            message: `Account locked due to too many failed attempts. Try again in ${durationName}.`,
+            errorCode: 'AUTH_002',
+          });
+        }
+
+        throw new UnauthorizedException({
+          message: 'Invalid credentials',
+          errorCode: 'AUTH_001',
+        });
+      }
+      passwordMatch = true;
+
+      // Reset login failures on successful password verification
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+        },
       });
-    }
 
-    // Reset login failures on successful password verification
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        failedLoginAttempts: 0,
-        lockedUntil: null,
-      },
-    });
+      // 5. Check if user needs workspace selection (multiple roles)
+      if (userRolesList.length > 1 && !requestedRole) {
+        // Generate temporary selection token valid for 5 mins
+        const tempToken = jwt.sign(
+          { sub: user.id, email: user.email, isTemp: true },
+          this.jwtSecret,
+          { expiresIn: '5m' },
+        );
 
-    // 5. Check if user needs workspace selection (multiple roles)
-    if (userRolesList.length > 1 && !requestedRole) {
-      // Generate temporary selection token valid for 5 mins
-      const tempToken = jwt.sign(
-        { sub: user.id, email: user.email, isTemp: true },
-        this.jwtSecret,
-        { expiresIn: '5m' },
-      );
+        loginResult = 'PENDING';
+        this.printLoginAttempt({
+          email,
+          role: loginDto.role,
+          collegeId: loginDto.collegeId,
+          ipAddress,
+          device,
+          browser,
+          resolvedCollegeId,
+          validation: {
+            userFound,
+            passwordMatch,
+            roleMatch,
+            collegeMatch,
+            jwtGenerated,
+          },
+          result: loginResult,
+        });
 
-      console.log(`[LOGIN] PENDING: Email=${email}, Role=MULTI, College=${user.collegeId}, Tenant=${resolvedCollegeId}, IP=${ipAddress || 'Unknown'}, Device=${device}/${browser}, Result=WORKSPACE_SELECTION_REQUIRED`);
+        return {
+          needsWorkspaceSelection: true,
+          tempToken,
+          roles: userRolesList,
+          user: {
+            id: user.id,
+            email: user.email,
+            fullName: user.name,
+          },
+        };
+      }
+
+      // 6. Single role flow -> Complete login immediately
+      const roleName = requestedRole || userRolesList[0];
+      const sessionTokens = await this.createSession(user.id, roleName, ipAddress, userAgent);
+      jwtGenerated = true;
+      loginResult = 'SUCCESS';
+
+      this.printLoginAttempt({
+        email,
+        role: roleName,
+        collegeId: loginDto.collegeId,
+        ipAddress,
+        device,
+        browser,
+        resolvedCollegeId,
+        validation: {
+          userFound,
+          passwordMatch,
+          roleMatch,
+          collegeMatch,
+          jwtGenerated,
+        },
+        result: loginResult,
+      });
+
+      let profileCompletionPercentage = 100;
+      let studentProfile: any = null;
+      if (roleName === Role.STUDENT) {
+        studentProfile = await this.prisma.student.findUnique({
+          where: { userId: user.id },
+          include: { profile: true, guardians: true, addresses: true, medical: true },
+        });
+        if (studentProfile) {
+          profileCompletionPercentage = this.calculateStudentProfileCompletion({
+            ...studentProfile,
+            user: { name: user.name },
+          });
+        }
+      }
+      const teacherProfile = roleName === Role.TEACHER
+        ? await this.prisma.teacher.findUnique({ where: { userId: user.id } })
+        : null;
 
       return {
-        needsWorkspaceSelection: true,
-        tempToken,
-        roles: userRolesList,
+        needsWorkspaceSelection: false,
+        accessToken: sessionTokens.accessToken,
+        refreshToken: sessionTokens.refreshToken,
+        mustChangePassword: user.mustChangePassword,
         user: {
           id: user.id,
           email: user.email,
-          fullName: user.name,
+          name: user.name,
+          role: roleName,
+          collegeId: user.collegeId,
+          studentProfile,
+          teacherProfile,
+          profileCompletionPercentage,
         },
       };
-    }
 
-    // 6. Single role flow -> Complete login immediately
-    const roleName = requestedRole || userRolesList[0];
-    const sessionTokens = await this.createSession(user.id, roleName, ipAddress, userAgent);
-
-    let profileCompletionPercentage = 100;
-    let studentProfile: any = null;
-    if (roleName === Role.STUDENT) {
-      studentProfile = await this.prisma.student.findUnique({
-        where: { userId: user.id },
-        include: { profile: true, guardians: true, addresses: true, medical: true },
+    } catch (error) {
+      loginResult = 'FAILURE';
+      this.printLoginAttempt({
+        email,
+        role: loginDto.role,
+        collegeId: loginDto.collegeId,
+        ipAddress,
+        device,
+        browser,
+        resolvedCollegeId,
+        validation: {
+          userFound,
+          passwordMatch,
+          roleMatch,
+          collegeMatch,
+          jwtGenerated,
+        },
+        result: loginResult,
+        rootCause: rootCause || (error as any).message || 'Authentication failed',
       });
-      if (studentProfile) {
-        profileCompletionPercentage = this.calculateStudentProfileCompletion({
-          ...studentProfile,
-          user: { name: user.name },
-        });
-      }
+      throw error;
     }
-    const teacherProfile = roleName === Role.TEACHER
-      ? await this.prisma.teacher.findUnique({ where: { userId: user.id } })
-      : null;
-
-    return {
-      needsWorkspaceSelection: false,
-      accessToken: sessionTokens.accessToken,
-      refreshToken: sessionTokens.refreshToken,
-      mustChangePassword: user.mustChangePassword,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: roleName,
-        collegeId: user.collegeId,
-        studentProfile,
-        teacherProfile,
-        profileCompletionPercentage,
-      },
-    };
   }
 
   // Complete Login for Workspace selection
@@ -757,9 +872,7 @@ export class AuthService {
     );
 
     // Clear all cached sessions from Redis for this user
-    // Note: Since we can't wildcard-delete by pattern in cache-manager, we
-    // rely on TTL expiry for remaining Redis session keys after DB is cleared.
-    // Individual sessions are removed on next access attempt via validateSession.
+    await this.redis.deleteUserSessions(userId);
 
     return true;
   }
@@ -907,6 +1020,7 @@ This code will expire in 10 minutes.
     // Revoke all active sessions on password reset
     await this.prisma.refreshToken.deleteMany({ where: { userId } });
     await this.prisma.session.deleteMany({ where: { userId } });
+    await this.redis.deleteUserSessions(userId);
 
     // Mock Email: Password Changed
     console.log(`
@@ -972,6 +1086,7 @@ If you did not make this change, please contact system support immediately.
     // Revoke all active sessions on password change
     await this.prisma.refreshToken.deleteMany({ where: { userId } });
     await this.prisma.session.deleteMany({ where: { userId } });
+    await this.redis.deleteUserSessions(userId);
 
     // Mock Email: Password Changed
     console.log(`

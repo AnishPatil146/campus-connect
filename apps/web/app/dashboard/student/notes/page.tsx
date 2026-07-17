@@ -97,6 +97,7 @@ export default function NotesPage() {
         socket.off('noteUploaded', handleNoteUploaded);
       };
     }
+    return () => {};
   }, [socket]);
 
   const handleUploadSubmit = async (e: React.FormEvent) => {
