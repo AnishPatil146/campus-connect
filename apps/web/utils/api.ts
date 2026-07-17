@@ -661,8 +661,37 @@ export const api = {
     return { total: tasks.length, completed, pending: tasks.length - completed };
   },
 
-  async getTimetable(): Promise<TimetableEntry[]> {
-    return getMockTimetable();
+  async getTimetable(course?: string, division?: string): Promise<TimetableEntry[]> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const queryParams = [];
+        if (course) queryParams.push(`course=${course}`);
+        if (division) queryParams.push(`division=${division}`);
+        const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
+
+        const res = await fetch(`${API_BASE_URL}/student/timetable${queryString}`, {
+          headers: getHeaders(),
+        });
+        const payload = await res.json();
+        if (payload.success && payload.data) {
+          const daysMap = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+          return payload.data.map((slot: any) => ({
+            day: daysMap[slot.dayOfWeek] || 'Monday',
+            timeSlot: `${slot.startTime} - ${slot.endTime}`,
+            subject: slot.subject?.name || 'Subject',
+            subjectCode: slot.subject?.code || 'SUB',
+            teacher: slot.teacher?.user?.name || 'Faculty',
+            classroom: slot.room || 'TBD',
+            course: slot.division?.semester?.academicSession?.course?.name || 'BSc IT',
+            division: slot.division?.name || 'Division A',
+          }));
+        }
+      } catch (err) {
+        console.warn('Failed to fetch student timetable from API:', err);
+      }
+    }
+    return [];
   },
 
   async saveTimetable(entries: TimetableEntry[]): Promise<boolean> {
@@ -906,6 +935,43 @@ export const api = {
     return { success: true, data: [] };
   },
 
+  async getStudentAttendanceDashboard(): Promise<{ success: boolean; data?: any; message?: string }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/student/attendance`, {
+          headers: getHeaders(),
+        });
+        if (res.ok) {
+          return await res.json();
+        }
+      } catch (err) {
+        console.warn('Failed to fetch student attendance dashboard:', err);
+      }
+    }
+    return {
+      success: true,
+      data: {
+        percentage: 87,
+        present: 24,
+        absent: 3,
+        monthlyTrend: [
+          { month: 'May', percentage: 90 },
+          { month: 'Jun', percentage: 85 },
+          { month: 'Jul', percentage: 87 },
+        ],
+        subjectWise: [
+          { subjectName: 'Database Management Systems (DBMS)', present: 10, absent: 1, percentage: 90.9 },
+          { subjectName: 'Operating Systems', present: 8, absent: 1, percentage: 88.8 },
+          { subjectName: 'Python Programming Lab', present: 6, absent: 1, percentage: 85.7 },
+        ],
+        history: [
+          { id: 'mock-1', date: new Date().toISOString(), status: 'PRESENT', subjectName: 'Database Management Systems (DBMS)' },
+        ],
+      },
+    };
+  },
+
   async requestLeave(payload: {
     studentId: string;
     leaveType: string;
@@ -988,6 +1054,75 @@ export const api = {
       }
     }
     return { success: false, data: null, message: 'API is offline' };
+  },
+
+  async getStudentNotes(): Promise<{ success: boolean; data: any[] }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/student/notes`, {
+          headers: getHeaders(),
+        });
+        const payload = await res.json();
+        if (payload.success && payload.data) {
+          const notesMapped = payload.data.map((n: any) => ({
+            id: n.id,
+            title: n.title,
+            subject: n.subject?.name || 'Subject',
+            semester: n.semester?.number || 1,
+            teacher: n.teacher?.user?.name || 'Faculty',
+            uploadDate: new Date(n.createdAt).toLocaleDateString(),
+            fileSize: n.fileSize ? `${(n.fileSize / (1024 * 1024)).toFixed(1)} MB` : '2.5 MB',
+            downloadCount: n.downloads?.length || 0,
+            pdfUrl: n.fileUrl || '/files/mock-pdf.pdf',
+            videoUrl: n.videoUrl || undefined,
+            referenceLinks: n.referenceLinks || undefined,
+            assignments: n.assignments || undefined,
+            createdAt: n.createdAt,
+          }));
+          return { success: true, data: notesMapped };
+        }
+      } catch (err) {
+        console.warn('Failed to fetch student notes:', err);
+      }
+    }
+    return { success: false, data: [] };
+  },
+
+  async uploadTeacherNote(payload: any): Promise<{ success: boolean; data: any }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/teacher/notes`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify(payload),
+        });
+        const resp = await res.json();
+        return { success: resp.success, data: resp.data };
+      } catch (err) {
+        console.warn('Failed to upload teacher notes:', err);
+      }
+    }
+    return { success: false, data: null };
+  },
+
+  async recordDownload(noteId: string): Promise<boolean> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/notes/download`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({ noteId }),
+        });
+        const resp = await res.json();
+        return resp.success;
+      } catch (err) {
+        console.warn('Failed to record note download:', err);
+      }
+    }
+    return false;
   },
 };
 

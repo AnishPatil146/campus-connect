@@ -5,6 +5,7 @@ import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, Modal, Badge } from '@campus-connect/ui';
 import { CheckCircle2, AlertCircle, AlertTriangle, Coffee, Plus } from 'lucide-react';
 import { useAuth } from '../../../../components/AuthProvider';
+import { useSocket } from '../../../../components/SocketProvider';
 import { api } from '../../../../utils/api';
 
 interface AttendanceLog {
@@ -17,6 +18,7 @@ interface AttendanceLog {
 
 export default function AttendancePage() {
   const { user } = useAuth();
+  const { socket } = useSocket();
   const [selectedLog, setSelectedLog] = useState<AttendanceLog | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -34,8 +36,6 @@ export default function AttendancePage() {
   const [correctionSuccess, setCorrectionSuccess] = useState(false);
 
   // Calendar days template for July 2026
-  // July 2026 starts on Wednesday (1st)
-  // We represent empty slots for Mon, Tue with null
   const defaultCalendarDays: (AttendanceLog | null)[] = [
     null, // Mon
     null, // Tue
@@ -73,6 +73,7 @@ export default function AttendancePage() {
   ];
 
   const [calendar, setCalendar] = useState<(AttendanceLog | null)[]>(defaultCalendarDays);
+  const [dashboardData, setDashboardData] = useState<any>(null);
 
   const fetchLiveAttendance = async () => {
     if (!user?.studentProfile?.id) return;
@@ -85,7 +86,6 @@ export default function AttendancePage() {
           if (!session || !session.attendanceDate) return;
           const date = new Date(session.attendanceDate);
           
-          // Match July 2026
           if (date.getFullYear() === 2026 && date.getMonth() === 6) {
             const dayNum = date.getDate();
             const idx = updatedCalendar.findIndex(item => item && item.day === dayNum);
@@ -111,9 +111,44 @@ export default function AttendancePage() {
     }
   };
 
-  useEffect(() => {
+  const fetchDashboardSummary = async () => {
+    try {
+      const res = await api.getStudentAttendanceDashboard();
+      if (res.success && res.data) {
+        setDashboardData(res.data);
+      }
+    } catch (err) {
+      console.error('Failed to load student attendance dashboard summary:', err);
+    }
+  };
+
+  const refreshAll = () => {
     fetchLiveAttendance();
+    fetchDashboardSummary();
+  };
+
+  useEffect(() => {
+    refreshAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Connect Socket.IO updates
+  useEffect(() => {
+    if (!socket) return;
+    socket.on('attendanceUpdate', (data) => {
+      if (data) {
+        setDashboardData(data);
+        fetchLiveAttendance();
+      } else {
+        refreshAll();
+      }
+    });
+
+    return () => {
+      socket.off('attendanceUpdate');
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket]);
 
   // Statistics derived dynamically
   const present = calendar.filter(c => c && c.status === 'present').length;
@@ -121,8 +156,10 @@ export default function AttendancePage() {
   const leave = calendar.filter(c => c && c.status === 'leave').length;
   const holiday = calendar.filter(c => c && c.status === 'holiday').length;
 
-  const total = present + absent + leave;
-  const percentage = total > 0 ? Math.round((present / total) * 100) : 87;
+  const overallPercentage = dashboardData ? dashboardData.percentage : 87;
+  const presentDaysCount = dashboardData ? dashboardData.present : present;
+  const absentDaysCount = dashboardData ? dashboardData.absent : absent;
+  const leaveDaysCount = dashboardData ? dashboardData.history.filter((h: any) => h.status === 'LEAVE' || h.status === 'EXCUSED').length : leave;
 
   const handleDateClick = (log: AttendanceLog | null) => {
     if (!log) return;
@@ -167,10 +204,10 @@ export default function AttendancePage() {
     if (result.success) {
       alert('Leave request submitted successfully!');
       setIsLeaveModalOpen(false);
-      // Reset
       setLeaveReason('');
       setFromDate('');
       setToDate('');
+      refreshAll();
     } else {
       alert(result.message || 'Failed to submit leave request');
     }
@@ -187,6 +224,7 @@ export default function AttendancePage() {
     setCorrectionSubmitting(false);
     if (result.success) {
       setCorrectionSuccess(true);
+      refreshAll();
     } else {
       alert(result.message || 'Failed to submit correction request');
     }
@@ -217,9 +255,9 @@ export default function AttendancePage() {
           <Card className="flex flex-col justify-center p-6 border-slate-100 bg-white dark:bg-slate-950">
             <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block">Overall Rate</span>
             <div className="flex items-baseline gap-2 mt-2">
-              <span className="text-3xl font-extrabold text-slate-900 dark:text-white">{percentage}%</span>
-              <Badge variant={percentage >= 75 ? 'success' : 'danger'} className="text-xs">
-                {percentage >= 75 ? 'Safe' : 'Low'}
+              <span className="text-3xl font-extrabold text-slate-900 dark:text-white">{overallPercentage}%</span>
+              <Badge variant={overallPercentage >= 75 ? 'success' : 'danger'} className="text-xs">
+                {overallPercentage >= 75 ? 'Safe' : 'Low'}
               </Badge>
             </div>
             <p className="text-[10px] text-slate-550 dark:text-slate-450 mt-1">Minimum required: 75%</p>
@@ -228,7 +266,7 @@ export default function AttendancePage() {
           <Card className="flex flex-col justify-center p-6 border-slate-100 bg-white dark:bg-slate-950">
             <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block">Present Days</span>
             <div className="flex items-baseline gap-2 mt-2">
-              <span className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-450">{present}</span>
+              <span className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-450">{presentDaysCount}</span>
               <span className="text-xs text-slate-455">Lectures</span>
             </div>
             <p className="text-[10px] text-slate-550 dark:text-slate-450 mt-1">Fully recorded present</p>
@@ -237,7 +275,7 @@ export default function AttendancePage() {
           <Card className="flex flex-col justify-center p-6 border-slate-100 bg-white dark:bg-slate-950">
             <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block">Absent Days</span>
             <div className="flex items-baseline gap-2 mt-2">
-              <span className="text-3xl font-extrabold text-red-650 dark:text-red-450">{absent}</span>
+              <span className="text-3xl font-extrabold text-red-655 dark:text-red-450">{absentDaysCount}</span>
               <span className="text-xs text-slate-455">Lectures</span>
             </div>
             <p className="text-[10px] text-slate-550 dark:text-slate-450 mt-1">Requires teacher note</p>
@@ -246,7 +284,7 @@ export default function AttendancePage() {
           <Card className="flex flex-col justify-center p-6 border-slate-100 bg-white dark:bg-slate-950">
             <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block">Approved Leave</span>
             <div className="flex items-baseline gap-2 mt-2">
-              <span className="text-3xl font-extrabold text-amber-600 dark:text-amber-400">{leave}</span>
+              <span className="text-3xl font-extrabold text-amber-600 dark:text-amber-400">{leaveDaysCount}</span>
               <span className="text-xs text-slate-455">Day(s)</span>
             </div>
             <p className="text-[10px] text-slate-550 dark:text-slate-450 mt-1">Excused absence</p>
@@ -332,15 +370,15 @@ export default function AttendancePage() {
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center p-3 rounded-xl border border-slate-50 dark:border-slate-900 bg-slate-50/50 dark:bg-slate-900/10">
                   <span className="text-xs font-semibold text-slate-700 dark:text-slate-350">Present Classes</span>
-                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{present} Lectures</span>
+                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{presentDaysCount} Lectures</span>
                 </div>
                 <div className="flex justify-between items-center p-3 rounded-xl border border-slate-50 dark:border-slate-900 bg-slate-50/50 dark:bg-slate-900/10">
                   <span className="text-xs font-semibold text-slate-700 dark:text-slate-350">Absent Classes</span>
-                  <span className="text-xs font-bold text-red-650 dark:text-red-450">{absent} Lectures</span>
+                  <span className="text-xs font-bold text-red-655 dark:text-red-450">{absentDaysCount} Lectures</span>
                 </div>
                 <div className="flex justify-between items-center p-3 rounded-xl border border-slate-50 dark:border-slate-900 bg-slate-50/50 dark:bg-slate-900/10">
                   <span className="text-xs font-semibold text-slate-700 dark:text-slate-350">Approved Leaves</span>
-                  <span className="text-xs font-bold text-amber-600 dark:text-amber-400">{leave} Day(s)</span>
+                  <span className="text-xs font-bold text-amber-600 dark:text-amber-400">{leaveDaysCount} Day(s)</span>
                 </div>
                 <div className="flex justify-between items-center p-3 rounded-xl border border-slate-50 dark:border-slate-900 bg-slate-50/50 dark:bg-slate-900/10">
                   <span className="text-xs font-semibold text-slate-700 dark:text-slate-350">Holidays</span>
@@ -351,6 +389,166 @@ export default function AttendancePage() {
           </div>
 
         </div>
+
+        {/* Section 2: Subject-wise Attendance & Monthly Graph Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Subject-wise Aggregates */}
+          <Card>
+            <CardHeader>
+              <CardTitle>📚 Subject-wise Attendance</CardTitle>
+              <p className="text-xs text-slate-500">Breakdown of attendance rates across your enrolled courses</p>
+            </CardHeader>
+            <CardContent className="space-y-4.5">
+              {dashboardData?.subjectWise && dashboardData.subjectWise.length > 0 ? (
+                dashboardData.subjectWise.map((sub: any, idx: number) => {
+                  const total = sub.present + sub.absent;
+                  const isSafe = sub.percentage >= 75;
+                  return (
+                    <div key={idx} className="space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <div>
+                          <span className="font-bold text-slate-800 dark:text-slate-200">{sub.subjectName}</span>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">
+                            Classes: {sub.present} attended / {total} total
+                          </span>
+                        </div>
+                        <Badge variant={isSafe ? 'success' : 'danger'} className="text-[10px] px-2 py-0.5">
+                          {sub.percentage}%
+                        </Badge>
+                      </div>
+                      <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            isSafe ? 'bg-emerald-500' : 'bg-red-500'
+                          }`}
+                          style={{ width: `${sub.percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-8 text-xs text-slate-400 font-medium">
+                  No subject-wise records available.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Monthly Trend Graph */}
+          <Card>
+            <CardHeader>
+              <CardTitle>📈 Monthly Attendance Trend</CardTitle>
+              <p className="text-xs text-slate-500">Visual breakdown of attendance rate by month</p>
+            </CardHeader>
+            <CardContent className="flex flex-col justify-end min-h-[220px]">
+              {dashboardData?.monthlyTrend && dashboardData.monthlyTrend.length > 0 ? (
+                <div className="flex items-end justify-around h-40 pt-4 border-b border-slate-100 dark:border-slate-850">
+                  {dashboardData.monthlyTrend.map((item: any, idx: number) => (
+                    <div key={idx} className="flex flex-col items-center gap-2 flex-1 group max-w-[50px]">
+                      <div className="relative w-full flex flex-col items-center">
+                        <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-slate-900 dark:bg-slate-800 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow z-10">
+                          {item.percentage}%
+                        </div>
+                        <div 
+                          className={`w-6 rounded-t-md transition-all duration-700 hover:brightness-110 shadow-sm ${
+                            item.percentage >= 75 ? 'bg-indigo-500 shadow-indigo-500/10' : 'bg-rose-500 shadow-rose-500/10'
+                          }`}
+                          style={{ height: `${(item.percentage / 100) * 110}px` }} 
+                        />
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase mt-2">{item.month}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-xs text-slate-400 font-medium">
+                  No monthly trend data available.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Section 3: Full-width complete attendance history table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>📋 Complete Attendance History</CardTitle>
+            <p className="text-xs text-slate-500">Log of all lectures and marking states recorded for you</p>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-slate-900 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <th className="pb-3 pr-4">Date</th>
+                    <th className="pb-3 pr-4">Subject</th>
+                    <th className="pb-3 pr-4">Timings</th>
+                    <th className="pb-3 pr-4">Status</th>
+                    <th className="pb-3 pr-4">Remarks</th>
+                    <th className="pb-3">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 dark:divide-slate-900/50 text-xs">
+                  {dashboardData?.history && dashboardData.history.length > 0 ? (
+                    dashboardData.history.map((record: any) => {
+                      const dateStr = new Date(record.date).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                      });
+                      
+                      const isPresent = record.status === 'PRESENT' || record.status === 'LATE';
+                      const isAbsent = record.status === 'ABSENT';
+                      const isLeave = record.status === 'LEAVE' || record.status === 'EXCUSED';
+                      
+                      let statusBadge = <Badge variant="secondary">Holiday</Badge>;
+                      if (isPresent) statusBadge = <Badge variant="success">Present</Badge>;
+                      if (isAbsent) statusBadge = <Badge variant="danger">Absent</Badge>;
+                      if (isLeave) statusBadge = <Badge variant="warning">Leave</Badge>;
+
+                      return (
+                        <tr key={record.id} className="hover:bg-slate-50/20 dark:hover:bg-slate-900/10 transition-colors">
+                          <td className="py-3.5 pr-4 font-medium text-slate-700 dark:text-slate-350">{dateStr}</td>
+                          <td className="py-3.5 pr-4 font-bold text-slate-800 dark:text-slate-200">{record.subjectName}</td>
+                          <td className="py-3.5 pr-4 font-semibold text-slate-650 dark:text-slate-400">
+                            {record.startTime && record.endTime ? `${record.startTime} - ${record.endTime}` : 'N/A'}
+                          </td>
+                          <td className="py-3.5 pr-4">{statusBadge}</td>
+                          <td className="py-3.5 pr-4 text-slate-405 italic font-medium">{record.remarks || 'No remarks'}</td>
+                          <td className="py-3.5">
+                            {isAbsent && (
+                              <button
+                                onClick={() => {
+                                  setSelectedLog({
+                                    day: new Date(record.date).getDate(),
+                                    status: 'absent',
+                                    reason: record.remarks || `${record.subjectName} Lecture`,
+                                    recordId: record.id
+                                  });
+                                  setIsModalOpen(true);
+                                }}
+                                className="text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors"
+                              >
+                                Correct
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-400 font-semibold italic">
+                        No attendance logs found in the system.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Date Detail Modal */}
         <Modal
@@ -391,7 +589,7 @@ export default function AttendancePage() {
 
               {selectedLog.approvalStatus && (
                 <div className="flex items-center justify-between p-3 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl border border-emerald-100/30">
-                  <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-450">Approval Status</span>
+                  <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-455">Approval Status</span>
                   <Badge variant="success" className="text-[10px]">{selectedLog.approvalStatus}</Badge>
                 </div>
               )}

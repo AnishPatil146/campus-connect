@@ -2,6 +2,7 @@ import './globals.css';
 import { AuthProvider } from '../components/AuthProvider';
 import { ThemeProvider } from '../components/ThemeProvider';
 import { StudentDataProvider } from '../components/StudentDataProvider';
+import { SocketProvider } from '../components/SocketProvider';
 
 export const metadata = {
   title: 'Campus Connect',
@@ -33,7 +34,9 @@ export default function RootLayout({
         <ThemeProvider>
           <StudentDataProvider>
             <AuthProvider>
-              {children}
+              <SocketProvider>
+                {children}
+              </SocketProvider>
             </AuthProvider>
           </StudentDataProvider>
         </ThemeProvider>

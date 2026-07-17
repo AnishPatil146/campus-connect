@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { EventsGateway } from '../events/events.gateway';
 import {
   AttendanceCorrectionDto,
   AttendanceRequestDto,
@@ -15,6 +16,7 @@ export class AttendanceService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private eventsGateway: EventsGateway,
   ) {}
 
   async createSession(dto: CreateAttendanceSessionDto, actorId: string, actorName: string, actorRole: string) {
@@ -113,6 +115,22 @@ export class AttendanceService {
       dto.attendanceSessionId,
     );
 
+    // Emit live WebSocket updates to each student marked
+    for (const record of records) {
+      const student = await this.prisma.student.findUnique({
+        where: { id: record.studentId },
+        select: { userId: true },
+      });
+      if (student && student.userId) {
+        try {
+          const summary = await this.getStudentDashboardSummary(student.userId);
+          this.eventsGateway.broadcastToUser(student.userId, 'attendanceUpdate', summary);
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+
     return records;
   }
 
@@ -151,6 +169,20 @@ export class AttendanceService {
       record.id,
     );
 
+    // Emit live WebSocket update to the student
+    const student = await this.prisma.student.findUnique({
+      where: { id: updated.studentId },
+      select: { userId: true },
+    });
+    if (student && student.userId) {
+      try {
+        const summary = await this.getStudentDashboardSummary(student.userId);
+        this.eventsGateway.broadcastToUser(student.userId, 'attendanceUpdate', summary);
+      } catch (e) {
+        // ignore
+      }
+    }
+
     return updated;
   }
 
@@ -160,6 +192,113 @@ export class AttendanceService {
       include: { attendanceSession: true },
       orderBy: { markedAt: 'desc' },
     });
+  }
+
+  async getStudentDashboardSummary(studentUserId: string) {
+    const student = await this.prisma.student.findUnique({
+      where: { userId: studentUserId },
+      include: {
+        attendanceRecords: {
+          include: {
+            attendanceSession: {
+              include: {
+                subject: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student profile not found');
+    }
+
+    const records = student.attendanceRecords;
+    let presentCount = 0;
+    let absentCount = 0;
+    let excusedCount = 0;
+
+    records.forEach((r) => {
+      if (r.status === 'PRESENT' || r.status === 'LATE') {
+        presentCount++;
+      } else if (r.status === 'ABSENT') {
+        absentCount++;
+      } else {
+        excusedCount++;
+      }
+    });
+
+    const total = presentCount + absentCount;
+    const percentage = total > 0 ? Math.round((presentCount / total) * 100) : 100;
+
+    // Monthly Trend calculation grouping
+    const monthlyGroups: Record<string, { present: number; total: number }> = {};
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    records.forEach((r) => {
+      if (!r.attendanceSession) return;
+      const date = new Date(r.attendanceSession.attendanceDate);
+      const monthStr = monthNames[date.getMonth()];
+      if (!monthlyGroups[monthStr]) {
+        monthlyGroups[monthStr] = { present: 0, total: 0 };
+      }
+      if (r.status === 'PRESENT' || r.status === 'LATE') {
+        monthlyGroups[monthStr].present++;
+      }
+      if (r.status === 'PRESENT' || r.status === 'LATE' || r.status === 'ABSENT') {
+        monthlyGroups[monthStr].total++;
+      }
+    });
+
+    const monthlyTrend = Object.entries(monthlyGroups).map(([month, data]) => ({
+      month,
+      percentage: data.total > 0 ? Math.round((data.present / data.total) * 100) : 100,
+    }));
+
+    // Subject-wise attendance calculation grouping
+    const subjectGroups: Record<string, { subjectName: string; present: number; total: number }> = {};
+    records.forEach((r) => {
+      if (!r.attendanceSession || !r.attendanceSession.subject) return;
+      const sub = r.attendanceSession.subject;
+      if (!subjectGroups[sub.id]) {
+        subjectGroups[sub.id] = { subjectName: sub.name, present: 0, total: 0 };
+      }
+      if (r.status === 'PRESENT' || r.status === 'LATE') {
+        subjectGroups[sub.id].present++;
+      }
+      if (r.status === 'PRESENT' || r.status === 'LATE' || r.status === 'ABSENT') {
+        subjectGroups[sub.id].total++;
+      }
+    });
+
+    const subjectWise = Object.entries(subjectGroups).map(([subjectId, data]) => ({
+      subjectId,
+      subjectName: data.subjectName,
+      present: data.present,
+      absent: data.total - data.present,
+      percentage: data.total > 0 ? Math.round((data.present / data.total) * 100) : 100,
+    }));
+
+    // Mapping history entries
+    const history = records.map((r) => ({
+      id: r.id,
+      date: r.attendanceSession?.attendanceDate || r.createdAt,
+      status: r.status,
+      subjectName: r.attendanceSession?.subject?.name || 'Lecture',
+      startTime: r.attendanceSession?.startTime || '',
+      endTime: r.attendanceSession?.endTime || '',
+      remarks: r.remarks,
+    }));
+
+    return {
+      percentage,
+      present: presentCount,
+      absent: absentCount,
+      monthlyTrend,
+      subjectWise,
+      history,
+    };
   }
 
   async getClassAttendance(attendanceSessionId: string) {

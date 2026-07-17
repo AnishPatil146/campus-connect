@@ -5,21 +5,23 @@ import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, Badge, Tabs, TabsList, TabsTrigger, TabsContent } from '@campus-connect/ui';
 import { Clock, MapPin, User, BookOpen } from 'lucide-react';
 import { api, TimetableEntry } from '../../../../utils/api';
+import { useAuth } from '../../../../components/AuthProvider';
 
 export default function TimetablePage() {
+  const { user } = useAuth();
   const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
   const [selectedCourse, setSelectedCourse] = useState('BSc IT');
   const [selectedDivision, setSelectedDivision] = useState('Division A');
 
-
   const loadTimetable = async () => {
-    const list = await api.getTimetable();
+    const list = await api.getTimetable(selectedCourse, selectedDivision);
     setTimetable(list);
   };
 
   useEffect(() => {
     loadTimetable();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, selectedCourse, selectedDivision]);
 
   const days = [
     { value: 'monday', label: 'Mon' },
@@ -35,7 +37,6 @@ export default function TimetablePage() {
     return timetable.filter((item) => {
       const matchDay = item.day.toLowerCase() === dayValue;
       
-      // Support matching variations like "Division A", "Div A"
       const cleanInputDiv = selectedDivision.replace(/div(ision)?/i, '').trim().toLowerCase();
       const cleanItemDiv = item.division.replace(/div(ision)?/i, '').trim().toLowerCase();
       
@@ -45,6 +46,10 @@ export default function TimetablePage() {
       return matchDay && matchCourse && matchDiv;
     });
   };
+
+  const weekdayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const todayValue = weekdayNames[new Date().getDay()];
+  const todayLectures = filterLecturesByDay(todayValue);
 
   return (
     <DashboardLayout title="Student Timetable" icon={<Clock className="h-6 w-6" />}>
@@ -83,6 +88,48 @@ export default function TimetablePage() {
           </div>
         </div>
 
+        {/* Today's Classes */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-extrabold text-slate-800 dark:text-slate-200">📅 Today's Classes</h3>
+          {todayLectures.length === 0 ? (
+            <div className="p-8 text-center border border-dashed border-slate-150 dark:border-slate-850 rounded-3xl bg-slate-50/10 dark:bg-slate-950/20">
+              <BookOpen className="h-6 w-6 text-slate-350 mx-auto mb-2" />
+              <p className="text-xs text-slate-550 font-bold">No classes scheduled.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {todayLectures.map((lecture, idx) => (
+                <div 
+                  key={idx}
+                  className="p-5 rounded-2xl border border-slate-100 dark:border-slate-905 bg-white dark:bg-slate-950 flex flex-col justify-between gap-3 shadow-sm hover:border-blue-200 dark:hover:border-slate-800 transition-all duration-200"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="text-[9px] font-extrabold uppercase tracking-wide text-blue-600 bg-blue-50 dark:bg-blue-950/30 px-2.5 py-1 rounded-md">
+                        {lecture.subjectCode || 'LEC'}
+                      </span>
+                      <h4 className="font-bold text-slate-805 dark:text-slate-200 text-xs mt-2.5">{lecture.subject}</h4>
+                    </div>
+                    <Badge variant="primary" className="text-[9px] px-2 py-0.5 flex items-center gap-1 shrink-0">
+                      <Clock className="h-3 w-3" />
+                      {lecture.timeSlot}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center text-[10px] text-slate-450 border-t border-slate-50 dark:border-slate-900 pt-3">
+                    <span className="flex items-center gap-1 font-semibold">
+                      <User className="h-3.5 w-3.5" /> {lecture.teacher}
+                    </span>
+                    <span className="flex items-center gap-1 font-semibold">
+                      <MapPin className="h-3.5 w-3.5" /> {lecture.classroom}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Weekly View Schedule Card */}
         <Card>
           <CardHeader className="pb-4">
             <CardTitle className="text-base font-extrabold text-slate-850 dark:text-white">Weekly Class Schedule</CardTitle>
@@ -104,9 +151,9 @@ export default function TimetablePage() {
                 return (
                   <TabsContent key={day.value} value={day.value} className="space-y-4">
                     {dayLectures.length === 0 ? (
-                      <div className="p-12 text-center border border-dashed border-slate-150 dark:border-slate-800 rounded-3xl bg-slate-50/20 dark:bg-slate-900/5">
+                      <div className="p-12 text-center border border-dashed border-slate-150 dark:border-slate-850 rounded-3xl bg-slate-50/10 dark:bg-slate-950/20">
                         <BookOpen className="h-8 w-8 text-slate-350 mx-auto mb-3" />
-                        <p className="text-xs text-slate-450 font-bold">No lectures scheduled</p>
+                        <p className="text-xs text-slate-550 font-bold">No classes scheduled.</p>
                         <p className="text-[10px] text-slate-400 mt-1">There are no classes scheduled for {day.label} in {selectedCourse} {selectedDivision}.</p>
                       </div>
                     ) : (
@@ -126,7 +173,7 @@ export default function TimetablePage() {
                                   <User className="h-3.5 w-3.5 text-slate-450" /> {lecture.teacher}
                                 </span>
                                 <span className="flex items-center gap-1">
-                                  <MapPin className="h-3.5 w-3.5 text-slate-450" /> {lecture.classroom}
+                                  <MapPin className="h-3.5 w-3.5 text-slate-455" /> {lecture.classroom}
                                 </span>
                               </div>
                             </div>

@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, Badge, Modal, Input } from '@campus-connect/ui';
-import { useStudentData, Note } from '../../../../components/StudentDataProvider';
+import { useAuth } from '../../../../components/AuthProvider';
+import { useSocket } from '../../../../components/SocketProvider';
+import { api } from '../../../../utils/api';
 import { 
   Folder, 
   FileText, 
@@ -18,8 +20,26 @@ import {
   BookOpen
 } from 'lucide-react';
 
+interface Note {
+  id: string;
+  title: string;
+  subject: string;
+  semester: number;
+  teacher: string;
+  uploadDate: string;
+  fileSize: string;
+  downloadCount: number;
+  pdfUrl: string;
+  videoUrl?: string;
+  referenceLinks?: { name: string; url: string }[];
+  assignments?: { title: string; dueDate: string }[];
+  createdAt: string;
+}
+
 export default function NotesPage() {
-  const { notes, addNote, incrementDownload } = useStudentData();
+  const { user } = useAuth();
+  const { socket } = useSocket();
+  const [notesList, setNotesList] = useState<Note[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [semesterFilter, setSemesterFilter] = useState<string>('all');
   const [subjectFilter, setSubjectFilter] = useState<string>('all');
@@ -33,7 +53,7 @@ export default function NotesPage() {
   const [previewNote, setPreviewNote] = useState<Note | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
 
-  // Form states for mock upload
+  // Form states for note upload
   const [newNoteTitle, setNewNoteTitle] = useState('');
   const [newNoteSubject, setNewNoteSubject] = useState('Python Programming');
   const [newNoteSemester, setNewNoteSemester] = useState(1);
@@ -54,30 +74,48 @@ export default function NotesPage() {
     4: ['Artificial Intelligence', 'Cyber Security', 'DevOps Systems', 'Mobile App Dev', 'Machine Learning']
   };
 
-  const handleUploadSubmit = (e: React.FormEvent) => {
+  const loadNotes = async () => {
+    const res = await api.getStudentNotes();
+    if (res.success && res.data) {
+      setNotesList(res.data);
+    }
+  };
+
+  useEffect(() => {
+    loadNotes();
+  }, [user]);
+
+  // Real-time socket listener
+  useEffect(() => {
+    if (socket) {
+      const handleNoteUploaded = (newNote: any) => {
+        console.log('Socket event: Note uploaded -> refreshing state', newNote);
+        loadNotes();
+      };
+      socket.on('noteUploaded', handleNoteUploaded);
+      return () => {
+        socket.off('noteUploaded', handleNoteUploaded);
+      };
+    }
+  }, [socket]);
+
+  const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newNoteTitle.trim()) return;
 
-    // Handle reference links
-    const referenceLinks = newNoteRefName && newNoteRefUrl 
-      ? [{ name: newNoteRefName, url: newNoteRefUrl }] 
-      : undefined;
+    const sizeInBytes = parseFloat(newNoteSize) ? Math.round(parseFloat(newNoteSize) * 1024 * 1024) : 1024 * 1024 * 2.5;
 
-    // Handle assignment
-    const assignments = newNoteAssignTitle && newNoteAssignDate
-      ? [{ title: newNoteAssignTitle, dueDate: newNoteAssignDate }]
-      : undefined;
-
-    addNote({
+    await api.uploadTeacherNote({
       title: newNoteTitle,
       subject: newNoteSubject,
-      semester: Number(newNoteSemester),
+      semester: newNoteSemester,
       teacher: newNoteTeacher,
-      fileSize: newNoteSize,
-      pdfUrl: '/files/mock-pdf.pdf',
+      fileSize: sizeInBytes,
+      fileName: `${newNoteTitle.toLowerCase().replace(/\s+/g, '-')}.pdf`,
+      fileUrl: '/files/mock-pdf.pdf',
       videoUrl: newNoteVideo || undefined,
-      referenceLinks,
-      assignments
+      status: 'PUBLISHED',
+      category: 'Study Materials',
     });
 
     // Reset and close
@@ -88,25 +126,44 @@ export default function NotesPage() {
     setNewNoteAssignTitle('');
     setNewNoteAssignDate('');
     setIsUploadOpen(false);
+
+    loadNotes();
   };
 
-  const handleDownload = (noteId: string) => {
-    incrementDownload(noteId);
+  const handleDownload = async (note: Note) => {
+    // Record download count
+    await api.recordDownload(note.id);
+    loadNotes();
+
+    // Trigger local client download
+    const link = document.createElement('a');
+    link.href = note.pdfUrl || '/files/mock-pdf.pdf';
+    link.setAttribute('download', note.pdfUrl.split('/').pop() || `${note.title}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Helper matching subject names loosely (singular/plural)
+  const isSubjectMatch = (noteSub: string, folderSub: string) => {
+    const cleanNote = noteSub.toLowerCase().replace(/\s+|s$/g, '');
+    const cleanFolder = folderSub.toLowerCase().replace(/\s+|s$/g, '');
+    return cleanNote.includes(cleanFolder) || cleanFolder.includes(cleanNote);
   };
 
   // Filter logic
-  const filteredNotes = notes.filter(note => {
+  const filteredNotes = notesList.filter(note => {
     const matchesSearch = note.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           note.subject.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesSemester = semesterFilter === 'all' || note.semester === Number(semesterFilter);
-    const matchesSubject = subjectFilter === 'all' || note.subject === subjectFilter;
+    const matchesSubject = subjectFilter === 'all' || isSubjectMatch(note.subject, subjectFilter);
     
     // If browsing folders, narrow down matching notes
     if (selectedSemester !== null && selectedSubject === null) {
       return note.semester === selectedSemester && matchesSearch;
     }
     if (selectedSemester !== null && selectedSubject !== null) {
-      return note.semester === selectedSemester && note.subject === selectedSubject && matchesSearch;
+      return note.semester === selectedSemester && isSubjectMatch(note.subject, selectedSubject) && matchesSearch;
     }
 
     return matchesSearch && matchesSemester && matchesSubject;
@@ -275,9 +332,9 @@ export default function NotesPage() {
                       </div>
                       <div>
                         <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm">{note.title}</h4>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-slate-450 mt-1.5 font-medium">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[10px] text-slate-450 mt-2 font-medium">
                           <span>Subject: <strong className="text-slate-650 dark:text-slate-350">{note.subject}</strong></span>
-                          <span>Uploaded: <strong>{note.uploadDate}</strong></span>
+                          <span>Upload Time: <strong>{new Date(note.createdAt || note.uploadDate).toLocaleString()}</strong></span>
                           <span>Size: <strong>{note.fileSize}</strong></span>
                           <span>Teacher: <strong>{note.teacher}</strong></span>
                           <span>Downloads: <strong className="text-blue-600">{note.downloadCount}</strong></span>
@@ -295,7 +352,7 @@ export default function NotesPage() {
                         View
                       </button>
                       <button
-                        onClick={() => handleDownload(note.id)}
+                        onClick={() => handleDownload(note)}
                         className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg transition-colors shadow-sm"
                       >
                         <Download className="h-3.5 w-3.5" />
@@ -392,7 +449,7 @@ export default function NotesPage() {
                 {previewNote && (
                   <button
                     onClick={() => {
-                      handleDownload(previewNote.id);
+                      handleDownload(previewNote);
                       setPreviewNote(null);
                     }}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm"
@@ -414,7 +471,7 @@ export default function NotesPage() {
                 <Badge variant="primary">PDF Resource</Badge>
               </div>
 
-              {/* Mock PDF Content Interface */}
+              {/* PDF Content Interface */}
               <div className="border border-slate-100 dark:border-slate-850 rounded-2xl bg-slate-50 dark:bg-slate-900/60 p-6 font-mono text-xs text-slate-700 dark:text-slate-350 min-h-[250px] flex flex-col justify-between">
                 <div>
                   <p className="text-center font-bold text-slate-500 uppercase tracking-widest text-[9px] mb-4">--- [ PDF VIEWPORT PREVIEW ] ---</p>
@@ -433,11 +490,11 @@ export default function NotesPage() {
           )}
         </Modal>
 
-        {/* Mock Teacher Upload Modal */}
+        {/* Teacher Upload Modal */}
         <Modal
           isOpen={isUploadOpen}
           onClose={() => setIsUploadOpen(false)}
-          title="Mock Upload Study Notes (Teacher Mode)"
+          title="Upload Study Notes (Teacher Mode)"
           size="md"
         >
           <form onSubmit={handleUploadSubmit} className="space-y-4">
@@ -451,22 +508,22 @@ export default function NotesPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-slate-700 select-none">Subject</label>
+                <label className="text-sm font-medium text-slate-750 select-none">Subject</label>
                 <select
                   value={newNoteSubject}
                   onChange={(e) => setNewNoteSubject(e.target.value)}
                   className="flex h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 focus-visible:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="Python Programming">Python Programming</option>
-                  <option value="Database Management System">Database Management System</option>
-                  <option value="Operating System">Operating System</option>
+                  <option value="Database Management Systems">Database Management Systems</option>
+                  <option value="Operating Systems">Operating Systems</option>
                   <option value="Java Programming">Java Programming</option>
-                  <option value="Mathematics">Mathematics</option>
+                  <option value="Discrete Mathematics">Discrete Mathematics</option>
                 </select>
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-slate-700 select-none">Semester</label>
+                <label className="text-sm font-medium text-slate-750 select-none">Semester</label>
                 <select
                   value={newNoteSemester}
                   onChange={(e) => setNewNoteSemester(Number(e.target.value))}

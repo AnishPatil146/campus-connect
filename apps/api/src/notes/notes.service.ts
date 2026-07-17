@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { EventsGateway } from '../events/events.gateway';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
 import { UploadNoteFileDto } from './dto/upload-note-file.dto';
@@ -8,7 +9,11 @@ import { CreateNoteCommentDto } from './dto/create-note-comment.dto';
 
 @Injectable()
 export class NotesService {
-  constructor(private prisma: PrismaService, private auditService: AuditService) {}
+  constructor(
+    private prisma: PrismaService,
+    private auditService: AuditService,
+    private eventsGateway: EventsGateway,
+  ) {}
 
   async findAll(filters: any) {
     const where: any = {};
@@ -57,27 +62,152 @@ export class NotesService {
   }
 
   async create(dto: CreateNoteDto, teacherId: string, actorName: string) {
+    let categoryId = dto.categoryId;
+    if (!categoryId || categoryId === 'default' || categoryId.length < 10) {
+      let cat = await this.prisma.noteCategory.findFirst({
+        where: { name: 'Study Materials' }
+      });
+      if (!cat) {
+        cat = await this.prisma.noteCategory.create({
+          data: { name: 'Study Materials' }
+        });
+      }
+      categoryId = cat.id;
+    }
+
+    let subjectId = dto.subjectId;
+    if (!subjectId || subjectId === 'default' || subjectId.length < 10) {
+      const sub = await this.prisma.subject.findFirst();
+      if (!sub) {
+        throw new NotFoundException('No subjects found in the database');
+      }
+      subjectId = sub.id;
+    }
+
+    let semesterId = dto.semesterId;
+    if (!semesterId || semesterId === 'default' || semesterId.length < 10) {
+      const sem = await this.prisma.semester.findFirst();
+      if (!sem) {
+        throw new NotFoundException('No semesters found in the database');
+      }
+      semesterId = sem.id;
+    }
+
+    let divisionId = dto.divisionId;
+    if (!divisionId || divisionId === 'default' || divisionId.length < 10) {
+      const div = await this.prisma.division.findFirst();
+      if (!div) {
+        throw new NotFoundException('No divisions found in the database');
+      }
+      divisionId = div.id;
+    }
+
     const data: any = {
       title: dto.title,
       description: dto.description,
-      fileUrl: dto.fileUrl,
-      fileName: dto.fileName,
-      fileSize: dto.fileSize,
-      mimeType: dto.mimeType,
-      subjectId: dto.subjectId,
-      semesterId: dto.semesterId,
-      divisionId: dto.divisionId,
-      categoryId: dto.categoryId,
+      fileUrl: dto.fileUrl || '/files/mock-pdf.pdf',
+      fileName: dto.fileName || 'lecture-notes.pdf',
+      fileSize: dto.fileSize || 1024 * 1024 * 2.5,
+      mimeType: dto.mimeType || 'application/pdf',
+      subjectId,
+      semesterId,
+      divisionId,
+      categoryId,
       teacherId,
       visibility: dto.visibility || 'SEMESTER',
-      status: dto.status || 'DRAFT',
+      status: dto.status || 'PUBLISHED',
       publishDate: dto.publishDate ? new Date(dto.publishDate) : undefined,
       expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
     };
 
     const note = await this.prisma.note.create({ data });
     await this.auditService.log(teacherId, actorName, 'TEACHER', 'UPLOAD_NOTE', `Created note ${note.id}`, 'notes', 'Note', note.id);
+
+    const fullNote = await this.prisma.note.findUnique({
+      where: { id: note.id },
+      include: {
+        teacher: { include: { user: { select: { name: true } } } },
+        subject: true,
+        category: true,
+      },
+    });
+
+    if (note.status === 'PUBLISHED') {
+      this.eventsGateway.broadcast('noteUploaded', fullNote);
+    }
+
     return note;
+  }
+
+  async createFromNames(dto: any, teacherId: string, actorName: string) {
+    let category = await this.prisma.noteCategory.findFirst({
+      where: { name: { contains: dto.category || 'Study Materials', mode: 'insensitive' } }
+    });
+    if (!category) {
+      category = await this.prisma.noteCategory.create({
+        data: { name: dto.category || 'Study Materials' }
+      });
+    }
+
+    let subject = await this.prisma.subject.findFirst({
+      where: { name: { contains: dto.subject || 'Database Management Systems', mode: 'insensitive' } }
+    });
+    if (!subject) {
+      subject = await this.prisma.subject.findFirst();
+    }
+    if (!subject) throw new NotFoundException('No subjects found in the database');
+
+    let semester = await this.prisma.semester.findFirst({
+      where: { name: { contains: dto.semester?.toString() || 'Semester 1', mode: 'insensitive' } }
+    });
+    if (!semester) {
+      semester = await this.prisma.semester.findFirst();
+    }
+    if (!semester) throw new NotFoundException('No semesters found in the database');
+
+    let division = await this.prisma.division.findFirst({
+      where: { name: { contains: dto.division || 'Division A', mode: 'insensitive' } }
+    });
+    if (!division) {
+      division = await this.prisma.division.findFirst();
+    }
+    if (!division) throw new NotFoundException('No divisions found in the database');
+
+    const data: any = {
+      title: dto.title,
+      description: dto.description || '',
+      fileUrl: dto.fileUrl || '/files/mock-pdf.pdf',
+      fileName: dto.fileName || 'lecture-notes.pdf',
+      fileSize: dto.fileSize || 1024 * 1024 * 2.5,
+      mimeType: dto.mimeType || 'application/pdf',
+      subjectId: subject.id,
+      semesterId: semester.id,
+      divisionId: division.id,
+      categoryId: category.id,
+      teacherId,
+      visibility: dto.visibility || 'SEMESTER',
+      status: dto.status || 'PUBLISHED',
+      publishDate: dto.publishDate ? new Date(dto.publishDate) : undefined,
+      expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
+    };
+
+    const note = await this.prisma.note.create({ data });
+    await this.auditService.log(teacherId, actorName, 'TEACHER', 'UPLOAD_NOTE', `Created note ${note.id}`, 'notes', 'Note', note.id);
+
+    const fullNote = await this.prisma.note.findUnique({
+      where: { id: note.id },
+      include: {
+        teacher: { include: { user: { select: { name: true } } } },
+        subject: true,
+        category: true,
+      },
+    });
+
+    if (note.status === 'PUBLISHED') {
+      this.eventsGateway.broadcast('noteUploaded', fullNote);
+    }
+
+    return fullNote;
   }
 
   async update(id: string, dto: UpdateNoteDto, userId: string, actorName: string) {
@@ -119,6 +249,20 @@ export class NotesService {
     });
 
     await this.auditService.log(userId, actorName, 'TEACHER', 'UPDATE_NOTE', `Updated note ${id}`, 'notes', 'Note', id);
+
+    const fullNote = await this.prisma.note.findUnique({
+      where: { id: note.id },
+      include: {
+        teacher: { include: { user: { select: { name: true } } } },
+        subject: true,
+        category: true,
+      },
+    });
+
+    if (note.status === 'PUBLISHED') {
+      this.eventsGateway.broadcast('noteUploaded', fullNote);
+    }
+
     return note;
   }
 
@@ -249,5 +393,46 @@ export class NotesService {
     });
 
     return download;
+  }
+
+  async findTeacherProfileByUserId(userId: string) {
+    const teacher = await this.prisma.teacher.findUnique({
+      where: { userId },
+    });
+    if (!teacher) {
+      throw new NotFoundException('Teacher profile not found');
+    }
+    return teacher;
+  }
+
+  async getNotesForStudent(userId: string) {
+    const student = await this.prisma.student.findUnique({
+      where: { userId },
+    });
+    if (!student) {
+      throw new NotFoundException('Student profile not found');
+    }
+
+    return this.prisma.note.findMany({
+      where: {
+        status: 'PUBLISHED',
+        OR: [
+          { divisionId: student.divisionId },
+          { semesterId: student.semesterId },
+          { visibility: 'PUBLIC' },
+        ],
+      },
+      include: {
+        teacher: {
+          include: {
+            user: { select: { name: true } },
+          },
+        },
+        subject: true,
+        semester: true,
+        category: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 }

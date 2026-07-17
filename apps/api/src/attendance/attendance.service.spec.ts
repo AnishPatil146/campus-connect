@@ -2,12 +2,16 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AttendanceService } from './attendance.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { EventsGateway } from '../events/events.gateway';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 describe('AttendanceService', () => {
   let service: AttendanceService;
 
   const mockPrismaService = {
+    student: {
+      findUnique: jest.fn(),
+    },
     attendanceSession: {
       create: jest.fn(),
       findMany: jest.fn(),
@@ -34,6 +38,7 @@ describe('AttendanceService', () => {
   };
 
   const mockAuditService = { log: jest.fn() };
+  const mockEventsGateway = { broadcastToUser: jest.fn() };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -41,6 +46,7 @@ describe('AttendanceService', () => {
         AttendanceService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: AuditService, useValue: mockAuditService },
+        { provide: EventsGateway, useValue: mockEventsGateway },
       ],
     }).compile();
 
@@ -163,6 +169,73 @@ describe('AttendanceService', () => {
       expect(mockPrismaService.attendanceRecord.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { studentId: 'student-uuid' } }),
       );
+    });
+  });
+
+  // --- getStudentDashboardSummary --------------------------------------------
+
+  describe('getStudentDashboardSummary', () => {
+    it('should throw NotFoundException if student profile is not found', async () => {
+      mockPrismaService.student.findUnique.mockResolvedValue(null);
+      await expect(service.getStudentDashboardSummary('not-found-uid')).rejects.toThrow(NotFoundException);
+    });
+
+    it('should calculate correct metrics, trends, and history mapping', async () => {
+      const mockStudent = {
+        id: 'stu-id',
+        userId: 'student-user-id',
+        attendanceRecords: [
+          {
+            id: 'rec-1',
+            status: 'PRESENT',
+            remarks: 'On time',
+            createdAt: new Date('2026-07-10T10:00:00Z'),
+            attendanceSession: {
+              attendanceDate: new Date('2026-07-10T10:00:00Z'),
+              startTime: '10:00',
+              endTime: '11:00',
+              subject: {
+                id: 'sub-dbms',
+                name: 'DBMS',
+              },
+            },
+          },
+          {
+            id: 'rec-2',
+            status: 'ABSENT',
+            remarks: 'Late',
+            createdAt: new Date('2026-07-11T10:00:00Z'),
+            attendanceSession: {
+              attendanceDate: new Date('2026-07-11T10:00:00Z'),
+              startTime: '10:00',
+              endTime: '11:00',
+              subject: {
+                id: 'sub-dbms',
+                name: 'DBMS',
+              },
+            },
+          },
+        ],
+      };
+
+      mockPrismaService.student.findUnique.mockResolvedValue(mockStudent);
+
+      const result = await service.getStudentDashboardSummary('student-user-id');
+
+      expect(result.percentage).toBe(50);
+      expect(result.present).toBe(1);
+      expect(result.absent).toBe(1);
+      expect(result.monthlyTrend).toHaveLength(1);
+      expect(result.monthlyTrend[0]).toEqual({ month: 'Jul', percentage: 50 });
+      expect(result.subjectWise).toHaveLength(1);
+      expect(result.subjectWise[0]).toEqual({
+        subjectId: 'sub-dbms',
+        subjectName: 'DBMS',
+        present: 1,
+        absent: 1,
+        percentage: 50,
+      });
+      expect(result.history).toHaveLength(2);
     });
   });
 });

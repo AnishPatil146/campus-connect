@@ -84,6 +84,78 @@ export class TimetableService {
     });
   }
 
+  async getStudentTimetableByQuery(userId: string, courseName?: string, divisionName?: string) {
+    const student = await this.prisma.student.findUnique({
+      where: { userId },
+    });
+    if (!student) {
+      throw new NotFoundException('Student profile not found');
+    }
+
+    const where: any = {
+      timetable: {
+        collegeId: student.collegeId,
+        active: true,
+      },
+    };
+
+    if (divisionName) {
+      where.division = {
+        name: {
+          contains: divisionName,
+          mode: 'insensitive',
+        },
+      };
+    } else {
+      where.divisionId = student.divisionId;
+    }
+
+    if (courseName) {
+      where.division = {
+        ...where.division,
+        semester: {
+          academicSession: {
+            course: {
+              name: {
+                contains: courseName,
+                mode: 'insensitive',
+              },
+            },
+          },
+        },
+      };
+    }
+
+    return this.prisma.timetableSlot.findMany({
+      where,
+      include: {
+        subject: true,
+        teacher: {
+          include: {
+            user: true,
+          },
+        },
+        division: {
+          include: {
+            semester: {
+              include: {
+                academicSession: {
+                  include: {
+                    course: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: [
+        { dayOfWeek: 'asc' },
+        { startTime: 'asc' },
+      ],
+    });
+  }
+
   async getTeacherTimetable(teacherId: string) {
     return this.prisma.timetableSlot.findMany({
       where: { teacherId },
