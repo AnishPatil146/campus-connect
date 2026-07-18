@@ -92,11 +92,11 @@ export default function TeacherDashboard() {
   const completedTasks = assignedTasks.filter(t => t.status === 'COMPLETED');
 
   const stats = [
-    { title: "Today's Classes", value: "2", color: "text-blue-600 bg-blue-50" },
-    { title: "Pending Attendance", value: "1", color: "text-amber-600 bg-amber-50" },
-    { title: "Pending Reviews", value: "5", color: "text-rose-600 bg-rose-50" },
-    { title: "Uploaded Notes", value: "12", color: "text-purple-600 bg-purple-50" },
-    { title: "Leave Balance", value: "18 Days", color: "text-emerald-600 bg-emerald-50" },
+    { title: "Today's Classes", value: "2", color: "text-role-primary bg-role-surface border border-role-border/50" },
+    { title: "Pending Attendance", value: "1", color: "text-amber-600 bg-amber-50 border border-amber-200/50" },
+    { title: "Pending Reviews", value: "5", color: "text-rose-600 bg-rose-50 border border-rose-200/50" },
+    { title: "Uploaded Notes", value: "12", color: "text-role-primary bg-role-surface border border-role-border/50" },
+    { title: "Leave Balance", value: "18 Days", color: "text-emerald-650 bg-emerald-50 border border-emerald-200/50" },
   ];
 
   return (
@@ -104,7 +104,7 @@ export default function TeacherDashboard() {
       <div className="space-y-6">
         
         {/* Welcome Banner */}
-        <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 rounded-2xl p-6 text-white relative overflow-hidden shadow-lg shadow-purple-500/10">
+        <div className="bg-gradient-to-r from-role-primary via-role-secondary to-role-tertiary rounded-2xl p-6 text-white relative overflow-hidden shadow-lg shadow-role-primary/10">
           <div className="absolute top-0 right-0 transform translate-x-12 -translate-y-12 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
           <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
@@ -112,7 +112,7 @@ export default function TeacherDashboard() {
                 Faculty Workspace
               </span>
               <h2 className="text-2xl font-extrabold mt-3 tracking-tight">Good Morning, Professor {user?.name || 'John'} 👋</h2>
-              <p className="text-purple-100 text-xs mt-1">
+              <p className="text-white/80 text-xs mt-1">
                 Department of Computer Science • Academic Session: AY 2026-27
               </p>
             </div>
@@ -126,7 +126,7 @@ export default function TeacherDashboard() {
         {/* Quick Statistics Grid */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {stats.map((item, idx) => (
-            <Card key={idx} className="border-slate-100/80 hover:border-purple-100 transition-all duration-300">
+            <Card key={idx} className="border-role-border/50 hover:border-role-primary/50 hover:-translate-y-0.5 transition-all duration-300">
               <CardContent className="p-4 flex flex-col justify-between h-full space-y-2">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{item.title}</span>
                 <span className={`text-xl font-extrabold text-slate-800 dark:text-white`}>{item.value}</span>
@@ -147,9 +147,9 @@ export default function TeacherDashboard() {
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {coursesTaught.map((course, idx) => (
-                <div key={idx} className="p-4 border border-slate-100 rounded-xl bg-slate-50 hover:bg-white hover:shadow-sm transition-all duration-200">
+                <div key={idx} className="p-4 border border-role-border/50 rounded-xl bg-role-surface/20 hover:bg-role-card-bg hover:shadow-sm transition-all duration-200">
                   <div className="flex justify-between items-start">
-                    <span className="text-xs font-bold text-purple-600 bg-purple-50 border border-purple-100 px-2.5 py-0.5 rounded-full uppercase">
+                    <span className="text-xs font-bold text-role-primary bg-role-surface border border-role-border px-2.5 py-0.5 rounded-full uppercase">
                       {course.code}
                     </span>
                     <span className="text-[10px] text-slate-400 font-semibold flex items-center gap-1">
@@ -211,7 +211,7 @@ export default function TeacherDashboard() {
 
         {/* Right Side: Update Grades Panel */}
         <div className="space-y-6">
-          <Card className="border-purple-100/70 shadow-lg shadow-purple-500/5">
+          <Card className="border-role-border/50 shadow-lg shadow-role-primary/5">
             <CardHeader>
               <CardTitle className="text-slate-900">Update Student Grade</CardTitle>
               <p className="text-xs text-slate-500">Review and enter academic records</p>
@@ -237,7 +237,7 @@ export default function TeacherDashboard() {
                       const std = students.find(s => s.id === e.target.value);
                       if (std) setMarks(std.marks);
                     }}
-                    className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-all duration-200"
+                    className="w-full h-11 rounded-xl border border-role-border bg-white dark:bg-slate-950 px-3.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-role-primary focus:ring-offset-2 transition-all duration-200"
                   >
                     {students.map((student) => (
                       <option key={student.id} value={student.id}>
@@ -267,7 +267,7 @@ export default function TeacherDashboard() {
 
                 <Button
                   type="submit"
-                  className="w-full h-11 rounded-xl bg-purple-600 hover:bg-purple-700 focus:ring-purple-500 text-sm shadow-md shadow-purple-500/10"
+                  className="w-full h-11 rounded-xl bg-role-primary hover:bg-role-secondary focus:ring-role-primary text-sm shadow-md shadow-role-primary/10"
                 >
                   Save Record
                 </Button>

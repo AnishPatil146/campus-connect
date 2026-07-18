@@ -24,7 +24,7 @@ import { api } from '../utils/api';
 
 export default function LoginContainer({ initialRole, brandingMessage }: { initialRole?: UserRole; brandingMessage?: string }) {
   const { login, loginWithGoogle, isLoading } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, setRole: setGlobalRole } = useTheme();
   const router = useRouter();
 
   const [collegeId, setCollegeId] = useState<CollegeId>('college-a');
@@ -77,6 +77,12 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
   const [signUpError, setSignUpError] = useState<string | null>(null);
   const [signUpSuccess, setSignUpSuccess] = useState<string | null>(null);
   const [isSigningUp, setIsSigningUp] = useState(false);
+
+  // Sync selected role to theme provider
+  React.useEffect(() => {
+    const activeRole = showSignUp ? signUpRole : role;
+    setGlobalRole(activeRole.toLowerCase() as any);
+  }, [role, signUpRole, showSignUp, setGlobalRole]);
 
   // Subject lists per stream
   const scienceSubjects = ['Physics', 'Chemistry', 'Biology', 'Mathematics', 'Computer Science', 'English'];
@@ -308,10 +314,10 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
   ];
 
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 relative overflow-hidden font-sans">
+    <div className="min-h-screen flex flex-col justify-between bg-role-bg text-slate-900 dark:text-slate-100 transition-colors duration-300 relative overflow-hidden font-sans">
       {/* Background radial effects */}
-      <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] rounded-full bg-blue-500/5 dark:bg-blue-600/5 blur-[120px] -z-10 pointer-events-none" />
-      <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-indigo-500/5 dark:bg-indigo-600/5 blur-[120px] -z-10 pointer-events-none" />
+      <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] rounded-full bg-role-login-glow/5 blur-[120px] -z-10 pointer-events-none" />
+      <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-role-login-glow/5 blur-[120px] -z-10 pointer-events-none" />
 
       {/* Floating Theme Toggle */}
       <div className="absolute top-6 right-6 z-50">
@@ -327,12 +333,12 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
 
       {/* Main Container */}
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 md:p-8 z-10">
-        <div className="w-full max-w-5xl bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl overflow-hidden border border-slate-200/60 dark:border-slate-800 grid grid-cols-1 md:grid-cols-12 min-h-[760px] transition-all">
+        <div className="w-full max-w-5xl bg-role-card-bg dark:bg-slate-900/40 rounded-[2rem] shadow-2xl overflow-hidden border border-role-border dark:border-slate-800 grid grid-cols-1 md:grid-cols-12 min-h-[760px] transition-all">
           
           {/* Left Column (Hero Welcome Banner) */}
-          <div className="hidden md:flex md:col-span-5 flex-col justify-between p-10 text-white relative overflow-hidden bg-gradient-to-b from-[#02225B] to-[#0A3B8B]">
+          <div className="hidden md:flex md:col-span-5 flex-col justify-between p-10 text-white relative overflow-hidden bg-gradient-to-b from-role-login-from to-role-login-to">
             {/* Soft highlight */}
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.2),transparent_65%)] pointer-events-none" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.1),transparent_65%)] pointer-events-none" />
             
             {/* Top Logo branding */}
             <div className="z-10 flex items-center gap-3">
@@ -343,7 +349,7 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
                 <span className="font-display font-extrabold text-sm tracking-tight text-white block animate-pulse">
                   Campus Connect
                 </span>
-                <span className="text-[9px] text-blue-200/70 font-semibold tracking-wider uppercase block -mt-0.5">
+                <span className="text-[9px] text-white/50 font-semibold tracking-wider uppercase block -mt-0.5">
                   Smart Campus. Better Future.
                 </span>
               </div>
@@ -358,16 +364,16 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
                   <>
                     Welcome to <br />
                     <span className="text-white">Campus </span>
-                    <span className="text-blue-300">Connect</span>
+                    <span className="text-white/80">Connect</span>
                   </>
                 )}
               </h1>
-              <p className="text-[11px] text-blue-100/70 leading-relaxed font-normal max-w-[240px]">
+              <p className="text-[11px] text-white/70 leading-relaxed font-normal max-w-[240px]">
                 {role === 'STUDENT' ? 'Access your lectures, check attendance, download learning notes, and track your performance index.' :
                  role === 'TEACHER' ? 'Manage attendance, publish assignments, grade student submissions, and upload notes.' :
                  'Manage college departments, courses, student and teacher databases, timetable slots, and system settings.'}
               </p>
-              <div className="h-[2px] w-8 bg-blue-400 rounded-full animate-pulse" />
+              <div className="h-[2px] w-8 bg-white/40 rounded-full animate-pulse" />
             </div>
 
             {/* Illustration image matching the dusk skyline mockup */}
@@ -428,7 +434,7 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
                   <Button
                     type="submit"
                     isLoading={isResetting}
-                    className="w-full h-11 rounded-xl text-xs font-semibold shadow-md bg-blue-600 hover:bg-blue-700 text-white border-transparent transition-all"
+                    className="w-full h-11 rounded-xl text-xs font-semibold shadow-md bg-role-primary hover:bg-role-secondary text-white border-transparent transition-all"
                   >
                     Send Password Reset Link
                   </Button>
@@ -490,7 +496,7 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
                             onClick={() => setSignUpRole(r)}
                             className={`py-2 rounded-lg text-[10px] font-bold text-center uppercase tracking-wide transition-all duration-150 cursor-pointer ${
                               signUpRole === r
-                                ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/40 dark:border-slate-700'
+                                ? 'bg-white dark:bg-slate-900 text-role-primary shadow-sm border border-slate-200/40 dark:border-slate-700'
                                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 border border-transparent'
                             }`}
                           >
@@ -656,7 +662,7 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
 
                         <div className="space-y-1.5">
                           <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Class / Program Type</label>
-                          <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700">
+                  <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700">
                             {(['11', '12', 'DEGREE'] as const).map((ct) => (
                               <button
                                 key={ct}
@@ -664,7 +670,7 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
                                 onClick={() => { setSignUpCourseType(ct); setSignUpSubjects([]); }}
                                 className={`py-1.5 rounded-lg text-[10px] font-bold text-center uppercase tracking-wide transition-all duration-150 cursor-pointer ${
                                   signUpCourseType === ct
-                                    ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/40 dark:border-slate-700'
+                                    ? 'bg-white dark:bg-slate-900 text-role-primary shadow-sm border border-slate-200/40 dark:border-slate-700'
                                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 border border-transparent'
                                 }`}
                               >
@@ -746,8 +752,8 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
                                     onClick={() => toggleSubject(sub)}
                                     className={`px-3 py-1.5 rounded-lg text-[10px] font-semibold border transition-all duration-150 cursor-pointer ${
                                       signUpSubjects.includes(sub)
-                                        ? 'bg-blue-600 border-blue-600 text-white'
-                                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-650 dark:text-slate-350 hover:border-blue-400'
+                                        ? 'bg-role-primary border-role-primary text-white'
+                                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-650 dark:text-slate-350 hover:border-role-primary'
                                     }`}
                                   >
                                     {sub}
@@ -799,7 +805,7 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
                   <Button
                     type="submit"
                     isLoading={isSigningUp}
-                    className="w-full h-11 rounded-xl text-xs font-semibold shadow-md bg-blue-600 hover:bg-blue-700 text-white border-transparent transition-all mt-2 cursor-pointer"
+                    className="w-full h-11 rounded-xl text-xs font-semibold shadow-md bg-role-primary hover:bg-role-secondary text-white border-transparent transition-all mt-2 cursor-pointer"
                   >
                     Create Profile
                   </Button>
@@ -961,7 +967,7 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
                   <Button
                     type="submit"
                     isLoading={isLoading || isGoogleLoading}
-                    className="w-full h-11 rounded-xl text-xs font-semibold shadow-md bg-blue-600 hover:bg-blue-700 text-white border-transparent transition-all mt-4 cursor-pointer"
+                    className="w-full h-11 rounded-xl text-xs font-semibold shadow-md bg-role-primary hover:bg-role-secondary text-white border-transparent transition-all mt-4 cursor-pointer"
                   >
                     Login
                   </Button>

@@ -171,7 +171,7 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
               
               <Link href="/dashboard/admin/students?action=add">
-                <Button className="w-full h-12 rounded-xl flex items-center justify-center gap-2 bg-slate-950 text-white dark:bg-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-slate-100 border border-transparent font-medium text-sm transition-all duration-150">
+                <Button className="w-full h-12 rounded-xl flex items-center justify-center gap-2 bg-role-primary hover:bg-role-secondary text-white border-transparent font-medium text-sm transition-all duration-150 shadow-md shadow-role-primary/10">
                   <Plus className="h-4 w-4 shrink-0" />
                   <span>Add Student</span>
                 </Button>
@@ -229,7 +229,7 @@ export default function AdminDashboard() {
                 {classes.map((cls, idx) => (
                   <div key={idx} className="py-3.5 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
                     <div className="flex items-start gap-3">
-                      <div className="h-9 w-9 rounded-lg bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5 border border-blue-100/50 dark:border-blue-900/40">
+                      <div className="h-9 w-9 rounded-lg bg-role-surface/60 dark:bg-role-surface/20 text-role-primary flex items-center justify-center shrink-0 mt-0.5 border border-role-border/50">
                         <BookOpen className="h-4.5 w-4.5" />
                       </div>
                       <div>

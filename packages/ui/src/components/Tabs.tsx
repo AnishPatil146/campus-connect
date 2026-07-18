@@ -82,7 +82,7 @@ export const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>
         className={cn(
           'relative pb-3 text-sm font-medium transition-colors hover:text-slate-900 dark:hover:text-white select-none border-b-2 border-transparent focus-visible:outline-none',
           isActive
-            ? 'text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400 font-semibold'
+            ? 'text-role-primary border-role-primary font-semibold'
             : 'text-slate-500 dark:text-slate-400',
           className
         )}

@@ -24,7 +24,7 @@ export const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(
         {...props}
       >
         {/* Icon container */}
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-400 dark:text-slate-500 mb-4 border border-slate-200/50 dark:border-slate-800/50">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-role-surface/40 text-role-primary mb-4 border border-role-border/50">
           {icon || <FolderOpen className="h-6 w-6" />}
         </div>
 
@@ -41,7 +41,7 @@ export const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(
           <button
             onClick={action.onClick}
             type="button"
-            className="mt-5 inline-flex items-center justify-center h-10 px-4 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] rounded-xl shadow-md shadow-blue-500/10 transition-all duration-200"
+            className="mt-5 inline-flex items-center justify-center h-10 px-4 text-sm font-semibold text-white bg-role-primary hover:bg-role-secondary active:scale-[0.98] rounded-xl shadow-md shadow-role-primary/15 transition-all duration-200"
           >
             {action.label}
           </button>

@@ -5,33 +5,167 @@
 @theme {
   --font-sans: "Inter", system-ui, sans-serif;
   --font-display: "Outfit", system-ui, sans-serif;
+  
+  --color-role-primary: var(--role-primary);
+  --color-role-secondary: var(--role-secondary);
+  --color-role-tertiary: var(--role-tertiary);
+  --color-role-bg: var(--role-bg);
+  --color-role-sidebar-bg: var(--role-sidebar-bg);
+  --color-role-header-bg: var(--role-header-bg);
+  --color-role-card-bg: var(--role-card-bg);
+  --color-role-border: var(--role-border);
+  --color-role-surface: var(--role-surface);
+  --color-role-surface-hover: var(--role-surface-hover);
+  
+  --color-role-login-from: var(--role-login-from);
+  --color-role-login-to: var(--role-login-to);
+  --color-role-login-glow: var(--role-login-glow);
+}
+
+:root {
+  /* Default fallbacks / Student variables as base */
+  --role-primary: #2563EB;
+  --role-secondary: #3B82F6;
+  --role-tertiary: #60A5FA;
+  --role-bg: #f8fafc;
+  --role-sidebar-bg: #ffffff;
+  --role-header-bg: #ffffff;
+  --role-card-bg: rgba(255, 255, 255, 0.85);
+  --role-border: #e2e8f0;
+  --role-surface: #eff6ff;
+  --role-surface-hover: #dbeafe;
+  
+  --role-login-from: #02225B;
+  --role-login-to: #0A3B8B;
+  --role-login-glow: #3b82f6;
+}
+
+html.dark {
+  --role-primary: #3b82f6;
+  --role-secondary: #1e3a8a;
+  --role-tertiary: #0f172a;
+  --role-bg: #090d16;
+  --role-sidebar-bg: #0f172a;
+  --role-header-bg: #0f172a;
+  --role-card-bg: rgba(15, 23, 42, 0.8);
+  --role-border: #1e293b;
+  --role-surface: #1e293b;
+  --role-surface-hover: #334155;
+}
+
+/* Student specific (#2563EB, #3B82F6, #60A5FA / #0F172A, #1E3A8A, #1D4ED8) */
+html[data-role="student"] {
+  --role-primary: #2563EB;
+  --role-secondary: #3B82F6;
+  --role-tertiary: #60A5FA;
+  --role-bg: #f8fafc;
+  --role-sidebar-bg: #eff6ff;
+  --role-header-bg: #ffffff;
+  --role-card-bg: rgba(255, 255, 255, 0.95);
+  --role-border: #bfdbfe;
+  --role-surface: #eff6ff;
+  --role-surface-hover: #dbeafe;
+  --role-login-from: #02225B;
+  --role-login-to: #0A3B8B;
+  --role-login-glow: #3b82f6;
+}
+
+html[data-role="student"].dark {
+  --role-primary: #1D4ED8;
+  --role-secondary: #1E3A8A;
+  --role-tertiary: #0F172A;
+  --role-bg: #0F172A;
+  --role-sidebar-bg: #131b2e;
+  --role-header-bg: #131b2e;
+  --role-card-bg: rgba(30, 58, 138, 0.15);
+  --role-border: rgba(29, 78, 216, 0.25);
+  --role-surface: rgba(29, 78, 216, 0.15);
+  --role-surface-hover: rgba(29, 78, 216, 0.3);
+  --role-login-from: #0f172a;
+  --role-login-to: #1e3a8a;
+  --role-login-glow: #1d4ed8;
+}
+
+/* Teacher specific (#059669, #10B981, #34D399 / #052E16, #166534, #15803D) */
+html[data-role="teacher"] {
+  --role-primary: #059669;
+  --role-secondary: #10B981;
+  --role-tertiary: #34D399;
+  --role-bg: #f4fbf7;
+  --role-sidebar-bg: #ecfdf5;
+  --role-header-bg: #ffffff;
+  --role-card-bg: rgba(255, 255, 255, 0.95);
+  --role-border: #a7f3d0;
+  --role-surface: #ecfdf5;
+  --role-surface-hover: #d1fae5;
+  --role-login-from: #044e37;
+  --role-login-to: #059669;
+  --role-login-glow: #10b981;
+}
+
+html[data-role="teacher"].dark {
+  --role-primary: #15803D;
+  --role-secondary: #166534;
+  --role-tertiary: #052E16;
+  --role-bg: #052E16;
+  --role-sidebar-bg: #0b3d1f;
+  --role-header-bg: #0b3d1f;
+  --role-card-bg: rgba(22, 101, 52, 0.15);
+  --role-border: rgba(21, 128, 61, 0.25);
+  --role-surface: rgba(21, 128, 61, 0.15);
+  --role-surface-hover: rgba(21, 128, 61, 0.3);
+  --role-login-from: #052e16;
+  --role-login-to: #166534;
+  --role-login-glow: #15803d;
+}
+
+/* Admin specific (#7C3AED, #8B5CF6, #A78BFA / #2E1065, #5B21B6, #6D28D9) */
+html[data-role="admin"] {
+  --role-primary: #7C3AED;
+  --role-secondary: #8B5CF6;
+  --role-tertiary: #A78BFA;
+  --role-bg: #faf5ff;
+  --role-sidebar-bg: #f5f3ff;
+  --role-header-bg: #ffffff;
+  --role-card-bg: rgba(255, 255, 255, 0.95);
+  --role-border: #ddd6fe;
+  --role-surface: #f5f3ff;
+  --role-surface-hover: #ede9fe;
+  --role-login-from: #4c1d95;
+  --role-login-to: #7c3aed;
+  --role-login-glow: #8b5cf6;
+}
+
+html[data-role="admin"].dark {
+  --role-primary: #6D28D9;
+  --role-secondary: #5B21B6;
+  --role-tertiary: #2E1065;
+  --role-bg: #2E1065;
+  --role-sidebar-bg: #3c147d;
+  --role-header-bg: #3c147d;
+  --role-card-bg: rgba(91, 33, 182, 0.15);
+  --role-border: rgba(109, 40, 217, 0.25);
+  --role-surface: rgba(109, 40, 217, 0.15);
+  --role-surface-hover: rgba(109, 40, 217, 0.3);
+  --role-login-from: #2e1065;
+  --role-login-to: #5b21b6;
+  --role-login-glow: #6d28d9;
 }
 
 /* Custom styles matching our design system */
 .glass-effect {
-  background: rgba(255, 255, 255, 0.75);
+  background: var(--role-card-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-}
-
-.dark .glass-effect {
-  background: rgba(15, 23, 42, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--role-border);
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.8);
+  background: var(--role-card-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.45);
+  border: 1px solid var(--role-border);
   box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04);
-}
-
-.dark .glass-card {
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
 }
 
 .shadow-hover {
@@ -40,6 +174,7 @@
 
 .shadow-hover:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 30px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 12px 30px var(--role-primary);
 }
+
 

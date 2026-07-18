@@ -80,10 +80,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans text-slate-850 dark:text-slate-100 transition-colors duration-300">
+    <div className="min-h-screen bg-role-bg flex flex-col font-sans text-slate-850 dark:text-slate-100 transition-colors duration-300">
       <CommandPalette />
       {/* Top Header */}
-      <header className="h-16 border-b border-slate-100 dark:border-slate-900 bg-white dark:bg-slate-900 sticky top-0 z-30 px-6 flex items-center justify-between transition-colors duration-300">
+      <header className="h-16 border-b border-role-border/40 bg-role-header-bg sticky top-0 z-30 px-6 flex items-center justify-between transition-colors duration-300">
         <div className="flex items-center gap-3">
           <button 
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -124,7 +124,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
           {/* College Tag */}
           <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
             user.role === 'TEACHER' 
-              ? 'bg-slate-100 text-slate-700 border-slate-250 dark:bg-slate-900 dark:text-slate-355 dark:border-slate-800' 
+              ? 'bg-role-surface/60 text-role-primary border-role-border/50 dark:bg-role-surface/20 dark:text-role-primary dark:border-role-border/40' 
               : getCollegeBgTag(user.collegeId)
           }`}>
             {user.role === 'TEACHER' ? 'Balasaheb Mhatre Group Faculty' : getCollegeName(user.collegeId)}
@@ -137,29 +137,29 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
           <button
             onClick={toggleTheme}
             type="button"
-            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-350 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            className="p-2 text-slate-400 hover:text-role-primary rounded-lg hover:bg-role-surface-hover/20 dark:hover:bg-role-surface-hover/10 transition-colors"
             title="Toggle theme"
           >
             {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </button>
 
-          <button className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-350 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 relative">
+          <button className="p-2 text-slate-400 hover:text-role-primary rounded-lg hover:bg-role-surface-hover/20 dark:hover:bg-role-surface-hover/10 relative">
             <Bell className="h-5 w-5" />
             <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full" />
           </button>
 
           <div className="flex items-center gap-3 pl-3 border-l border-slate-100 dark:border-slate-800">
-            <div className="h-9 w-9 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300">
+            <div className="h-9 w-9 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-655 dark:text-slate-300">
               <UserIcon className="h-5 w-5" />
             </div>
             <div className="hidden md:flex flex-col text-left">
-              <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">{user.name}</span>
-              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">{user.role.replace('_', ' ')}</span>
+              <span className="text-sm font-semibold text-slate-850 dark:text-slate-200">{user.name}</span>
+              <span className="text-[10px] font-bold text-role-primary uppercase tracking-wide">{user.role.replace('_', ' ')}</span>
             </div>
 
             <button
               onClick={handleLogout}
-              className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+              className="p-2 text-slate-400 hover:text-red-655 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
               title="Logout"
             >
               <LogOut className="h-5 w-5" />
@@ -171,7 +171,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
       {/* Main Workspace Body */}
       <div className="flex-1 flex relative">
         {/* Sidebar Left Navigation (Desktop) */}
-        <aside className="w-64 border-r border-slate-100 dark:border-slate-900 bg-white dark:bg-slate-900 hidden md:flex flex-col p-4 shrink-0 transition-colors duration-300">
+        <aside className="w-64 border-r border-role-border/40 bg-role-sidebar-bg hidden md:flex flex-col p-4 shrink-0 transition-colors duration-300">
           <nav className="space-y-1.5 flex-1">
             {sidebarItems.map((item) => {
               const isActive = pathname === item.path;
@@ -181,8 +181,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
                   href={item.path}
                   className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150 ${
                     isActive
-                      ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 border border-blue-100/50 dark:border-blue-900/50'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white border border-transparent'
+                      ? 'bg-role-surface/60 dark:bg-role-surface/30 text-role-primary border border-role-border/50 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-role-surface-hover/20 dark:hover:bg-role-surface-hover/10 hover:text-role-primary border border-transparent'
                   }`}
                 >
                   {item.icon}
@@ -192,8 +192,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
             })}
           </nav>
 
-          <div className="border-t border-slate-100 dark:border-slate-900 pt-4">
-            <div className="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-900 flex items-center gap-2">
+          <div className="border-t border-role-border/40 pt-4">
+            <div className="p-3 bg-role-surface/30 dark:bg-role-surface/10 rounded-xl border border-role-border/30 flex items-center gap-2">
               <Settings className="h-4 w-4 text-slate-400" />
               <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Workspace settings</span>
             </div>
@@ -204,7 +204,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
         {mobileMenuOpen && (
           <div className="fixed inset-0 top-16 bg-slate-900/20 dark:bg-black/40 backdrop-blur-sm z-20 md:hidden" onClick={() => setMobileMenuOpen(false)}>
             <div 
-              className="w-64 h-full bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-900 p-4 flex flex-col"
+              className="w-64 h-full bg-role-sidebar-bg border-r border-role-border/50 p-4 flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
               <nav className="space-y-1.5 flex-1">
@@ -217,8 +217,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
                       onClick={() => setMobileMenuOpen(false)}
                       className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150 ${
                         isActive
-                          ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 border border-blue-100/50 dark:border-blue-900/50'
-                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                          ? 'bg-role-surface/60 dark:bg-role-surface/30 text-role-primary border border-role-border/50'
+                          : 'text-slate-600 dark:text-slate-400 hover:bg-role-surface-hover/20 dark:hover:bg-role-surface-hover/10'
                       }`}
                     >
                       {item.icon}
@@ -243,7 +243,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
         <main className="flex-1 p-6 md:p-8 overflow-y-auto max-w-7xl mx-auto w-full transition-colors duration-300">
           <div className="mb-6 flex flex-col gap-1.5">
             <h1 className="font-display font-extrabold text-2xl md:text-3xl text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
-              {icon && <span className="text-blue-600 dark:text-blue-400 shrink-0">{icon}</span>}
+              {icon && <span className="text-role-primary shrink-0">{icon}</span>}
               <span>{title}</span>
             </h1>
           </div>

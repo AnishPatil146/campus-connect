@@ -5,7 +5,7 @@ export const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement>
 >(({ className, ...props }, ref) => (
-  <div className="w-full overflow-auto rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950">
+  <div className="w-full overflow-auto rounded-xl border border-role-border/50 bg-role-card-bg">
     <table
       ref={ref}
       className={cn('w-full caption-bottom text-sm border-collapse', className)}
@@ -19,7 +19,7 @@ export const TableHeader = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
-  <thead ref={ref} className={cn('[&_tr]:border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/20', className)} {...props} />
+  <thead ref={ref} className={cn('[&_tr]:border-b border-role-border/50 bg-role-surface/40 dark:bg-role-surface/10', className)} {...props} />
 ));
 TableHeader.displayName = 'TableHeader';
 
@@ -57,7 +57,7 @@ export const TableRow = React.forwardRef<
   <tr
     ref={ref}
     className={cn(
-      'border-b border-slate-100 dark:border-slate-800/80 transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-900/40 data-[state=selected]:bg-slate-100 dark:data-[state=selected]:bg-slate-800',
+      'border-b border-role-border/40 transition-colors hover:bg-role-surface-hover/20 data-[state=selected]:bg-role-surface/40',
       className
     )}
     {...props}

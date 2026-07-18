@@ -38,14 +38,14 @@ export const Toast: React.FC<ToastProps> = ({
   const icons = {
     success: <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />,
     error: <AlertCircle className="h-5 w-5 text-red-500 shrink-0" />,
-    info: <Info className="h-5 w-5 text-blue-500 shrink-0" />,
+    info: <Info className="h-5 w-5 text-role-primary shrink-0" />,
     warning: <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />,
   };
 
   const bgStyles = {
     success: 'border-emerald-100 dark:border-emerald-950 bg-emerald-50/90 dark:bg-emerald-950/20 text-emerald-900 dark:text-emerald-300',
     error: 'border-red-100 dark:border-red-950 bg-red-50/90 dark:bg-red-950/20 text-red-900 dark:text-red-300',
-    info: 'border-blue-100 dark:border-blue-950 bg-blue-50/90 dark:bg-blue-950/20 text-blue-900 dark:text-blue-300',
+    info: 'border-role-border/50 bg-role-surface/90 dark:bg-role-surface/20 text-role-primary',
     warning: 'border-amber-100 dark:border-amber-950 bg-amber-50/90 dark:bg-amber-950/20 text-amber-900 dark:text-amber-300',
   };
 
