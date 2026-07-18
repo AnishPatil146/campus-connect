@@ -35,6 +35,15 @@ export class RedisService {
   }
 
   async incrementAndGet(key: string, ttlSeconds: number): Promise<number> {
+    const store = (this.cacheManager as any).store;
+    const client = store?.client;
+    if (client && typeof client.incr === 'function') {
+      const val = await client.incr(key);
+      if (val === 1) {
+        await client.expire(key, ttlSeconds);
+      }
+      return val;
+    }
     const current = await this.get<number>(key);
     const newVal = (current || 0) + 1;
     await this.set(key, newVal, ttlSeconds);

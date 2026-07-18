@@ -1,9 +1,9 @@
 # Campus Connect — Authentication Test Results
 ## Sprint 1 — Authentication & Identity System
 
-> **Run Date:** 17/7/2026, 9:22:18 pm IST
+> **Run Date:** 18/7/2026, 1:54:33 pm IST
 > **API:** `http://localhost:10000/api/v1`
-> **Status:** ⚠️  1 TEST(S) FAILED
+> **Status:** ⚠️  6 TEST(S) FAILED
 
 ---
 
@@ -12,45 +12,43 @@
 | Metric | Value |
 |--------|-------|
 | Total TCs | 8 |
-| Passed | 7 ✅ |
-| Failed | 1 ❌ |
-| Pass Rate | 88% |
-| Login Latency | 4746ms |
-| Full Auth Flow | 7161ms |
+| Passed | 2 ✅ |
+| Failed | 6 ❌ |
+| Pass Rate | 25% |
 
 ---
 
 ## Test Case Results
 
-### ✅ PASS — TC1 — Rate Limit Enforcement
+### ❌ FAIL — TC1 — Rate Limit Enforcement
 
-**Result:** First 5 succeed: YES | Attempt 6 rate-limited: YES
+**Result:** First 5 succeed: NO | Attempt 6 rate-limited: YES
 
 ---
 
 ### ❌ FAIL — TC2 — Real User Performance
 
-**Result:** Login 4746ms | Flow 7161ms | JWT issued: true
+**Result:** Login failed: Too many login attempts. Please try again in a minute.
 
 ---
 
-### ✅ PASS — TC3 — Multi-Role Concurrent Login
+### ❌ FAIL — TC3 — Multi-Role Concurrent Login
 
-**Result:** 3/3 roles logged in successfully
+**Result:** 2/3 roles logged in successfully
 
 ---
 
-### ✅ PASS — TC4 — Concurrent Load Test
+### ❌ FAIL — TC4 — Concurrent Load Test
 
-**Result:** 3/3 logins succeeded concurrently in 9918ms wall time
+**Result:** 2/3 logins succeeded concurrently in 12826ms wall time
 
 > **Note:** Full 18-user test requires additional seeded accounts per environment.
 
 ---
 
-### ✅ PASS — TC5 — Multi-Tenant Security
+### ❌ FAIL — TC5 — Multi-Tenant Security
 
-**Result:** Cross-tenant rejected: YES | Same-tenant succeeds: YES
+**Result:** Cross-tenant rejected: YES | Same-tenant succeeds: NO
 
 ---
 
@@ -60,9 +58,9 @@
 
 ---
 
-### ✅ PASS — TC7 — Session Lifecycle
+### ❌ FAIL — TC7 — Session Lifecycle
 
-**Result:** Login: true | Verify: true | Logout: true | Revoke enforced: true
+**Result:** Login failed: Too many login attempts. Please try again in a minute.
 
 ---
 

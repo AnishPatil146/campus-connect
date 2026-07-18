@@ -14,6 +14,7 @@ import { GoogleLoginDto } from './dto/google-login.dto';
 import { Role, UserStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -156,45 +157,42 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
     const emailLower = email.toLowerCase().trim();
     const clientIp = ipAddress || '127.0.0.1';
 
-    // Per-email limit: 5/min (Students/Teachers), 3/min (Admins)
-    // Prevents brute-force against a specific account.
-    let emailLimit = 5;
-
-    // Per-IP limit: 30/min (shared across all emails from that IP)
-    // Prevents mass account enumeration from a single machine while
-    // allowing legitimate shared campus networks (NAT, WiFi gateways).
-    const ipLimit = 30;
-
-    // Find the user and get their roles (for per-email limit calculation)
-    const user = await this.prisma.user.findUnique({
-      where: { email: emailLower },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-      },
-    });
-
-    if (emailLower === 'super@campusconnect.com') {
-      emailLimit = 3;
-    } else if (user) {
-      const roles = user.userRoles.map((ur) => ur.role.name);
-      if (roles.includes('ADMIN')) {
-        emailLimit = 3;
-      } else if (roles.includes('TEACHER')) {
-        emailLimit = 5;
-      } else if (roles.includes('STUDENT')) {
-        emailLimit = 5;
-      }
-    }
-
     const emailKey = `rate-limit:login:email:${emailLower}`;
     const ipKey = `rate-limit:login:ip:${clientIp}`;
 
-    const emailAttempts = await this.redis.incrementAndGet(emailKey, 60);
-    const ipAttempts = await this.redis.incrementAndGet(ipKey, 60);
+    // Perform Redis increments in parallel to halve the latency
+    const [emailAttempts, ipAttempts] = await Promise.all([
+      this.redis.incrementAndGet(emailKey, 60),
+      this.redis.incrementAndGet(ipKey, 60),
+    ]);
+
+    // Fast check: if attempts <= 3, the user is safe regardless of role.
+    // If attempts > 5, the user is blocked regardless of role.
+    // We only perform the database lookup when attempts are 4 or 5 and the user
+    // might be an admin (which has a lower limit of 3).
+    let emailLimit = 5;
+    if (emailAttempts > 3) {
+      if (emailLower === 'super@campusconnect.com') {
+        emailLimit = 3;
+      } else {
+        const user = await this.prisma.user.findUnique({
+          where: { email: emailLower },
+          include: {
+            userRoles: {
+              include: {
+                role: true,
+              },
+            },
+          },
+        });
+        if (user) {
+          const roles = user.userRoles.map((ur) => ur.role.name);
+          if (roles.includes('ADMIN')) {
+            emailLimit = 3;
+          }
+        }
+      }
+    }
 
     if (emailAttempts > emailLimit) {
       throw new BadRequestException({
@@ -204,7 +202,7 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
       });
     }
 
-    if (ipAttempts > ipLimit) {
+    if (ipAttempts > 30) {
       throw new BadRequestException({
         success: false,
         message: 'Too many login attempts from this network. Please try again in a minute.',
@@ -228,11 +226,10 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
     let loginResult: 'SUCCESS' | 'FAILURE' | 'PENDING' = 'FAILURE';
 
     try {
-      // Check rate limit
-      await this.checkLoginRateLimit(email, ipAddress);
-
-      // 1. Find user
-      const user = await this.prisma.user.findUnique({
+      // 1. Parallelize checking rate limits and fetching user/profiles
+      const rateLimitPromise = this.checkLoginRateLimit(email, ipAddress);
+      
+      const userPromise = this.prisma.user.findUnique({
         where: { email: email.toLowerCase() },
         include: {
           userRoles: {
@@ -240,8 +237,19 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
               role: true,
             },
           },
+          teacherProfile: true,
+          studentProfile: {
+            include: {
+              profile: true,
+              guardians: true,
+              addresses: true,
+              medical: true,
+            },
+          },
         },
       });
+
+      const [, user] = await Promise.all([rateLimitPromise, userPromise]);
 
       // Update resolvedCollegeId if user has a collegeId and none was requested
       resolvedCollegeId = loginDto.collegeId || collegeIdHeader || user?.collegeId || 'college-a';
@@ -261,8 +269,8 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
       if (hasExplicitTenant && user.collegeId !== resolvedCollegeId) {
         collegeMatch = false;
         rootCause = 'Tenant Mismatch';
-        // Log failed attempt to login history
-        await this.prisma.loginHistory.create({
+        // Log failed attempt to login history in background
+        this.prisma.loginHistory.create({
           data: {
             userId: user.id,
             ipAddress,
@@ -270,10 +278,10 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
             browser,
             status: 'FAILED',
           },
-        });
+        }).catch(err => console.error('[Login] Failed to record login history:', err));
 
-        // Write audit log
-        await this.audit.log(
+        // Write audit log in background
+        this.audit.log(
           user.id,
           user.name,
           'UNKNOWN',
@@ -283,7 +291,7 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
           'User',
           user.id,
           ipAddress,
-        );
+        ).catch(err => console.error('[Login] Failed to log audit:', err));
 
         throw new UnauthorizedException({
           success: false,
@@ -308,8 +316,8 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
         if (!hasRole) {
           roleMatch = false;
           rootCause = 'Role Mismatch';
-          // Log failed attempt to login history
-          await this.prisma.loginHistory.create({
+          // Log failed attempt to login history in background
+          this.prisma.loginHistory.create({
             data: {
               userId: user.id,
               ipAddress,
@@ -317,10 +325,10 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
               browser,
               status: 'FAILED',
             },
-          });
+          }).catch(err => console.error('[Login] Failed to record login history:', err));
 
-          // Write audit log
-          await this.audit.log(
+          // Write audit log in background
+          this.audit.log(
             user.id,
             user.name,
             requestedRole,
@@ -330,7 +338,7 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
             'User',
             user.id,
             ipAddress,
-          );
+          ).catch(err => console.error('[Login] Failed to log audit:', err));
 
           throw new UnauthorizedException({
             success: false,
@@ -340,6 +348,22 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
         }
       }
       roleMatch = true;
+
+      // Administrator access email list validation
+      const roleToCheck = requestedRole || userRolesList[0];
+      if (roleToCheck === Role.ADMIN || userRolesList.includes(Role.ADMIN)) {
+        const allowedAdmins = process.env.ALLOWED_ADMIN_EMAILS
+          ? process.env.ALLOWED_ADMIN_EMAILS.split(',').map((e) => e.trim().toLowerCase())
+          : ['admin@collegea.edu', 'admin@collegeb.edu', 'admin@collegec.edu', 'super@campusconnect.com', 'admin@collegea.com', 'admin@collegeb.com', 'admin@collegec.com'];
+
+        if (!allowedAdmins.includes(email.toLowerCase().trim())) {
+          throw new UnauthorizedException({
+            success: false,
+            message: 'Unauthorized administrator email address.',
+            errorCode: 'AUTH_010',
+          });
+        }
+      }
 
       // 2. Check if account is locked
       const now = new Date();
@@ -443,17 +467,17 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
       }
       passwordMatch = true;
 
-      // Reset login failures on successful password verification
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: {
-          failedLoginAttempts: 0,
-          lockedUntil: null,
-        },
-      });
-
       // 5. Check if user needs workspace selection (multiple roles)
       if (userRolesList.length > 1 && !requestedRole) {
+        // Reset login failures on successful password verification (light query in background)
+        this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            failedLoginAttempts: 0,
+            lockedUntil: null,
+          },
+        }).catch(err => console.error('[Login] Failed to reset login failures in background:', err));
+
         // Generate temporary selection token valid for 5 mins
         const tempToken = jwt.sign(
           { sub: user.id, email: user.email, isTemp: true },
@@ -494,7 +518,28 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
 
       // 6. Single role flow -> Complete login immediately
       const roleName = requestedRole || userRolesList[0];
-      const sessionTokens = await this.createSession(user.id, roleName, ipAddress, userAgent);
+
+      // Reset attempts, set lastLogin asynchronously in the background
+      this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+          lastLogin: new Date(),
+        },
+      }).catch(err => console.error('[Login] Failed to update user lastLogin in background:', err));
+
+      // Teacher retirement check
+      if (roleName === Role.TEACHER && user.teacherProfile?.status === 'RETIRED') {
+        throw new UnauthorizedException('Teacher is retired. Login is blocked.');
+      }
+
+      const activeUserRole = user.userRoles.find((ur: any) => ur.role.name === roleName);
+      const permissions: string[] = activeUserRole
+        ? activeUserRole.role.rolePermissions.map((rp: any) => rp.permission.name)
+        : [];
+
+      const sessionTokens = await this.createSession(user, roleName, ipAddress, userAgent, permissions);
       jwtGenerated = true;
       loginResult = 'SUCCESS';
 
@@ -518,24 +563,15 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
 
       let profileCompletionPercentage = 100;
       let studentProfile: any = null;
-      if (roleName === Role.STUDENT) {
-        studentProfile = await this.prisma.student.findUnique({
-          where: { userId: user.id },
-          include: { profile: true, guardians: true, addresses: true, medical: true },
+      if (roleName === Role.STUDENT && user.studentProfile) {
+        studentProfile = user.studentProfile;
+        profileCompletionPercentage = this.calculateStudentProfileCompletion({
+          ...studentProfile,
+          user: { name: user.name },
         });
-        if (studentProfile) {
-          profileCompletionPercentage = this.calculateStudentProfileCompletion({
-            ...studentProfile,
-            user: { name: user.name },
-          });
-        }
       }
-      const teacherProfile = roleName === Role.TEACHER
-        ? await this.prisma.teacher.findUnique({ where: { userId: user.id } })
-        : null;
 
       return {
-        needsWorkspaceSelection: false,
         accessToken: sessionTokens.accessToken,
         refreshToken: sessionTokens.refreshToken,
         mustChangePassword: user.mustChangePassword,
@@ -546,7 +582,7 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
           role: roleName,
           collegeId: user.collegeId,
           studentProfile,
-          teacherProfile,
+          teacherProfile: user.teacherProfile,
           profileCompletionPercentage,
         },
       };
@@ -593,13 +629,30 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
 
     const userId = payload.sub;
 
-    // 2. Load user and check active status
+    // 2. Load user, check active status, and pre-fetch roles, permissions, and profiles
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
         userRoles: {
           include: {
-            role: true,
+            role: {
+              include: {
+                rolePermissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        teacherProfile: true,
+        studentProfile: {
+          include: {
+            profile: true,
+            guardians: true,
+            addresses: true,
+            medical: true,
           },
         },
       },
@@ -615,26 +668,37 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
       throw new BadRequestException(`Requested role ${role} is not assigned to this user`);
     }
 
-    // 4. Create session and generate final tokens
-    const sessionTokens = await this.createSession(user.id, role, ipAddress, userAgent);
+    // 4. Update lastLogin asynchronously in the background
+    this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        lastLogin: new Date(),
+      },
+    }).catch(err => console.error('[SelectRole] Failed to update lastLogin in background:', err));
+
+    // Teacher retirement check
+    if (role === Role.TEACHER && user.teacherProfile?.status === 'RETIRED') {
+      throw new UnauthorizedException('Teacher is retired. Login is blocked.');
+    }
+
+    const activeUserRole = user.userRoles.find((ur) => ur.role.name === role);
+    const permissions: string[] = activeUserRole
+      ? activeUserRole.role.rolePermissions.map((rp) => rp.permission.name)
+      : [];
+
+    // 5. Create session and generate final tokens
+    const sessionTokens = await this.createSession(user, role, ipAddress, userAgent, permissions);
 
     let profileCompletionPercentage = 100;
     let studentProfile: any = null;
-    if (role === Role.STUDENT) {
-      studentProfile = await this.prisma.student.findUnique({
-        where: { userId: user.id },
-        include: { profile: true, guardians: true, addresses: true, medical: true },
+    if (role === Role.STUDENT && user.studentProfile) {
+      studentProfile = user.studentProfile;
+      profileCompletionPercentage = this.calculateStudentProfileCompletion({
+        ...studentProfile,
+        user: { name: user.name },
       });
-      if (studentProfile) {
-        profileCompletionPercentage = this.calculateStudentProfileCompletion({
-          ...studentProfile,
-          user: { name: user.name },
-        });
-      }
     }
-    const teacherProfile = role === Role.TEACHER
-      ? await this.prisma.teacher.findUnique({ where: { userId: user.id } })
-      : null;
+    const teacherProfile = role === Role.TEACHER ? user.teacherProfile : null;
 
     return {
       accessToken: sessionTokens.accessToken,
@@ -654,16 +718,14 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
   }
 
   // Create session Helper
-  private async createSession(userId: string, role: string, ipAddress?: string, userAgent?: string) {
-    if (role === Role.TEACHER) {
-      const teacher = await this.prisma.teacher.findUnique({
-        where: { userId },
-      });
-      if (teacher && teacher.status === 'RETIRED') {
-        throw new UnauthorizedException('Teacher is retired. Login is blocked.');
-      }
-    }
-
+  private async createSession(
+    user: any,
+    role: string,
+    ipAddress?: string,
+    userAgent?: string,
+    permissions: string[] = [],
+  ) {
+    const userId = user.id;
     const { browser, device } = this.parseUserAgent(userAgent || '');
 
     // Set expiry
@@ -674,93 +736,86 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
     const sessionExpiresAt = new Date();
     sessionExpiresAt.setDate(sessionExpiresAt.getDate() + 7);
 
-    // Create session record in DB
-    const session = await this.prisma.refreshToken.create({
-      data: {
-        userId,
-        tokenHash: '', // Set placeholder, we'll store hash of the signed token
-        expiresAt: sessionExpiresAt,
-        device,
-        browser,
-        ipAddress,
-      },
-    });
-
-    // Create active Session record
-    await this.prisma.session.create({
-      data: {
-        userId,
-        sessionToken: session.id,
-        browser: browser || 'Unknown',
-        os: device || 'Unknown',
-        ipAddress: ipAddress || 'Unknown',
-        expiresAt: sessionExpiresAt,
-        isActive: true,
-      },
-    });
-
-    // Update last login on user and fetch details for token payload
-    const user = await this.prisma.user.update({
-      where: { id: userId },
-      data: { lastLogin: new Date() },
-    });
+    // Pre-generate sessionId to avoid create + update roundtrips
+    const sessionId = randomUUID();
 
     // Sign Refresh Token
     const refreshTokenPayload = {
       sub: userId,
-      sessionId: session.id,
+      sessionId,
       role,
       collegeId: user?.collegeId,
     };
     const refreshToken = jwt.sign(refreshTokenPayload, this.jwtSecret, { expiresIn: refreshTokenExpiry });
 
-    // Hash refresh token for secure DB storage
-    const tokenHash = bcrypt.hashSync(refreshToken, 12);
-    await this.prisma.refreshToken.update({
-      where: { id: session.id },
-      data: { tokenHash },
-    });
+    // Hash refresh token using fast cost factor (4) since JWT is already secure high-entropy
+    // Hash refresh token using fast cost factor (4) since JWT is already secure high-entropy
+    const tokenHash = bcrypt.hashSync(refreshToken, 4);
 
     // Sign Access Token (including role, sessionId, and collegeId)
     const accessTokenPayload = {
       sub: userId,
       email: user?.email,
       role,
-      sessionId: session.id,
+      sessionId,
       collegeId: user?.collegeId,
     };
     const accessToken = jwt.sign(accessTokenPayload, this.jwtSecret, { expiresIn: accessTokenExpiry });
 
-    // Record login history
-    await this.prisma.loginHistory.create({
-      data: {
+    // Record refreshToken, session, loginHistory, audit log, and Redis session cache in parallel
+    await Promise.all([
+      this.prisma.refreshToken.create({
+        data: {
+          id: sessionId,
+          userId,
+          tokenHash,
+          expiresAt: sessionExpiresAt,
+          device,
+          browser,
+          ipAddress,
+        },
+      }),
+      this.prisma.session.create({
+        data: {
+          userId,
+          sessionToken: sessionId,
+          browser: browser || 'Unknown',
+          os: device || 'Unknown',
+          ipAddress: ipAddress || 'Unknown',
+          expiresAt: sessionExpiresAt,
+          isActive: true,
+        },
+      }),
+      this.prisma.loginHistory.create({
+        data: {
+          userId,
+          ipAddress,
+          device,
+          browser,
+          status: 'SUCCESS',
+        },
+      }),
+      this.audit.log(
         userId,
-        ipAddress,
-        device,
+        user?.name || 'Unknown',
+        role,
+        'Logged In',
+        `Session created. Browser: ${browser}, Device: ${device}.`,
+      ),
+      this.redis.setSession(userId, sessionId, {
+        id: userId,
+        email: user.email,
+        name: user.name,
+        role,
+        permissions,
+        collegeId: user.collegeId,
+        sessionId,
         browser,
-        status: 'SUCCESS',
-      },
-    });
-
-    // Audit Log
-    await this.audit.log(
-      userId,
-      user?.name || 'Unknown',
-      role,
-      'Logged In',
-      `Session created. Browser: ${browser}, Device: ${device}.`,
-    );
-
-    // Cache session payload in Redis for fast lookups
-    await this.redis.setSession(userId, session.id, {
-      userId,
-      sessionId: session.id,
-      role,
-      browser,
-      device,
-      ipAddress: ipAddress || null,
-      createdAt: new Date().toISOString(),
-    });
+        device,
+        ipAddress: ipAddress || null,
+        createdAt: new Date().toISOString(),
+      }),
+    ]);
 
     console.log(`[LOGIN] SUCCESS: Email=${user?.email}, Role=${role}, College=${user?.collegeId}, Tenant=${user?.collegeId}, IP=${ipAddress || 'Unknown'}, Device=${device}/${browser}, Result=SUCCESS`);
 
@@ -806,11 +861,33 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
       throw new UnauthorizedException('Security breach detected. Revoking all sessions.');
     }
 
-    // 3. Verify user status
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    // 3. Verify user status and load permissions
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        userRoles: {
+          include: {
+            role: {
+              include: {
+                rolePermissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
     if (!user || user.status !== 'ACTIVE') {
       throw new UnauthorizedException('User account is suspended or inactive.');
     }
+
+    const activeUserRole = user.userRoles.find((ur) => ur.role.name === role);
+    const permissions: string[] = activeUserRole
+      ? activeUserRole.role.rolePermissions.map((rp) => rp.permission.name)
+      : [];
 
     // 4. Generate new tokens (Rotate Refresh Token)
     // Delete old session
@@ -818,7 +895,13 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
     await this.prisma.session.deleteMany({ where: { sessionToken: sessionId } });
 
     // Create new session
-    const newSessionTokens = await this.createSession(userId, role, session.ipAddress || undefined, session.browser ? `Mozilla/5.0 (${session.device}) ${session.browser}` : undefined);
+    const newSessionTokens = await this.createSession(
+      user,
+      role,
+      session.ipAddress || undefined,
+      session.browser ? `Mozilla/5.0 (${session.device}) ${session.browser}` : undefined,
+      permissions
+    );
 
     return newSessionTokens;
   }
@@ -1170,8 +1253,15 @@ If you did not make this change, please contact support immediately.
 
     return await this.prisma.$transaction(async (tx) => {
       const resolvedRole = dto.role || Role.STUDENT;
-      if (resolvedRole !== Role.STUDENT) {
-        throw new BadRequestException('Only student self-registration is supported.');
+      if (resolvedRole === Role.ADMIN) {
+        const allowedAdmins = process.env.ALLOWED_ADMIN_EMAILS
+          ? process.env.ALLOWED_ADMIN_EMAILS.split(',').map((e) => e.trim().toLowerCase())
+          : ['admin@collegea.edu', 'admin@collegeb.edu', 'admin@collegec.edu', 'super@campusconnect.com', 'admin@collegea.com', 'admin@collegeb.com', 'admin@collegec.com'];
+        if (!allowedAdmins.includes(emailLower)) {
+          throw new BadRequestException('Unauthorized administrator email address.');
+        }
+      } else if (resolvedRole !== Role.STUDENT && resolvedRole !== Role.TEACHER) {
+        throw new BadRequestException('Self-registration is only supported for students, teachers, and authorized administrators.');
       }
 
       // Concatenate full name for User record
@@ -1472,13 +1562,45 @@ The Campus Connect Team
     const googlePayload = await this.verifyGoogleToken(token);
     const emailLower = googlePayload.email.toLowerCase().trim();
 
-    // 2. Find user in the database
-    let user = await this.prisma.user.findUnique({
+    // Admin email check if login role is ADMIN
+    if (role === Role.ADMIN) {
+      const allowedAdmins = process.env.ALLOWED_ADMIN_EMAILS
+        ? process.env.ALLOWED_ADMIN_EMAILS.split(',').map((e) => e.trim().toLowerCase())
+        : ['admin@collegea.edu', 'admin@collegeb.edu', 'admin@collegec.edu', 'super@campusconnect.com', 'admin@collegea.com', 'admin@collegeb.com', 'admin@collegec.com'];
+
+      if (!allowedAdmins.includes(emailLower)) {
+        throw new UnauthorizedException({
+          success: false,
+          message: 'Unauthorized administrator email address.',
+          errorCode: 'AUTH_010',
+        });
+      }
+    }
+
+    // 2. Find user in the database with preloaded profiles/permissions
+    const user = await this.prisma.user.findUnique({
       where: { email: emailLower },
       include: {
         userRoles: {
           include: {
-            role: true,
+            role: {
+              include: {
+                rolePermissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        teacherProfile: true,
+        studentProfile: {
+          include: {
+            profile: true,
+            guardians: true,
+            addresses: true,
+            medical: true,
           },
         },
       },
@@ -1486,142 +1608,10 @@ The Campus Connect Team
 
     // 3. Handle account check
     if (!user) {
-      // If user does not exist, check if role is STUDENT
-      if (role !== Role.STUDENT) {
-        throw new UnauthorizedException({
-          success: false,
-          message: `${role.toLowerCase().replace('_', ' ')} account does not exist. Please contact your administrator.`,
-          errorCode: 'AUTH_007',
-        });
-      }
-
-      // If student and account doesn't exist, register them dynamically!
-      const defaultPasswordHash = bcrypt.hashSync(Math.random().toString(36).substring(2, 10), 12);
-      const fullName = googlePayload.name || emailLower.split('@')[0];
-
-      // Let's create the student user
-      user = await this.prisma.$transaction(async (tx) => {
-        // Create User
-        const newUser = await tx.user.create({
-          data: {
-            email: emailLower,
-            passwordHash: defaultPasswordHash,
-            name: fullName,
-            status: 'ACTIVE',
-            collegeId,
-            userRoles: {
-              create: {
-                role: {
-                  connect: { name: Role.STUDENT },
-                },
-              },
-            },
-          },
-          include: {
-            userRoles: {
-              include: {
-                role: true,
-              },
-            },
-          },
-        });
-
-        // Resolve division ID (defaults to 'div-a')
-        let targetDivisionId = 'div-a';
-        const firstDiv = await tx.division.findFirst({
-          where: {
-            semester: {
-              academicSession: {
-                course: {
-                  department: {
-                    collegeId: collegeId,
-                  },
-                },
-              },
-            },
-          },
-        });
-        if (firstDiv) {
-          targetDivisionId = firstDiv.id;
-        } else {
-          // Find any division in this college
-          const anyDiv = await tx.division.findFirst({
-            where: {
-              semester: {
-                academicSession: {
-                  course: {
-                    department: {
-                      collegeId: collegeId,
-                    },
-                  },
-                },
-              },
-            },
-          });
-          if (anyDiv) {
-            targetDivisionId = anyDiv.id;
-          } else {
-            throw new BadRequestException('No class/division found for this college');
-          }
-        }
-
-        const division = await tx.division.findUnique({
-          where: { id: targetDivisionId },
-          include: {
-            semester: {
-              include: {
-                academicSession: {
-                  include: {
-                    course: {
-                      include: {
-                        department: true,
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        });
-
-        if (!division) {
-          throw new BadRequestException('Target division not found');
-        }
-
-        const resolvedCollegeId = division.semester.academicSession.course.department.collegeId;
-        const departmentId = division.semester.academicSession.course.departmentId;
-        const courseId = division.semester.academicSession.courseId;
-        const semesterId = division.semesterId;
-        const academicSessionId = division.semester.academicSessionId;
-
-        // Create Student profile
-        await tx.student.create({
-          data: {
-            userId: newUser.id,
-            collegeId: resolvedCollegeId,
-            departmentId,
-            courseId,
-            semesterId,
-            divisionId: targetDivisionId,
-            academicSessionId,
-            rollNumber: `ROLL-${Date.now()}`,
-            admissionNo: `ADM-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-            admissionDate: new Date(),
-            currentYear: 1,
-            status: 'ACTIVE',
-            profile: {
-              create: {
-                firstName: fullName.split(' ')[0],
-                lastName: fullName.split(' ')[1] || 'Profile',
-                gender: 'MALE',
-                dob: new Date(),
-                email: emailLower,
-              },
-            },
-          },
-        });
-
-        return newUser;
+      throw new UnauthorizedException({
+        success: false,
+        message: 'Google account not registered. Onboarding required.',
+        errorCode: 'AUTH_007',
       });
     }
 
@@ -1651,35 +1641,46 @@ The Campus Connect Team
       });
     }
 
-    // 7. Create Session & Tokens
-    const sessionTokens = await this.createSession(user.id, role, ipAddress, userAgent);
+    // 7. Perform lastLogin update asynchronously in the background
+    this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+        lastLogin: new Date(),
+      },
+    }).catch(err => console.error('[GoogleLogin] Failed to update lastLogin in background:', err));
+
+    // Teacher retirement check
+    if (role === Role.TEACHER && user.teacherProfile?.status === 'RETIRED') {
+      throw new UnauthorizedException('Teacher is retired. Login is blocked.');
+    }
+
+    const activeUserRole = user.userRoles.find((ur) => ur.role.name === role);
+    const permissions: string[] = activeUserRole
+      ? activeUserRole.role.rolePermissions.map((rp) => rp.permission.name)
+      : [];
+
+    const sessionTokens = await this.createSession(user, role, ipAddress, userAgent, permissions);
 
     let profileCompletionPercentage = 100;
     let studentProfile: any = null;
-    if (role === Role.STUDENT) {
-      studentProfile = await this.prisma.student.findUnique({
-        where: { userId: user.id },
-        include: { profile: true, guardians: true, addresses: true, medical: true },
+    if (role === Role.STUDENT && user.studentProfile) {
+      studentProfile = user.studentProfile;
+      profileCompletionPercentage = this.calculateStudentProfileCompletion({
+        ...studentProfile,
+        user: { name: user.name },
       });
-      if (studentProfile) {
-        profileCompletionPercentage = this.calculateStudentProfileCompletion({
-          ...studentProfile,
-          user: { name: user.name },
-        });
-      }
     }
-    const teacherProfile = role === Role.TEACHER
-      ? await this.prisma.teacher.findUnique({ where: { userId: user.id } })
-      : null;
 
-    // Log successful Google login in audit log
-    await this.audit.log(
+    // Log successful Google login in audit log asynchronously in background
+    this.audit.log(
       user.id,
       user.name,
       role,
       'Google Login Success',
       `User ${emailLower} logged in via Google. Browser: ${browser}, Device: ${device}.`,
-    );
+    ).catch(err => console.error('[GoogleLogin] Failed to log audit:', err));
 
     return {
       accessToken: sessionTokens.accessToken,
@@ -1692,7 +1693,7 @@ The Campus Connect Team
         role: role,
         collegeId: user.collegeId,
         studentProfile,
-        teacherProfile,
+        teacherProfile: user.teacherProfile,
         profileCompletionPercentage,
       },
     };
@@ -1760,20 +1761,13 @@ The Campus Connect Team
   }
 
   // Get currently authenticated user with profiles
-  async getMe(userId: string, role: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
+  async getMe(currentUser: { id: string; email: string; name: string; role: string; collegeId: string }) {
     let studentProfile: any = null;
     let profileCompletionPercentage = 100;
 
-    if (role === Role.STUDENT) {
+    if (currentUser.role === Role.STUDENT) {
       const student = await this.prisma.student.findUnique({
-        where: { userId },
+        where: { userId: currentUser.id },
         include: {
           profile: true,
           guardians: true,
@@ -1803,17 +1797,17 @@ The Campus Connect Team
         studentProfile = student;
         profileCompletionPercentage = this.calculateStudentProfileCompletion({
           ...student,
-          user: { name: user.name },
+          user: { name: currentUser.name },
         });
       }
     }
 
     return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: role,
-      collegeId: user.collegeId,
+      id: currentUser.id,
+      email: currentUser.email,
+      name: currentUser.name,
+      role: currentUser.role,
+      collegeId: currentUser.collegeId,
       studentProfile,
       profileCompletionPercentage,
     };

@@ -78,11 +78,27 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
   const [signUpSuccess, setSignUpSuccess] = useState<string | null>(null);
   const [isSigningUp, setIsSigningUp] = useState(false);
 
+  // Onboarding flow states
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingEmail, setOnboardingEmail] = useState('');
+  const [onboardingName, setOnboardingName] = useState('');
+  const [onboardingRole, setOnboardingRole] = useState<UserRole>('STUDENT');
+  const [onboardingPrn, setOnboardingPrn] = useState('');
+  const [onboardingCourse, setOnboardingCourse] = useState<'11' | '12' | 'DEGREE'>('DEGREE');
+  const [onboardingSemester, setOnboardingSemester] = useState('Semester 1');
+  const [onboardingDegree, setOnboardingDegree] = useState('BSc IT');
+  const [onboardingClassroom, setOnboardingClassroom] = useState('Division A');
+  const [onboardingEmployeeId, setOnboardingEmployeeId] = useState('');
+  const [onboardingDepartment, setOnboardingDepartment] = useState('');
+  const [showPendingApproval, setShowPendingApproval] = useState(false);
+  const [onboardingError, setOnboardingError] = useState<string | null>(null);
+  const [isOnboardingSubmitting, setIsOnboardingSubmitting] = useState(false);
+
   // Sync selected role to theme provider
   React.useEffect(() => {
-    const activeRole = showSignUp ? signUpRole : role;
+    const activeRole = showOnboarding ? onboardingRole : (showSignUp ? signUpRole : role);
     setGlobalRole(activeRole.toLowerCase() as any);
-  }, [role, signUpRole, showSignUp, setGlobalRole]);
+  }, [role, signUpRole, showSignUp, showOnboarding, onboardingRole, setGlobalRole]);
 
   // Subject lists per stream
   const scienceSubjects = ['Physics', 'Chemistry', 'Biology', 'Mathematics', 'Computer Science', 'English'];
@@ -137,14 +153,28 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
       const { auth: firebaseAuth, googleProvider } = await import('../config/firebase');
 
       const result = await signInWithPopup(firebaseAuth, googleProvider);
+      const email = result.user.email || '';
+      const displayName = result.user.displayName || '';
       // Get the real Firebase ID token to send to our backend
       const idToken = await result.user.getIdToken();
 
-      const success = await loginWithGoogle(idToken, collegeId, role);
-      if (success) {
-        redirectUser(role);
-      } else {
-        setError('Google login failed. Make sure your Google account email is registered in this college and matches the selected role.');
+      try {
+        const success = await loginWithGoogle(idToken, collegeId, role);
+        if (success) {
+          redirectUser(role);
+        } else {
+          setError('Google login failed. Make sure your Google account email is registered in this college and matches the selected role.');
+        }
+      } catch (err: any) {
+        if (err.errorCode === 'AUTH_007') {
+          // Unregistered Google user -> start onboarding!
+          setOnboardingRole(role);
+          setOnboardingEmail(email);
+          setOnboardingName(displayName || email.split('@')[0]);
+          setShowOnboarding(true);
+        } else {
+          setError(err.message || 'Google sign-in failed. Please try again.');
+        }
       }
     } catch (err: any) {
       if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
@@ -157,6 +187,52 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
       }
     } finally {
       setIsGoogleLoading(false);
+    }
+  };
+
+  const handleOnboardingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setOnboardingError(null);
+    setIsOnboardingSubmitting(true);
+
+    try {
+      const derivedPassword = Math.random().toString(36).substring(2, 10);
+      const emailPrefix = onboardingEmail.split('@')[0];
+      const derivedFirstName = onboardingName.split(' ')[0] || emailPrefix;
+      const derivedSurname = onboardingName.split(' ')[1] || 'User';
+
+      const payload = {
+        name: onboardingName || `${derivedFirstName} ${derivedSurname}`.trim(),
+        firstName: derivedFirstName,
+        lastName: derivedSurname,
+        surname: derivedSurname,
+        email: onboardingEmail,
+        password: derivedPassword,
+        role: onboardingRole,
+        collegeId: collegeId,
+        rollNumber: onboardingRole === 'STUDENT' ? (onboardingPrn || `ROLL-${Date.now()}`) : undefined,
+        admissionNumber: onboardingRole === 'STUDENT' ? `ADM-${Math.floor(100000 + Math.random() * 900000)}` : undefined,
+        gender: onboardingRole === 'STUDENT' ? 'Male' : undefined,
+        mobile: 'N/A',
+        divisionId: onboardingRole === 'STUDENT' ? (onboardingClassroom === 'Division B' ? 'div-b' : 'div-a') : undefined,
+        departmentId: onboardingRole === 'TEACHER' ? onboardingDepartment : undefined,
+        courseType: onboardingRole === 'STUDENT' ? onboardingCourse : undefined,
+        semester: onboardingRole === 'STUDENT' ? onboardingSemester : undefined,
+        classroom: onboardingRole === 'STUDENT' ? onboardingClassroom : undefined,
+        degree: onboardingRole === 'STUDENT' ? onboardingDegree : undefined,
+        employeeId: onboardingRole === 'TEACHER' ? onboardingEmployeeId : undefined,
+      };
+
+      const resp = await api.register(payload);
+      if (resp.success) {
+        setShowPendingApproval(true);
+      } else {
+        setOnboardingError(resp.data?.message || 'Onboarding submission failed.');
+      }
+    } catch (err: any) {
+      setOnboardingError(err.message || 'An error occurred during onboarding.');
+    } finally {
+      setIsOnboardingSubmitting(false);
     }
   };
 
@@ -260,11 +336,15 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
       return;
     }
 
-    const success = await login(email, collegeId, role, password);
-    if (success) {
-      redirectUser(role);
-    } else {
-      setError('Invalid credentials. Check your selected college, role, and details.');
+    try {
+      const success = await login(email, collegeId, role, password);
+      if (success) {
+        redirectUser(role);
+      } else {
+        setError('Invalid credentials. Check your selected college, role, and details.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Invalid credentials. Check your selected college, role, and details.');
     }
   };
 
@@ -286,8 +366,8 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
       label: 'Student',
       icon: GraduationCap,
       colorClass: 'text-blue-500 dark:text-blue-400',
-      selectedBorderClass: 'border-blue-500 ring-2 ring-blue-500/10 dark:border-blue-500',
-      selectedBgClass: 'bg-blue-50/50 dark:bg-blue-950/20',
+      selectedBorderClass: 'border-blue-500 dark:border-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.2)]',
+      selectedBgClass: 'bg-blue-500/5 dark:bg-blue-950/20',
       selectedIconClass: 'text-blue-600 dark:text-blue-400',
       selectedLabelClass: 'text-blue-600 dark:text-blue-400'
     },
@@ -296,20 +376,20 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
       label: 'Teacher',
       icon: UserIcon,
       colorClass: 'text-emerald-500 dark:text-emerald-400',
-      selectedBorderClass: 'border-emerald-500 ring-2 ring-emerald-500/10 dark:border-emerald-500',
-      selectedBgClass: 'bg-emerald-50/50 dark:bg-emerald-950/20',
+      selectedBorderClass: 'border-emerald-500 dark:border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.2)]',
+      selectedBgClass: 'bg-emerald-500/5 dark:bg-emerald-950/20',
       selectedIconClass: 'text-emerald-600 dark:text-emerald-400',
-      selectedLabelClass: 'text-emerald-600 dark:text-emerald-450'
+      selectedLabelClass: 'text-emerald-600 dark:text-emerald-400'
     },
     {
       role: 'ADMIN' as UserRole,
       label: 'Admin',
       icon: Shield,
       colorClass: 'text-purple-500 dark:text-purple-400',
-      selectedBorderClass: 'border-purple-500 ring-2 ring-purple-500/10 dark:border-purple-500',
-      selectedBgClass: 'bg-purple-50/50 dark:bg-purple-950/20',
+      selectedBorderClass: 'border-purple-500 dark:border-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.2)]',
+      selectedBgClass: 'bg-purple-500/5 dark:bg-purple-950/20',
       selectedIconClass: 'text-purple-600 dark:text-purple-400',
-      selectedLabelClass: 'text-purple-600 dark:text-purple-450'
+      selectedLabelClass: 'text-purple-600 dark:text-purple-400'
     }
   ];
 
@@ -336,12 +416,28 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
         <div className="w-full max-w-5xl bg-role-card-bg dark:bg-slate-900/40 rounded-[2rem] shadow-2xl overflow-hidden border border-role-border dark:border-slate-800 grid grid-cols-1 md:grid-cols-12 min-h-[760px] transition-all">
           
           {/* Left Column (Hero Welcome Banner) */}
-          <div className="hidden md:flex md:col-span-5 flex-col justify-between p-10 text-white relative overflow-hidden bg-gradient-to-b from-role-login-from to-role-login-to">
+          <div className="hidden md:flex md:col-span-5 flex-col justify-between p-10 text-white relative overflow-hidden rounded-l-[1.95rem]">
+            {/* Premium Full-Height Background Image */}
+            <div className="absolute inset-0 w-full h-full select-none pointer-events-none z-0">
+              <img 
+                src="/campus_dusk.png" 
+                alt="Campus Skyline" 
+                className="w-full h-full object-cover object-center opacity-70 transition-transform duration-700 hover:scale-105"
+              />
+            </div>
+
+            {/* Role-specific Premium Gradient Overlay */}
+            <div className={`absolute inset-0 z-10 transition-colors duration-500 opacity-90 ${
+              role === 'STUDENT' ? 'bg-gradient-to-b from-blue-950/75 via-slate-950/85 to-[#020817]/95' :
+              role === 'TEACHER' ? 'bg-gradient-to-b from-emerald-950/75 via-slate-950/85 to-[#020817]/95' :
+              'bg-gradient-to-b from-purple-950/75 via-slate-950/85 to-[#020817]/95'
+            }`} />
+
             {/* Soft highlight */}
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.1),transparent_65%)] pointer-events-none" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_60%)] pointer-events-none z-20" />
             
             {/* Top Logo branding */}
-            <div className="z-10 flex items-center gap-3">
+            <div className="z-30 flex items-center gap-3">
               <div className="h-10 w-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center shadow-lg border border-white/20">
                 <GraduationCap className="h-6 w-6 text-white" />
               </div>
@@ -356,15 +452,15 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
             </div>
 
             {/* Title / Description */}
-            <div className="z-10 my-auto py-8 space-y-4">
+            <div className="z-30 my-auto py-8 space-y-4">
               <h1 className="font-display font-extrabold text-3xl leading-tight">
                 {brandingMessage ? (
                   brandingMessage
                 ) : (
                   <>
-                    Welcome to <br />
-                    <span className="text-white">Campus </span>
-                    <span className="text-white/80">Connect</span>
+                     Welcome to <br />
+                     <span className="text-white">Campus </span>
+                     <span className="text-white/80">Connect</span>
                   </>
                 )}
               </h1>
@@ -375,21 +471,210 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
               </p>
               <div className="h-[2px] w-8 bg-white/40 rounded-full animate-pulse" />
             </div>
-
-            {/* Illustration image matching the dusk skyline mockup */}
-            <div className="absolute bottom-0 left-0 right-0 w-full overflow-hidden leading-none z-0 select-none pointer-events-none">
-              <img 
-                src="/campus_dusk.png" 
-                alt="Campus at Dusk" 
-                className="w-full h-auto object-cover opacity-95 transition-transform duration-700 hover:scale-105"
-              />
-            </div>
           </div>
 
           {/* Right Column (Forms Panel) */}
           <div className="col-span-12 md:col-span-7 flex flex-col justify-center p-6 sm:p-10 md:p-12 bg-white dark:bg-slate-900 transition-colors">
             
-            {showForgotPassword ? (
+            {showPendingApproval ? (
+              /* ONBOARDING PENDING APPROVAL SCREEN */
+              <div className="space-y-6 text-center py-6 animate-fade-in">
+                <div className="mx-auto w-16 h-16 bg-blue-500/10 dark:bg-blue-500/10 rounded-full flex items-center justify-center border border-blue-500/25">
+                  <Shield className="h-8 w-8 text-blue-500 animate-pulse" />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="font-display font-extrabold text-2xl tracking-tight text-slate-900 dark:text-slate-50">
+                    Awaiting Approval
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
+                    Your profile has been created successfully for <b className="font-semibold text-slate-700 dark:text-slate-300">{onboardingEmail}</b>. 
+                    An administrator will verify your credentials and approve access shortly.
+                  </p>
+                </div>
+                <div className="pt-4">
+                  <Button
+                    onClick={() => {
+                      setShowPendingApproval(false);
+                      setShowOnboarding(false);
+                    }}
+                    className="h-11 px-8 rounded-xl text-xs font-semibold shadow-md bg-role-primary hover:bg-role-secondary text-white border-transparent transition-all cursor-pointer"
+                  >
+                    Back to Sign In
+                  </Button>
+                </div>
+              </div>
+
+            ) : showOnboarding ? (
+              /* GOOGLE ONBOARDING DETAILS FORM */
+              <div className="space-y-6 animate-fade-in">
+                <div>
+                  <h2 className="font-display font-extrabold text-2xl tracking-tight text-slate-900 dark:text-slate-50">
+                    Onboarding Details
+                  </h2>
+                  <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    Provide the remaining details to complete your profile registration.
+                  </p>
+                </div>
+
+                {onboardingError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-red-700 text-xs">
+                    <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                    <span>{onboardingError}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleOnboardingSubmit} className="space-y-4">
+                  <div className="max-h-[460px] overflow-y-auto pr-2 space-y-4 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
+                    
+                    {/* Display Prefilled Info */}
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/50 dark:border-slate-800 flex flex-col gap-1 text-xs">
+                      <p className="text-[10px] font-bold text-slate-450 dark:text-slate-500 uppercase tracking-widest">Google Account</p>
+                      <p className="font-semibold text-slate-850 dark:text-slate-200">{onboardingName}</p>
+                      <p className="text-slate-500 dark:text-slate-400">{onboardingEmail}</p>
+                      <p className="text-[10px] font-bold text-role-primary uppercase tracking-wider mt-1.5">Role: {onboardingRole}</p>
+                    </div>
+
+                    {onboardingRole === 'STUDENT' ? (
+                      /* Student Onboarding Fields */
+                      <>
+                        <div className="space-y-1.5 animate-fade-in">
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">PRN / Roll Number</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Enter your PRN or Roll Number"
+                            value={onboardingPrn}
+                            onChange={(e) => setOnboardingPrn(e.target.value)}
+                            className="flex h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all duration-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 font-medium"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5 animate-fade-in">
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Class / Program Type</label>
+                          <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700">
+                            {(['11', '12', 'DEGREE'] as const).map((ct) => (
+                              <button
+                                key={ct}
+                                type="button"
+                                onClick={() => setOnboardingCourse(ct)}
+                                className={`py-1.5 rounded-lg text-[10px] font-bold text-center uppercase tracking-wide transition-all duration-150 cursor-pointer ${
+                                  onboardingCourse === ct
+                                    ? 'bg-white dark:bg-slate-900 text-role-primary shadow-sm border border-slate-200/40 dark:border-slate-700'
+                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 border border-transparent'
+                                }`}
+                              >
+                                {ct === 'DEGREE' ? 'Degree' : `${ct}th`}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3.5 animate-fade-in">
+                          {onboardingCourse === 'DEGREE' ? (
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Select Degree</label>
+                              <select
+                                value={onboardingDegree}
+                                onChange={(e) => setOnboardingDegree(e.target.value)}
+                                className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                              >
+                                <option value="BSc IT">BSc IT</option>
+                                <option value="BMS">BMS</option>
+                                <option value="BCom">BCom</option>
+                                <option value="BSc CS">BSc CS</option>
+                                <option value="BA">BA</option>
+                              </select>
+                            </div>
+                          ) : (
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Classroom / Division</label>
+                              <select
+                                value={onboardingClassroom}
+                                onChange={(e) => setOnboardingClassroom(e.target.value)}
+                                className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                              >
+                                <option value="Division A">Division A</option>
+                                <option value="Division B">Division B</option>
+                              </select>
+                            </div>
+                          )}
+
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">Semester</label>
+                            <select
+                              value={onboardingSemester}
+                              onChange={(e) => setOnboardingSemester(e.target.value)}
+                              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                            >
+                              <option value="Semester 1">Semester 1</option>
+                              <option value="Semester 2">Semester 2</option>
+                              {onboardingCourse === 'DEGREE' && (
+                                <>
+                                  <option value="Semester 3">Semester 3</option>
+                                  <option value="Semester 4">Semester 4</option>
+                                  <option value="Semester 5">Semester 5</option>
+                                  <option value="Semester 6">Semester 6</option>
+                                </>
+                              )}
+                            </select>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      /* Teacher Onboarding Fields */
+                      <>
+                        <div className="space-y-1.5 animate-fade-in">
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-350 uppercase tracking-wider block">Employee ID</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Enter your Employee ID"
+                            value={onboardingEmployeeId}
+                            onChange={(e) => setOnboardingEmployeeId(e.target.value)}
+                            className="flex h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all duration-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 font-medium"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5 animate-fade-in">
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-350 uppercase tracking-wider block">Department</label>
+                          <select
+                            required
+                            value={onboardingDepartment}
+                            onChange={(e) => setOnboardingDepartment(e.target.value)}
+                            className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                          >
+                            <option value="">Select Department</option>
+                            <option value="Computer Science">Computer Science</option>
+                            <option value="Information Technology">Information Technology</option>
+                            <option value="Science">Science</option>
+                            <option value="Commerce">Commerce</option>
+                            <option value="Arts">Arts</option>
+                            <option value="Mathematics">Mathematics</option>
+                          </select>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  <Button
+                    type="submit"
+                    isLoading={isOnboardingSubmitting}
+                    className="w-full h-11 rounded-xl text-xs font-semibold shadow-md bg-role-primary hover:bg-role-secondary text-white border-transparent transition-all mt-2 cursor-pointer"
+                  >
+                    Complete Onboarding
+                  </Button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowOnboarding(false)}
+                    className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors pt-1 block cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </form>
+              </div>
+
+            ) : showForgotPassword ? (
               /* PASSWORD RECOVERY FORM */
               <div className="space-y-6">
                 <div>
@@ -854,9 +1139,9 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
                             key={item.role}
                             type="button"
                             onClick={() => setRole(item.role)}
-                            className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all duration-300 bg-white dark:bg-slate-900 hover:shadow-sm cursor-pointer ${
+                            className={`flex flex-col items-center justify-center p-3.5 rounded-2xl border transition-all duration-300 bg-white dark:bg-slate-900 cursor-pointer hover:shadow-md hover:scale-[1.05] active:scale-[0.97] ${
                               isSelected
-                                ? `${item.selectedBorderClass} ${item.selectedBgClass}`
+                                ? `${item.selectedBorderClass} ${item.selectedBgClass} scale-[1.03]`
                                 : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
                             }`}
                           >
@@ -976,19 +1261,22 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
                     <div className="absolute inset-0 flex items-center">
                       <div className="w-full border-t border-slate-200 dark:border-slate-800"></div>
                     </div>
-                    <span className="relative px-3 bg-white dark:bg-slate-900 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">or</span>
+                    <span className="relative px-3 bg-white dark:bg-slate-900 text-[10px] font-bold text-slate-450 dark:text-slate-500 uppercase tracking-widest">or</span>
                   </div>
 
                   <Button
                     type="button"
                     onClick={handleGoogleLoginSubmit}
                     isLoading={isGoogleLoading || isLoading}
-                    className="w-full h-11 rounded-xl text-xs font-semibold shadow-sm border border-slate-200 dark:border-slate-800 bg-white hover:bg-slate-50 text-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-slate-200 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full h-[52px] rounded-xl text-xs font-semibold shadow-sm border border-slate-200 dark:border-slate-800 bg-white hover:bg-slate-50 text-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-slate-200 transition-all duration-200 flex items-center justify-center gap-3 cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-500/20 active:scale-[0.98]"
                   >
-                    <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
-                      <path fill="#EA4335" d="M12.24 10.285V14.4h6.887c-.275 1.565-1.88 4.604-6.887 4.604-4.33 0-7.859-3.578-7.859-8s3.53-8 7.859-8c2.46 0 4.105 1.025 5.047 1.926l3.227-3.1c-2.07-1.92-4.75-3.08-8.274-3.08-6.63 0-12 5.37-12 12s5.37 12 12 12c6.926 0 11.52-4.84 11.52-11.72 0-.788-.085-1.39-.188-1.99H12.24z"/>
+                    <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" width="24" height="24">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                     </svg>
-                    <span>Sign in with Google</span>
+                    <span>Continue with Google</span>
                   </Button>
 
                   <button

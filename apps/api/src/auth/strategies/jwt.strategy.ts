@@ -25,29 +25,38 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
-    // 0. Validate active session (cached in Redis or stored in DB)
+    console.time(`[JWT validate] sub:${payload.sub}`);
+    const startValidate = Date.now();
+
+    // Check if session is cached in Redis
     if (payload.sessionId) {
-      const cachedSession = await this.redis.getSession(payload.sub, payload.sessionId);
-      if (!cachedSession) {
-        // Fallback to DB check
-        const session = await this.prisma.refreshToken.findUnique({
-          where: { id: payload.sessionId },
-        });
-        if (!session || session.expiresAt < new Date()) {
-          throw new UnauthorizedException('Session expired or revoked');
+      const cachedSession: any = await this.redis.getSession(payload.sub, payload.sessionId);
+      if (cachedSession) {
+        // Tenant isolation validation
+        const activeStore = collegeStorage.getStore();
+        if (activeStore && activeStore.collegeId) {
+          const isSuperAdmin = cachedSession.email === 'super@campusconnect.com' || cachedSession.role === 'SUPER_ADMIN';
+          if (!isSuperAdmin && cachedSession.collegeId !== activeStore.collegeId) {
+            throw new ForbiddenException('Access denied: Tenant mismatch');
+          }
         }
-        // Cache it back for next requests
-        await this.redis.setSession(payload.sub, payload.sessionId, {
-          userId: payload.sub,
-          sessionId: payload.sessionId,
-          role: payload.role,
-          collegeId: payload.collegeId,
-          createdAt: new Date().toISOString(),
-        });
+        console.log(`[JWT validate] Cache HIT in ${Date.now() - startValidate}ms`);
+        console.timeEnd(`[JWT validate] sub:${payload.sub}`);
+        return {
+          id: cachedSession.id || cachedSession.userId,
+          email: cachedSession.email,
+          name: cachedSession.name,
+          role: cachedSession.role || null,
+          permissions: cachedSession.permissions || [],
+          collegeId: cachedSession.collegeId,
+          sessionId: cachedSession.sessionId || null,
+        };
       }
     }
-    // 1. Fetch user and their roles with permissions from RolePermission table
-    const user = await this.prisma.user.findUnique({
+
+    // Cache miss fallback: query database
+    console.log('[JWT validate] Cache MISS, querying database...');
+    const userPromise = this.prisma.user.findUnique({
       where: { id: payload.sub },
       include: {
         userRoles: {
@@ -66,21 +75,28 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       },
     });
 
+    const sessionPromise = payload.sessionId
+      ? this.prisma.refreshToken.findUnique({ where: { id: payload.sessionId } })
+      : Promise.resolve(null);
+
+    const [user, session] = await Promise.all([userPromise, sessionPromise]);
+
+    if (payload.sessionId && (!session || session.expiresAt < new Date())) {
+      throw new UnauthorizedException('Session expired or revoked');
+    }
+
     if (!user) {
       throw new UnauthorizedException('User no longer exists');
     }
 
-    // 2. Check account status — only ACTIVE users can make API requests
     if (user.status !== 'ACTIVE') {
       throw new UnauthorizedException(`Account is ${user.status.toLowerCase().replace('_', ' ')}. Access denied.`);
     }
 
-    // 3. Check soft delete
     if (user.deletedAt) {
       throw new UnauthorizedException('Account has been deleted. Access denied.');
     }
 
-    // 4. If the payload contains a role, verify user actually has it
     if (payload.role) {
       const userHasRole = user.userRoles.some((ur) => ur.role.name === payload.role);
       if (!userHasRole) {
@@ -88,15 +104,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
     }
 
-    // 5. Retrieve permissions for the active role from RolePermission → Permission
     const activeUserRole = user.userRoles.find((ur) => ur.role.name === payload.role);
-    let permissions: string[] = [];
-
-    if (activeUserRole) {
-      permissions = activeUserRole.role.rolePermissions.map(
-        (rp) => rp.permission.name,
-      );
-    }
+    const permissions: string[] = activeUserRole
+      ? activeUserRole.role.rolePermissions.map((rp) => rp.permission.name)
+      : [];
 
     // Tenant isolation validation
     const activeStore = collegeStorage.getStore();
@@ -107,7 +118,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
     }
 
-    return {
+    const validatedUser = {
       id: user.id,
       email: user.email,
       name: user.name,
@@ -116,5 +127,19 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       collegeId: user.collegeId,
       sessionId: payload.sessionId || null,
     };
+
+    // Cache the validated user session back in Redis for subsequent requests
+    if (payload.sessionId) {
+      this.redis.setSession(payload.sub, payload.sessionId, {
+        ...validatedUser,
+        browser: 'Unknown',
+        device: 'Unknown',
+        ipAddress: null,
+        createdAt: new Date().toISOString(),
+      }).catch((err) => console.error('[JWT Strategy] Failed to cache back session:', err));
+    }
+
+    console.timeEnd(`[JWT validate] sub:${payload.sub}`);
+    return validatedUser;
   }
 }

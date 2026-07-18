@@ -490,23 +490,30 @@ async function run() {
   console.log('  This mirrors real reverse-proxy (Nginx/Cloudflare) behavior.\n');
 
   // ── Pre-flight: detect if per-email rate-limit keys are saturated ────────
-  // Each email has its own Redis TTL window. If the test suite ran < 60s ago,
-  // the email keys are still live. We do a cheap probe login for each TC1
-  // account and wait naturally for the Redis TTL to expire if needed.
-  // This is not a bypass — it's scheduling the test run at the right time,
-  // just as a human engineer would wait for a rate-limit window before
-  // executing boundary tests.
-  console.log('  Pre-flight: checking if per-email rate-limit windows are clear...');
-  const probeRes = await post('/auth/login', {
-    email: 'preflight-probe@collegea.edu', password: 'preflight-probe', role: 'STUDENT',
-  }, {
-    'x-college-id':    ACCOUNTS.STUDENT_A.collegeId,
-    'x-forwarded-for': '10.0.9.1',  // distinct probe IP
-  });
+  // Probe all real test accounts concurrently using wrong passwords (so they
+  // don't consume a successful login slot), then check if any returns AUTH_005.
+  // If any account is rate-limited, wait 70s for Redis TTL to expire before
+  // running the suite. This correctly handles re-runs within the same TTL window.
+  console.log('  Pre-flight: checking rate-limit status for all test accounts...');
+  const probeAccounts = Object.values(ACCOUNTS);
+  const probeResults = await Promise.all(
+    probeAccounts.map(acct => post('/auth/login', {
+      email:    acct.email,
+      password: '__preflight_probe__',   // wrong password — won't succeed
+      role:     acct.role,
+    }, {
+      'x-college-id':    acct.collegeId,
+      'x-forwarded-for': acct.simulatedIp,
+    }))
+  );
 
-  // If we hit AUTH_005 on the probe, the email window is saturated
-  if (probeRes.data?.errorCode === 'AUTH_005') {
-    console.log('  ⚠️  Rate-limit window still active for TC1 account.');
+  const rateLimited = probeResults.some(r => r.data?.errorCode === 'AUTH_005');
+
+  if (rateLimited) {
+    const saturatedEmails = probeAccounts
+      .filter((_, i) => probeResults[i].data?.errorCode === 'AUTH_005')
+      .map(a => a.email);
+    console.log(`  ⚠️  Rate-limit active for: ${saturatedEmails.join(', ')}`);
     console.log('     Waiting 70s for Redis TTL to expire (production behavior)...');
     await new Promise(resolve => {
       let remaining = 70;
@@ -517,9 +524,9 @@ async function run() {
         if (remaining <= 0) { clearInterval(t); process.stdout.write('\n'); resolve(); }
       }, 1000);
     });
-    console.log('  ✅  Rate-limit window cleared. Proceeding with tests.\n');
+    console.log('  ✅  Rate-limit windows cleared. Proceeding with tests.\n');
   } else {
-    console.log('  ✅  Rate-limit windows clear. Proceeding immediately.\n');
+    console.log('  ✅  All accounts clear. Proceeding immediately.\n');
   }
 
   // Run TCs sequentially to maintain account budget control

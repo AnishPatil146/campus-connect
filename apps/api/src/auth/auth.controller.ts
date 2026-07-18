@@ -180,7 +180,7 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Retrieve currently logged in user profile' })
   async getMe(@Req() req: any) {
-    const result = await this.authService.getMe(req.user.id, req.user.role);
+    const result = await this.authService.getMe(req.user);
     return {
       message: 'User profile retrieved successfully',
       data: result,
