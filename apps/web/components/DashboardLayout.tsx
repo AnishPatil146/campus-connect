@@ -49,7 +49,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
     sidebarItems.push(
       { name: 'Dashboard', path: '/dashboard/teacher', icon: <LayoutDashboard className="h-5 w-5" /> },
       { name: 'Attendance Work Center', path: '/dashboard/teacher/attendance', icon: <ClipboardCheck className="h-5 w-5" /> },
-      { name: 'Notes & Learning Hub', path: '/dashboard/student/notes', icon: <BookOpen className="h-5 w-5" /> }
+      { name: 'Notes & Learning Hub', path: '/dashboard/student/notes', icon: <BookOpen className="h-5 w-5" /> },
+      { name: 'Settings', path: '/dashboard/teacher/settings', icon: <Settings className="h-5 w-5" /> }
     );
   } else if (user.role === 'ADMIN') {
     sidebarItems.push(

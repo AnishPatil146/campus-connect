@@ -2,12 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateTimetableDto, PublishTimetableDto, SubstituteTeacherDto, UpdateTimetableDto } from './dto/timetable.dto';
+import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class TimetableService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private eventsGateway: EventsGateway,
   ) {}
 
   async createTimetable(dto: CreateTimetableDto, actorId: string, actorName: string, actorRole: string) {
@@ -47,6 +49,8 @@ export class TimetableService {
       timetable.id,
     );
 
+    this.eventsGateway.broadcast('TIMETABLE_UPDATED', { type: 'create', timetableId: timetable.id });
+
     return timetable;
   }
 
@@ -69,6 +73,8 @@ export class TimetableService {
       'Timetable',
       dto.id,
     );
+
+    this.eventsGateway.broadcast('TIMETABLE_UPDATED', { type: 'update', timetableId: dto.id });
 
     return updated;
   }
@@ -203,6 +209,8 @@ export class TimetableService {
       dto.timetableId,
     );
 
+    this.eventsGateway.broadcast('TIMETABLE_UPDATED', { type: 'publish', timetableId: dto.timetableId, version });
+
     return published;
   }
 
@@ -228,6 +236,8 @@ export class TimetableService {
       'SubstituteTeacher',
       substitute.id,
     );
+
+    this.eventsGateway.broadcast('TIMETABLE_UPDATED', { type: 'substitute', substituteId: substitute.id });
 
     return substitute;
   }
@@ -257,6 +267,8 @@ export class TimetableService {
       'Timetable',
       id,
     );
+
+    this.eventsGateway.broadcast('TIMETABLE_UPDATED', { type: 'delete', timetableId: id });
 
     return deleted;
   }

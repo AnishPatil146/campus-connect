@@ -1,4 +1,4 @@
-﻿import {
+import {
   Controller,
   Get,
   Post,
@@ -127,6 +127,31 @@ export class AssignmentsController {
     return {
       success: true,
       message: 'Assignment graded successfully',
+      data,
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/record-grade')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Record a grade directly for a student' })
+  async recordGrade(
+    @Param('id') id: string,
+    @Body() dto: { studentId: string; marks: number; feedback?: string },
+    @Req() req: any
+  ) {
+    const teacherId = req.user.teacherProfile?.id || req.user.id;
+    const data = await this.assignmentsService.recordGrade(
+      id,
+      dto.studentId,
+      dto.marks,
+      dto.feedback || '',
+      teacherId,
+      req.user.name
+    );
+    return {
+      success: true,
+      message: 'Grade recorded successfully',
       data,
     };
   }

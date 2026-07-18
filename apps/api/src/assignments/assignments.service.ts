@@ -7,10 +7,15 @@ import { SubmitAssignmentDto } from './dto/submit-assignment.dto';
 import { UploadAssignmentFileDto } from './dto/upload-assignment-file.dto';
 import { GradeAssignmentDto } from './dto/grade-assignment.dto';
 import { AssignmentStatus } from '@prisma/client';
+import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class AssignmentsService {
-  constructor(private prisma: PrismaService, private auditService: AuditService) {}
+  constructor(
+    private prisma: PrismaService,
+    private auditService: AuditService,
+    private eventsGateway: EventsGateway,
+  ) {}
 
   async findAll(filters: any) {
     const where: any = {};
@@ -114,10 +119,17 @@ export class AssignmentsService {
 
   async submit(id: string, dto: SubmitAssignmentDto, userId: string, actorName: string) {
     const assignment = await this.findOne(id);
+    const student = await this.prisma.student.findUnique({
+      where: { userId },
+    });
+    if (!student) {
+      throw new NotFoundException(`Student profile not found for user ${userId}`);
+    }
+
     const submission = await this.prisma.submission.create({
       data: {
         assignmentId: id,
-        studentId: userId,
+        studentId: student.id,
         status: dto.status || 'SUBMITTED',
         attemptNumber: dto.attemptNumber ?? 1,
         fileUrl: dto.fileUrl,
@@ -138,6 +150,72 @@ export class AssignmentsService {
 
     await this.auditService.log(userId, actorName, 'STUDENT', 'SUBMIT_ASSIGNMENT', `Submitted assignment ${id}`, 'assignments', 'Assignment', id);
     return { assignment, submission };
+  }
+
+  async recordGrade(assignmentId: string, studentId: string, marks: number, feedback: string, teacherId: string, actorName: string) {
+    let submission = await this.prisma.submission.findFirst({
+      where: { assignmentId, studentId },
+    });
+
+    if (!submission) {
+      submission = await this.prisma.submission.create({
+        data: {
+          assignmentId,
+          studentId,
+          status: 'GRADED',
+          attemptNumber: 1,
+          marks,
+          feedback,
+        },
+      });
+    }
+
+    const graded = await this.prisma.assignmentMark.create({
+      data: {
+        submissionId: submission.id,
+        obtainedMarks: marks,
+        gradedById: teacherId,
+      },
+    });
+
+    await this.prisma.submission.update({
+      where: { id: submission.id },
+      data: {
+        marks,
+        feedback,
+        status: 'GRADED',
+        gradedAt: new Date(),
+      },
+    });
+
+    await this.prisma.assignmentActivity.create({
+      data: {
+        assignmentId,
+        userId: teacherId,
+        action: 'GRADED',
+        details: `Recorded grade for student ${studentId}`,
+      },
+    });
+
+    this.eventsGateway.broadcast('RESULT_PUBLISHED', {
+      assignmentId,
+      submissionId: submission.id,
+      studentId,
+      marks,
+    });
+
+    await this.auditService.log(
+      teacherId,
+      actorName,
+      'TEACHER',
+      'GRADE_ASSIGNMENT',
+      `Recorded grade for student ${studentId}`,
+      'assignments',
+      'Submission',
+      submission.id,
+    );
+
+    return graded;
   }
 
   async uploadFile(id: string, dto: UploadAssignmentFileDto, userId: string) {
@@ -205,6 +283,15 @@ export class AssignmentsService {
     });
 
     await this.auditService.log(teacherId, actorName, 'TEACHER', 'GRADE_ASSIGNMENT', `Graded submission ${dto.submissionId}`, 'assignments', 'Submission', dto.submissionId);
+
+    // Emit live WebSocket update
+    this.eventsGateway.broadcast('RESULT_PUBLISHED', {
+      assignmentId: id,
+      submissionId: dto.submissionId,
+      studentId: submission.studentId,
+      marks: dto.obtainedMarks,
+    });
+
     return graded;
   }
 

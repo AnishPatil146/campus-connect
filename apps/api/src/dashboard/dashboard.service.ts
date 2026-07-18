@@ -183,6 +183,7 @@ export class DashboardService {
       include: {
         subject: true,
         division: true,
+        timetable: true,
       },
       orderBy: { startTime: 'asc' },
     });
@@ -238,6 +239,10 @@ export class DashboardService {
     return {
       todayClasses: todayClasses.map(c => ({
         id: c.id,
+        subjectId: c.subjectId,
+        divisionId: c.divisionId,
+        semesterId: c.timetable?.semesterId || '',
+        slotNumber: c.slotNumber,
         subjectName: c.subject?.name || 'Unknown Subject',
         classroom: c.room || 'Lab',
         division: c.division?.name || '',

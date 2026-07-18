@@ -51,7 +51,7 @@ export interface StudentRecord {
   };
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:10000/api/v1';
 
 // Get auth headers
 function getHeaders() {
@@ -1107,6 +1107,87 @@ export const api = {
     return { success: false, data: null };
   },
 
+  async getNotes(query?: {
+    subjectId?: string;
+    semesterId?: string;
+    divisionId?: string;
+    teacherId?: string;
+    status?: string;
+  }): Promise<{ success: boolean; data: any[] }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const params = new URLSearchParams();
+        if (query?.subjectId) params.append('subjectId', query.subjectId);
+        if (query?.semesterId) params.append('semesterId', query.semesterId);
+        if (query?.divisionId) params.append('divisionId', query.divisionId);
+        if (query?.teacherId) params.append('teacherId', query.teacherId);
+        if (query?.status) params.append('status', query.status);
+
+        const res = await fetch(`${API_BASE_URL}/notes?${params.toString()}`, {
+          headers: getHeaders(),
+        });
+        const resp = await res.json();
+        if (resp.success && resp.data) {
+          const notesMapped = resp.data.map((n: any) => ({
+            id: n.id,
+            title: n.title,
+            subject: n.subject?.name || 'Subject',
+            semester: n.semester?.number || 1,
+            teacher: n.teacher?.user?.name || 'Faculty',
+            uploadDate: new Date(n.createdAt).toLocaleDateString(),
+            fileSize: n.fileSize ? `${(n.fileSize / (1024 * 1024)).toFixed(1)} MB` : '2.5 MB',
+            downloadCount: n.downloads?.length || 0,
+            pdfUrl: n.fileUrl || '/files/mock-pdf.pdf',
+            videoUrl: n.videoUrl || undefined,
+            referenceLinks: n.referenceLinks || undefined,
+            assignments: n.assignments || undefined,
+            createdAt: n.createdAt,
+          }));
+          return { success: true, data: notesMapped };
+        }
+      } catch (err) {
+        console.warn('Failed to fetch notes:', err);
+      }
+    }
+    return { success: true, data: [] };
+  },
+
+  async updateNote(noteId: string, payload: any): Promise<{ success: boolean; data: any }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/notes/${noteId}`, {
+          method: 'PATCH',
+          headers: getHeaders(),
+          body: JSON.stringify(payload),
+        });
+        const resp = await res.json();
+        return { success: resp.success, data: resp.data };
+      } catch (err) {
+        console.warn('Failed to update note:', err);
+      }
+    }
+    return { success: false, data: null };
+  },
+
+  async deleteNote(noteId: string): Promise<{ success: boolean }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/notes/${noteId}`, {
+          method: 'DELETE',
+          headers: getHeaders(),
+        });
+        const resp = await res.json();
+        return { success: resp.success };
+      } catch (err) {
+        console.warn('Failed to delete note:', err);
+      }
+    }
+    return { success: false };
+  },
+
   async recordDownload(noteId: string): Promise<boolean> {
     const isOnline = await pingAPI();
     if (isOnline) {
@@ -1157,6 +1238,384 @@ export const api = {
       }
     }
     return { success: false, message: 'API is offline' };
+  },
+
+  // ────────────────── Teacher Dashboard integrations ──────────────────
+
+  async getTeacherDashboard(): Promise<{ success: boolean; data: any; message?: string }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/teacher/dashboard`, {
+          headers: getHeaders(),
+        });
+        const payload = await res.json();
+        if (payload.success) return { success: true, data: payload.data };
+      } catch (err) {
+        console.warn('Failed to fetch teacher dashboard:', err);
+      }
+    }
+    return { success: false, data: null, message: 'API is offline' };
+  },
+
+  async getTeacherTimetable(teacherId: string): Promise<{ success: boolean; data: any[] }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/timetable/teacher?teacherId=${teacherId}`, {
+          headers: getHeaders(),
+        });
+        const payload = await res.json();
+        if (payload.success) return { success: true, data: payload.data };
+      } catch (err) {
+        console.warn('Failed to fetch teacher timetable:', err);
+      }
+    }
+    return { success: true, data: [] };
+  },
+
+  async getAttendanceSessions(query: {
+    divisionId?: string;
+    teacherId?: string;
+    date?: string;
+  }): Promise<{ success: boolean; data: any[] }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const params = new URLSearchParams();
+        if (query.divisionId) params.append('divisionId', query.divisionId);
+        if (query.teacherId) params.append('teacherId', query.teacherId);
+        if (query.date) params.append('date', query.date);
+
+        const res = await fetch(`${API_BASE_URL}/attendance/session?${params.toString()}`, {
+          headers: getHeaders(),
+        });
+        const resp = await res.json();
+        if (resp.data) return { success: true, data: resp.data };
+      } catch (err) {
+        console.warn('Failed to fetch attendance sessions:', err);
+      }
+    }
+    return { success: true, data: [] };
+  },
+
+  async createAttendanceSession(payload: {
+    collegeId: string;
+    academicSessionId: string;
+    subjectId: string;
+    teacherId: string;
+    semesterId: string;
+    divisionId: string;
+    lectureNumber: number;
+    attendanceDate: string;
+    startTime?: string;
+    endTime?: string;
+  }): Promise<{ success: boolean; data: any }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/attendance/session`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify(payload),
+        });
+        const resp = await res.json();
+        return { success: res.ok, data: resp.data };
+      } catch (err) {
+        console.warn('Failed to create attendance session:', err);
+      }
+    }
+    return { success: false, data: null };
+  },
+
+  async markAttendance(payload: {
+    attendanceSessionId: string;
+    records: { studentId: string; status: string; remarks?: string }[];
+  }): Promise<{ success: boolean; data: any }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/attendance/mark`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify(payload),
+        });
+        const resp = await res.json();
+        return { success: res.ok, data: resp.data };
+      } catch (err) {
+        console.warn('Failed to mark attendance:', err);
+      }
+    }
+    return { success: false, data: null };
+  },
+
+  async getClassAttendance(attendanceSessionId: string): Promise<{ success: boolean; data: any[] }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/attendance/class?attendanceSessionId=${attendanceSessionId}`, {
+          headers: getHeaders(),
+        });
+        const resp = await res.json();
+        if (resp.data) return { success: true, data: resp.data };
+      } catch (err) {
+        console.warn('Failed to fetch class attendance:', err);
+      }
+    }
+    return { success: true, data: [] };
+  },
+
+  async changePassword(data: any): Promise<{ success: boolean; message: string }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/auth/change-password`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify(data),
+        });
+        const resp = await res.json();
+        return { success: res.ok, message: resp.message };
+      } catch (err) {
+        console.warn('Failed to change password:', err);
+      }
+    }
+    return { success: false, message: 'API is offline' };
+  },
+
+  async getActiveSessions(): Promise<{ success: boolean; data: any[] }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/auth/sessions`, {
+          headers: getHeaders(),
+        });
+        const resp = await res.json();
+        if (resp.success) return { success: true, data: resp.data };
+      } catch (err) {
+        console.warn('Failed to fetch sessions:', err);
+      }
+    }
+    return { success: true, data: [] };
+  },
+
+  async createAssignment(payload: {
+    title: string;
+    description?: string;
+    subjectId: string;
+    divisionId: string;
+    semesterId: string;
+    totalMarks: number;
+    passingMarks: number;
+    dueDate: string;
+    status?: string;
+  }): Promise<{ success: boolean; data: any }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/assignments`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify(payload),
+        });
+        const resp = await res.json();
+        return { success: resp.success, data: resp.data };
+      } catch (err) {
+        console.warn('Failed to create assignment:', err);
+      }
+    }
+    return { success: false, data: null };
+  },
+
+  async getAssignments(query?: {
+    subjectId?: string;
+    semesterId?: string;
+    divisionId?: string;
+    teacherId?: string;
+    status?: string;
+  }): Promise<{ success: boolean; data: any[] }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const params = new URLSearchParams();
+        if (query?.subjectId) params.append('subjectId', query.subjectId);
+        if (query?.semesterId) params.append('semesterId', query.semesterId);
+        if (query?.divisionId) params.append('divisionId', query.divisionId);
+        if (query?.teacherId) params.append('teacherId', query.teacherId);
+        if (query?.status) params.append('status', query.status);
+
+        const res = await fetch(`${API_BASE_URL}/assignments?${params.toString()}`, {
+          headers: getHeaders(),
+        });
+        const resp = await res.json();
+        if (resp.success) return { success: true, data: resp.data };
+      } catch (err) {
+        console.warn('Failed to fetch assignments:', err);
+      }
+    }
+    return { success: true, data: [] };
+  },
+
+  async getStudentSubmissions(assignmentId: string): Promise<{ success: boolean; data: any }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/assignments/${assignmentId}`, {
+          headers: getHeaders(),
+        });
+        const resp = await res.json();
+        if (resp.success) return { success: true, data: resp.data };
+      } catch (err) {
+        console.warn('Failed to fetch assignment details:', err);
+      }
+    }
+    return { success: false, data: null };
+  },
+
+  async gradeSubmission(assignmentId: string, payload: {
+    submissionId: string;
+    obtainedMarks: number;
+    feedback?: string;
+  }): Promise<{ success: boolean; data: any }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/assignments/${assignmentId}/grade`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify(payload),
+        });
+        const resp = await res.json();
+        return { success: resp.success, data: resp.data };
+      } catch (err) {
+        console.warn('Failed to grade submission:', err);
+      }
+    }
+    return { success: false, data: null };
+  },
+
+  async recordGrade(assignmentId: string, payload: {
+    studentId: string;
+    marks: number;
+    feedback?: string;
+  }): Promise<{ success: boolean; data: any }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/assignments/${assignmentId}/record-grade`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify(payload),
+        });
+        const resp = await res.json();
+        return { success: resp.success, data: resp.data };
+      } catch (err) {
+        console.warn('Failed to record grade:', err);
+      }
+    }
+    return { success: false, data: null };
+  },
+
+  async addFeedback(payload: { submissionId: string; feedback: string }): Promise<{ success: boolean; data: any }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/assignments/feedback`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify(payload),
+        });
+        const resp = await res.json();
+        return { success: resp.success, data: resp.data };
+      } catch (err) {
+        console.warn('Failed to add feedback:', err);
+      }
+    }
+    return { success: false, data: null };
+  },
+
+  async getNotifications(): Promise<{ success: boolean; data: any[] }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/notifications/in-app`, {
+          headers: getHeaders(),
+        });
+        const resp = await res.json();
+        if (resp.success) return { success: true, data: resp.data };
+      } catch (err) {
+        console.warn('Failed to fetch notifications:', err);
+      }
+    }
+    return { success: true, data: [] };
+  },
+
+  async markAllNotificationsAsRead(): Promise<{ success: boolean }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/notifications/in-app/read-all`, {
+          method: 'PATCH',
+          headers: getHeaders(),
+        });
+        const resp = await res.json();
+        return { success: resp.success };
+      } catch (err) {
+        console.warn('Failed to mark all read:', err);
+      }
+    }
+    return { success: false };
+  },
+
+  async markNotificationAsRead(id: string): Promise<{ success: boolean }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/notifications/in-app/${id}/read`, {
+          method: 'PATCH',
+          headers: getHeaders(),
+        });
+        const resp = await res.json();
+        return { success: resp.success };
+      } catch (err) {
+        console.warn('Failed to mark notification read:', err);
+      }
+    }
+    return { success: false };
+  },
+
+  async getNotificationPreferences(): Promise<{ success: boolean; data: any }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/notifications/preferences`, {
+          headers: getHeaders(),
+        });
+        const resp = await res.json();
+        if (resp.success) return { success: true, data: resp.data };
+      } catch (err) {
+        console.warn('Failed to fetch preferences:', err);
+      }
+    }
+    return { success: false, data: null };
+  },
+
+  async updateNotificationPreferences(data: any): Promise<{ success: boolean; data: any }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/notifications/preferences`, {
+          method: 'PATCH',
+          headers: getHeaders(),
+          body: JSON.stringify(data),
+        });
+        const resp = await res.json();
+        return { success: resp.success, data: resp.data };
+      } catch (err) {
+        console.warn('Failed to update preferences:', err);
+      }
+    }
+    return { success: false, data: null };
   },
 };
 

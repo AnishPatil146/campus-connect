@@ -1765,7 +1765,7 @@ The Campus Connect Team
     let studentProfile: any = null;
     let profileCompletionPercentage = 100;
 
-    if (currentUser.role === Role.STUDENT) {
+    if (currentUser.role === 'STUDENT') {
       const student = await this.prisma.student.findUnique({
         where: { userId: currentUser.id },
         include: {
@@ -1802,6 +1802,27 @@ The Campus Connect Team
       }
     }
 
+    let teacherProfile: any = null;
+    if (currentUser.role === 'TEACHER') {
+      const teacher = await this.prisma.teacher.findUnique({
+        where: { userId: currentUser.id },
+        include: {
+          profile: true,
+          department: true,
+          addresses: true,
+          subjects: {
+            include: {
+              subject: true,
+              division: true,
+            },
+          },
+        },
+      });
+      if (teacher) {
+        teacherProfile = teacher;
+      }
+    }
+
     return {
       id: currentUser.id,
       email: currentUser.email,
@@ -1809,6 +1830,7 @@ The Campus Connect Team
       role: currentUser.role,
       collegeId: currentUser.collegeId,
       studentProfile,
+      teacherProfile,
       profileCompletionPercentage,
     };
   }

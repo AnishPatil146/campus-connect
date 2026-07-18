@@ -7,6 +7,16 @@ async function main() {
   console.log('Seeding database...');
 
   // 1. Clean existing records in reverse order of dependencies
+  await prisma.attendanceRecord.deleteMany({});
+  await prisma.attendanceSession.deleteMany({});
+  await prisma.timetableSlot.deleteMany({});
+  await prisma.timetable.deleteMany({});
+  await prisma.note.deleteMany({});
+  await prisma.noteCategory.deleteMany({});
+  await prisma.assignmentMark.deleteMany({});
+  await prisma.assignmentFeedback.deleteMany({});
+  await prisma.submission.deleteMany({});
+  await prisma.assignment.deleteMany({});
   await prisma.announcement.deleteMany({});
   await prisma.activityLog.deleteMany({});
   await prisma.student.deleteMany({});
@@ -544,6 +554,53 @@ async function main() {
       },
     ],
   });
+
+  // Seed timetable for Division A
+  const timetable = await prisma.timetable.create({
+    data: {
+      collegeId: seniorCollege.id,
+      academicSessionId: academicSession.id,
+      departmentId: department.id,
+      courseId: course.id,
+      semesterId: semester.id,
+      divisionId: division.id,
+      active: true,
+    },
+  });
+
+  // Seed timetable slots for teacher Dr. Sarah Jenkins (teacher.id) and Division A
+  // We will seed for every day of the week except Sunday: dayOfWeek 0 (Monday) to 5 (Saturday)
+  const slotsData = [
+    { dayOfWeek: 0, slotNumber: 1, startTime: '09:00', endTime: '10:00', subjectId: dbmsSubject.id, room: 'Room 204' },
+    { dayOfWeek: 0, slotNumber: 2, startTime: '10:15', endTime: '11:15', subjectId: osSubject.id, room: 'Room 103' },
+    { dayOfWeek: 1, slotNumber: 1, startTime: '09:00', endTime: '10:00', subjectId: dbmsSubject.id, room: 'Room 204' },
+    { dayOfWeek: 1, slotNumber: 2, startTime: '10:15', endTime: '11:15', subjectId: osSubject.id, room: 'Room 103' },
+    { dayOfWeek: 2, slotNumber: 1, startTime: '09:00', endTime: '10:00', subjectId: dbmsSubject.id, room: 'Room 204' },
+    { dayOfWeek: 2, slotNumber: 2, startTime: '10:15', endTime: '11:15', subjectId: osSubject.id, room: 'Room 103' },
+    { dayOfWeek: 3, slotNumber: 1, startTime: '09:00', endTime: '10:00', subjectId: dbmsSubject.id, room: 'Room 204' },
+    { dayOfWeek: 3, slotNumber: 2, startTime: '10:15', endTime: '11:15', subjectId: osSubject.id, room: 'Room 103' },
+    { dayOfWeek: 4, slotNumber: 1, startTime: '09:00', endTime: '10:00', subjectId: dbmsSubject.id, room: 'Room 204' },
+    { dayOfWeek: 4, slotNumber: 2, startTime: '10:15', endTime: '11:15', subjectId: osSubject.id, room: 'Room 103' },
+    { dayOfWeek: 5, slotNumber: 1, startTime: '09:00', endTime: '10:00', subjectId: dbmsSubject.id, room: 'Room 204' },
+    { dayOfWeek: 5, slotNumber: 2, startTime: '10:15', endTime: '11:15', subjectId: osSubject.id, room: 'Room 103' },
+  ];
+
+  for (const s of slotsData) {
+    await prisma.timetableSlot.create({
+      data: {
+        timetableId: timetable.id,
+        dayOfWeek: s.dayOfWeek,
+        slotNumber: s.slotNumber,
+        startTime: s.startTime,
+        endTime: s.endTime,
+        subjectId: s.subjectId,
+        teacherId: teacher.id,
+        divisionId: division.id,
+        room: s.room,
+        isPublished: true,
+      },
+    });
+  }
 
   console.log('Seeding completed successfully!');
 }
