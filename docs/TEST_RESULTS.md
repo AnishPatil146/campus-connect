@@ -1,9 +1,9 @@
 # Campus Connect — Authentication Test Results
 ## Sprint 1 — Authentication & Identity System
 
-> **Run Date:** 18/7/2026, 1:54:33 pm IST
+> **Run Date:** 18/7/2026, 2:09:41 pm IST
 > **API:** `http://localhost:10000/api/v1`
-> **Status:** ⚠️  6 TEST(S) FAILED
+> **Status:** ⚠️  7 TEST(S) FAILED
 
 ---
 
@@ -12,9 +12,9 @@
 | Metric | Value |
 |--------|-------|
 | Total TCs | 8 |
-| Passed | 2 ✅ |
-| Failed | 6 ❌ |
-| Pass Rate | 25% |
+| Passed | 1 ✅ |
+| Failed | 7 ❌ |
+| Pass Rate | 13% |
 
 ---
 
@@ -34,13 +34,13 @@
 
 ### ❌ FAIL — TC3 — Multi-Role Concurrent Login
 
-**Result:** 2/3 roles logged in successfully
+**Result:** 0/3 roles logged in successfully
 
 ---
 
 ### ❌ FAIL — TC4 — Concurrent Load Test
 
-**Result:** 2/3 logins succeeded concurrently in 12826ms wall time
+**Result:** 0/3 logins succeeded concurrently in 3620ms wall time
 
 > **Note:** Full 18-user test requires additional seeded accounts per environment.
 
@@ -52,9 +52,9 @@
 
 ---
 
-### ✅ PASS — TC6 — Security Tests
+### ❌ FAIL — TC6 — Security Tests
 
-**Result:** 6/6 security checks passed
+**Result:** 5/6 security checks passed
 
 ---
 

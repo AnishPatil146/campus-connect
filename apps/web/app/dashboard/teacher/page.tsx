@@ -104,24 +104,30 @@ export default function TeacherDashboard() {
       <div className="space-y-6">
         
         {/* Welcome Banner */}
-        <div className="bg-gradient-to-r from-role-primary via-role-secondary to-role-tertiary rounded-2xl p-6 text-white relative overflow-hidden shadow-lg shadow-role-primary/10">
-          <div className="absolute top-0 right-0 transform translate-x-12 -translate-y-12 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative rounded-2xl p-6 overflow-hidden shadow-lg border border-role-border/40
+          bg-gradient-to-r from-slate-900 via-slate-900 to-[#064e3b]/60
+          dark:from-[#0c1a12] dark:via-slate-900 dark:to-[#064e3b]/40
+        ">
+          {/* Accent glow blob */}
+          <div className="absolute top-0 right-0 translate-x-8 -translate-y-8 w-56 h-56 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-1/3 w-40 h-40 bg-emerald-600/5 rounded-full blur-2xl pointer-events-none" />
           <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider bg-white/20 px-2.5 py-1 rounded-full">
+              <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 px-2.5 py-1 rounded-full">
                 Faculty Workspace
               </span>
-              <h2 className="text-2xl font-extrabold mt-3 tracking-tight">Good Morning, Professor {user?.name || 'John'} 👋</h2>
-              <p className="text-white/80 text-xs mt-1">
+              <h2 className="text-2xl font-extrabold mt-3 tracking-tight text-white">Good Morning, Professor {user?.name || 'John'} 👋</h2>
+              <p className="text-slate-400 text-xs mt-1">
                 Department of Computer Science • Academic Session: AY 2026-27
               </p>
             </div>
-            <div className="bg-white/12 backdrop-blur-md rounded-xl p-3 border border-white/10 text-right text-xs">
+            <div className="bg-slate-800/60 backdrop-blur-md rounded-xl p-3 border border-slate-700/60 text-right text-xs text-slate-300">
               <div>Time: {new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
-              <div className="opacity-80 mt-0.5">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}</div>
+              <div className="opacity-70 mt-0.5">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}</div>
             </div>
           </div>
         </div>
+
 
         {/* Quick Statistics Grid */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">

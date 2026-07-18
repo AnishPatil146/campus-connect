@@ -489,34 +489,33 @@ async function run() {
   console.log('  Each account uses a distinct simulated IP (x-forwarded-for).');
   console.log('  This mirrors real reverse-proxy (Nginx/Cloudflare) behavior.\n');
 
-  // ── Pre-flight: detect if per-email rate-limit keys are saturated ────────
-  // Probe all real test accounts concurrently using wrong passwords (so they
-  // don't consume a successful login slot), then check if any returns AUTH_005.
-  // If any account is rate-limited, wait 70s for Redis TTL to expire before
-  // running the suite. This correctly handles re-runs within the same TTL window.
-  console.log('  Pre-flight: checking rate-limit status for all test accounts...');
-  const probeAccounts = Object.values(ACCOUNTS);
-  const probeResults = await Promise.all(
-    probeAccounts.map(acct => post('/auth/login', {
-      email:    acct.email,
-      password: '__preflight_probe__',   // wrong password — won't succeed
-      role:     acct.role,
-    }, {
-      'x-college-id':    acct.collegeId,
-      'x-forwarded-for': acct.simulatedIp,
-    }))
-  );
+  // ── Pre-flight: timestamp-based rate-limit window guard ──────────────────
+  // Problem: probing real TC accounts with wrong passwords CONSUMES rate limit
+  // slots (the rate limiter runs before password verification). This caused
+  // accounts at count=4 to reach count=5 via the probe (returning AUTH_002),
+  // then TC1's first attempt pushed them to count=6 → AUTH_005, making TC1
+  // appear broken when it was the pre-flight itself that poisoned the window.
+  //
+  // Fix: track suite execution time in a local state file. If the suite ran
+  // within the last 75s, wait for the remaining time. Zero Redis slots consumed.
+  const STATE_FILE = path.resolve(__dirname, '.last-run');
+  const WINDOW_MS  = 75_000; // 75s (>60s Redis TTL to give headroom)
 
-  const rateLimited = probeResults.some(r => r.data?.errorCode === 'AUTH_005');
+  let waitMs = 0;
+  try {
+    const lastRun = parseInt(fs.readFileSync(STATE_FILE, 'utf8').trim(), 10);
+    const elapsed = Date.now() - lastRun;
+    if (elapsed < WINDOW_MS) {
+      waitMs = WINDOW_MS - elapsed;
+    }
+  } catch {
+    // No state file yet — first run, no wait needed
+  }
 
-  if (rateLimited) {
-    const saturatedEmails = probeAccounts
-      .filter((_, i) => probeResults[i].data?.errorCode === 'AUTH_005')
-      .map(a => a.email);
-    console.log(`  ⚠️  Rate-limit active for: ${saturatedEmails.join(', ')}`);
-    console.log('     Waiting 70s for Redis TTL to expire (production behavior)...');
+  if (waitMs > 0) {
+    console.log(`  ⚠️  Suite ran ${Math.round((WINDOW_MS - waitMs) / 1000)}s ago. Waiting ${Math.ceil(waitMs / 1000)}s for rate-limit windows to clear...`);
     await new Promise(resolve => {
-      let remaining = 70;
+      let remaining = Math.ceil(waitMs / 1000);
       process.stdout.write('  ⏳ ');
       const t = setInterval(() => {
         remaining--;
@@ -526,8 +525,11 @@ async function run() {
     });
     console.log('  ✅  Rate-limit windows cleared. Proceeding with tests.\n');
   } else {
-    console.log('  ✅  All accounts clear. Proceeding immediately.\n');
+    console.log('  ✅  Pre-flight clear. Proceeding immediately.\n');
   }
+
+  // Record this run timestamp BEFORE starting TCs (so re-runs are always safe)
+  fs.writeFileSync(STATE_FILE, String(Date.now()), 'utf8');
 
   // Run TCs sequentially to maintain account budget control
   await tc1_rateLimitEnforcement();

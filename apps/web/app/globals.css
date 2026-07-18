@@ -104,19 +104,24 @@ html[data-role="teacher"] {
 }
 
 html[data-role="teacher"].dark {
-  --role-primary: #15803D;
-  --role-secondary: #166534;
-  --role-tertiary: #052E16;
-  --role-bg: #052E16;
-  --role-sidebar-bg: #0b3d1f;
-  --role-header-bg: #0b3d1f;
-  --role-card-bg: rgba(22, 101, 52, 0.15);
-  --role-border: rgba(21, 128, 61, 0.25);
-  --role-surface: rgba(21, 128, 61, 0.15);
-  --role-surface-hover: rgba(21, 128, 61, 0.3);
+  /* Dark base — same slate as student/global dark */
+  --role-primary: #10B981;
+  --role-secondary: #059669;
+  --role-tertiary: #064e3b;
+  /* Backgrounds: standard dark slate — NOT green */
+  --role-bg: #0F172A;
+  --role-sidebar-bg: #0F172A;
+  --role-header-bg: #111827;
+  /* Cards: very subtle green tint over dark */
+  --role-card-bg: rgba(16, 185, 129, 0.04);
+  /* Borders: faint green accent lines */
+  --role-border: rgba(16, 185, 129, 0.15);
+  /* Surfaces: hover/active tints — green at low opacity */
+  --role-surface: rgba(16, 185, 129, 0.08);
+  --role-surface-hover: rgba(16, 185, 129, 0.14);
   --role-login-from: #052e16;
   --role-login-to: #166534;
-  --role-login-glow: #15803d;
+  --role-login-glow: #10b981;
 }
 
 /* Admin specific (#7C3AED, #8B5CF6, #A78BFA / #2E1065, #5B21B6, #6D28D9) */
@@ -137,16 +142,21 @@ html[data-role="admin"] {
 }
 
 html[data-role="admin"].dark {
-  --role-primary: #6D28D9;
-  --role-secondary: #5B21B6;
-  --role-tertiary: #2E1065;
-  --role-bg: #2E1065;
-  --role-sidebar-bg: #3c147d;
-  --role-header-bg: #3c147d;
-  --role-card-bg: rgba(91, 33, 182, 0.15);
-  --role-border: rgba(109, 40, 217, 0.25);
-  --role-surface: rgba(109, 40, 217, 0.15);
-  --role-surface-hover: rgba(109, 40, 217, 0.3);
+  /* Dark base — same slate as student/global dark */
+  --role-primary: #A78BFA;
+  --role-secondary: #8B5CF6;
+  --role-tertiary: #4c1d95;
+  /* Backgrounds: standard dark slate — NOT purple */
+  --role-bg: #0F172A;
+  --role-sidebar-bg: #0F172A;
+  --role-header-bg: #111827;
+  /* Cards: very subtle purple tint over dark */
+  --role-card-bg: rgba(167, 139, 250, 0.04);
+  /* Borders: faint purple accent lines */
+  --role-border: rgba(167, 139, 250, 0.15);
+  /* Surfaces: hover/active tints — purple at low opacity */
+  --role-surface: rgba(167, 139, 250, 0.08);
+  --role-surface-hover: rgba(167, 139, 250, 0.14);
   --role-login-from: #2e1065;
   --role-login-to: #5b21b6;
   --role-login-glow: #6d28d9;
