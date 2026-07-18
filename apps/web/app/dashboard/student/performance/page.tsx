@@ -3,7 +3,7 @@
 import React from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge } from '@campus-connect/ui';
-import { Award, BookOpen, TrendingUp } from 'lucide-react';
+import { BookOpen, TrendingUp, Trophy } from 'lucide-react';
 
 export default function PerformancePage() {
   const academicProgress = {
@@ -61,15 +61,15 @@ export default function PerformancePage() {
           <Card>
             <CardContent className="p-6 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 border border-amber-100/30 flex items-center justify-center shrink-0">
-                  <Award className="h-5 w-5" />
+                <div className="h-10 w-10 rounded-lg bg-blue-50/70 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border border-blue-100/30 flex items-center justify-center shrink-0">
+                  <Trophy className="h-5 w-5" />
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Current Rank</span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-505 uppercase tracking-wider block">Current Rank</span>
                   <span className="text-lg font-bold text-slate-850 dark:text-slate-100 block mt-0.5">Rank #{academicProgress.rank}</span>
                 </div>
               </div>
-              <Badge variant="success" className="text-xs">
+              <Badge variant="primary" className="text-xs">
                 Top 5%
               </Badge>
             </CardContent>

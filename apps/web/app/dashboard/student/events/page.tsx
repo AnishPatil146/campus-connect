@@ -12,16 +12,16 @@ export default function EventsPage() {
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case 'technical': return <Sparkles className="h-5 w-5 text-blue-600" />;
-      case 'sports': return <Award className="h-5 w-5 text-amber-600" />;
-      default: return <Users className="h-5 w-5 text-purple-600" />;
+      case 'sports': return <Award className="h-5 w-5 text-blue-400" />;
+      default: return <Users className="h-5 w-5 text-blue-500" />;
     }
   };
 
   const getCategoryBadge = (category: string) => {
     switch (category) {
       case 'technical': return 'primary';
-      case 'sports': return 'warning';
-      case 'cultural': return 'success';
+      case 'sports': return 'primary';
+      case 'cultural': return 'primary';
       default: return 'secondary';
     }
   };
@@ -97,7 +97,7 @@ export default function EventsPage() {
                       onClick={() => toggleEventParticipation(evt.id)}
                       className={`w-full h-10 font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition-all active:scale-[0.98] ${
                         evt.isParticipating
-                          ? 'bg-emerald-50 hover:bg-emerald-100 border border-emerald-250 text-emerald-700'
+                          ? 'bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 dark:bg-blue-950/20 dark:border-blue-900/50 dark:text-blue-400'
                           : isRegistrationClosed
                           ? 'bg-slate-100 text-slate-450 border border-slate-200 cursor-not-allowed'
                           : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/10'

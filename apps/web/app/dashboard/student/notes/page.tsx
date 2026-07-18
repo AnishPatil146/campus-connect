@@ -274,7 +274,7 @@ export default function NotesPage() {
                 }}
                 className="group p-5 rounded-2xl border border-slate-100 dark:border-slate-900 bg-white dark:bg-slate-950 flex items-center gap-4 hover:border-blue-200 hover:-translate-y-0.5 transition-all text-left shadow-sm hover:shadow-md"
               >
-                <div className="h-12 w-12 rounded-xl bg-amber-50 dark:bg-amber-950/20 text-amber-500 dark:text-amber-400 border border-amber-100/30 flex items-center justify-center shrink-0">
+                <div className="h-12 w-12 rounded-xl bg-blue-50 dark:bg-blue-950/20 text-blue-500 dark:text-blue-400 border border-blue-100/30 flex items-center justify-center shrink-0">
                   <Folder className="h-6 w-6" />
                 </div>
                 <div>
@@ -410,7 +410,7 @@ export default function NotesPage() {
                       {/* Assignment */}
                       {note.assignments && note.assignments.length > 0 ? (
                         <div className="flex items-center gap-2.5 text-xs">
-                          <Calendar className="h-4.5 w-4.5 text-emerald-500 shrink-0" />
+                          <Calendar className="h-4.5 w-4.5 text-blue-500 shrink-0" />
                           <div className="min-w-0">
                             <span className="font-semibold text-slate-750 dark:text-slate-300 block">Assignment Due</span>
                             <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate">

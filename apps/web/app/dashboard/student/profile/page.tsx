@@ -162,13 +162,13 @@ export default function ProfilePage() {
               <div className="flex flex-col mt-4 space-y-1.5 max-w-xs mx-auto md:mx-0">
                 <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase tracking-wide">
                   <span>Profile Completion</span>
-                  <span className={completion === 100 ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}>
+                  <span className={completion === 100 ? "text-blue-600 dark:text-blue-400" : "text-blue-500 dark:text-blue-400/80"}>
                     {completion}%
                   </span>
                 </div>
                 <div className="w-full h-2 bg-slate-150 dark:bg-slate-800 rounded-full overflow-hidden">
                   <div 
-                    className={`h-full rounded-full transition-all duration-500 ${completion === 100 ? 'bg-emerald-500' : 'bg-amber-500'}`} 
+                    className={`h-full rounded-full transition-all duration-500 ${completion === 100 ? 'bg-blue-600' : 'bg-blue-400'}`} 
                     style={{ width: `${completion}%` }}
                   />
                 </div>
@@ -199,7 +199,7 @@ export default function ProfilePage() {
         {message && (
           <div className={`p-4 border rounded-xl flex items-start gap-3 text-xs leading-relaxed ${
             message.type === 'success' 
-              ? 'bg-emerald-50 border-emerald-250 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-900 dark:text-emerald-400' 
+              ? 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-950/20 dark:border-blue-900 dark:text-blue-400' 
               : 'bg-red-50 border-red-200 text-red-700 dark:bg-red-950/20 dark:border-red-900 dark:text-red-400'
           }`}>
             <CheckCircle className="h-5 w-5 shrink-0 mt-0.5" />
@@ -273,7 +273,7 @@ export default function ProfilePage() {
                     <GraduationCap className="h-5 w-5 text-slate-400 shrink-0" />
                     <div>
                       <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Course & Semester</span>
-                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5">{courseName} • {semesterName}</span>
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5">{courseName} • {semesterName} ({divisionName})</span>
                     </div>
                   </div>
 

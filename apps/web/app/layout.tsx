@@ -32,13 +32,13 @@ export default function RootLayout({
       </head>
       <body>
         <ThemeProvider>
-          <StudentDataProvider>
-            <AuthProvider>
-              <SocketProvider>
+          <AuthProvider>
+            <SocketProvider>
+              <StudentDataProvider>
                 {children}
-              </SocketProvider>
-            </AuthProvider>
-          </StudentDataProvider>
+              </StudentDataProvider>
+            </SocketProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

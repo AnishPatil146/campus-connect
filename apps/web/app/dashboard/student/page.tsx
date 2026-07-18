@@ -5,6 +5,8 @@ import { DashboardLayout } from '../../../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@campus-connect/ui';
 import { useAuth } from '../../../components/AuthProvider';
 import { useStudentData } from '../../../components/StudentDataProvider';
+import { useSocket } from '../../../components/SocketProvider';
+import { api } from '../../../utils/api';
 import Link from 'next/link';
 import { 
   Award, 
@@ -14,15 +16,46 @@ import {
   Sparkles, 
   Megaphone, 
   ChevronRight, 
-  ArrowUpRight
+  ArrowUpRight,
+  Star,
+  Trophy
 } from 'lucide-react';
 
 export default function StudentDashboard() {
   const { user } = useAuth();
   const { notes, events, announcements } = useStudentData();
+  const profileCompletion = (user as any)?.profileCompletionPercentage;
 
   // Dynamic welcome name
   const studentName = user?.name || 'Anish';
+
+  const { socket } = useSocket();
+  const [attendancePercent, setAttendancePercent] = React.useState<number>(87);
+
+  React.useEffect(() => {
+    const fetchAttendance = async () => {
+      try {
+        const resp = await api.getStudentAttendanceDashboard();
+        if (resp.success && resp.data) {
+          setAttendancePercent(resp.data.percentage);
+        }
+      } catch (_) {}
+    };
+    fetchAttendance();
+  }, []);
+
+  React.useEffect(() => {
+    if (!socket) return;
+    const handleAttendanceUpdate = (data: any) => {
+      if (data && data.percentage !== undefined) {
+        setAttendancePercent(data.percentage);
+      }
+    };
+    socket.on('attendanceUpdate', handleAttendanceUpdate);
+    return () => {
+      socket.off('attendanceUpdate', handleAttendanceUpdate);
+    };
+  }, [socket]);
 
   // Metrics summary
   const studentInfo = {
@@ -30,7 +63,7 @@ export default function StudentDashboard() {
     department: 'Computer Science & Engineering',
     semester: 4,
     gpa: 3.82,
-    attendance: 87, // Matching requirement "Attendance: 87%"
+    attendance: attendancePercent,
   };
 
   // Find latest items from the state context
@@ -43,29 +76,29 @@ export default function StudentDashboard() {
       <div className="space-y-6">
         
         {/* Profile Completion Alert Banner */}
-        {user?.profileCompletionPercentage !== undefined && user.profileCompletionPercentage < 100 && (
-          <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-900/30 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 transition-all duration-300">
+        {profileCompletion !== undefined && profileCompletion < 100 && (
+          <div className="bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-900/30 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 transition-all duration-300">
             <div className="flex items-center gap-3.5 w-full sm:w-auto">
-              <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <div className="h-10 w-10 rounded-xl bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-400 flex items-center justify-center shrink-0">
                 <Sparkles className="h-5 w-5" />
               </div>
               <div className="space-y-1 min-w-0">
                 <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">Complete your profile</h4>
-                <p className="text-xs text-slate-505 dark:text-slate-400">
-                  Your profile is only <span className="font-semibold text-amber-700 dark:text-amber-450">{user.profileCompletionPercentage}% complete</span>. Fill in required details to access all features.
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Your profile is only <span className="font-semibold text-blue-600 dark:text-blue-450">{profileCompletion}% complete</span>. Fill in required details to access all features.
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-4 w-full sm:w-auto shrink-0">
               <div className="flex-1 sm:flex-initial w-32 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                 <div 
-                  className="h-full bg-amber-500 rounded-full transition-all duration-500" 
-                  style={{ width: `${user.profileCompletionPercentage}%` }}
+                  className="h-full bg-blue-600 rounded-full transition-all duration-500" 
+                  style={{ width: `${profileCompletion}%` }}
                 />
               </div>
               <Link 
                 href="/dashboard/student/profile" 
-                className="text-xs font-bold text-amber-700 dark:text-amber-455 hover:text-amber-800 dark:hover:text-amber-300 transition-colors uppercase tracking-wider shrink-0"
+                className="text-xs font-bold text-blue-700 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors uppercase tracking-wider shrink-0"
               >
                 Complete Profile →
               </Link>
@@ -74,7 +107,7 @@ export default function StudentDashboard() {
         )}
 
         {/* Welcome Greeting Banner */}
-        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-6 text-white relative overflow-hidden shadow-lg shadow-blue-500/10">
+        <div className="bg-gradient-to-r from-[#0F172A] via-[#1E3A8A] to-[#2563EB] rounded-2xl p-6 text-white relative overflow-hidden shadow-lg shadow-blue-500/10">
           <div className="absolute top-0 right-0 transform translate-x-12 -translate-y-12 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
           <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
@@ -82,7 +115,7 @@ export default function StudentDashboard() {
                 Portal Home
               </span>
               <h2 className="text-2xl font-extrabold mt-3 tracking-tight">Good Morning, {studentName} 👋</h2>
-              <p className="text-blue-100 text-sm mt-1 max-w-md">
+              <p className="text-white/80 text-sm mt-1 max-w-md">
                 Welcome back to your Campus Connect workspace. You have an upcoming lecture starting shortly.
               </p>
             </div>
@@ -90,11 +123,11 @@ export default function StudentDashboard() {
             <div className="flex gap-4">
               <div className="bg-white/12 backdrop-blur-md rounded-xl p-3 text-center border border-white/10 min-w-[90px]">
                 <div className="text-2xl font-bold">{studentInfo.gpa}</div>
-                <div className="text-[10px] text-blue-200 font-semibold uppercase tracking-wider">GPA</div>
+                <div className="text-[10px] text-white/70 font-semibold uppercase tracking-wider">GPA</div>
               </div>
               <div className="bg-white/12 backdrop-blur-md rounded-xl p-3 text-center border border-white/10 min-w-[90px]">
                 <div className="text-2xl font-bold">{studentInfo.attendance}%</div>
-                <div className="text-[10px] text-blue-200 font-semibold uppercase tracking-wider">Attendance</div>
+                <div className="text-[10px] text-white/70 font-semibold uppercase tracking-wider">Attendance</div>
               </div>
             </div>
           </div>
@@ -108,8 +141,8 @@ export default function StudentDashboard() {
             <Card className="h-full border-slate-100 hover:border-blue-100 transition-all duration-300 hover:-translate-y-0.5">
               <CardContent className="p-5 flex flex-col justify-between h-full space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Attendance</span>
-                  <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                  <span className="text-xs font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider">Attendance</span>
+                  <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
                     <Calendar className="h-4 w-4" />
                   </div>
                 </div>
@@ -126,7 +159,7 @@ export default function StudentDashboard() {
             <Card className="h-full border-slate-100 hover:border-blue-100 transition-all duration-300 hover:-translate-y-0.5">
               <CardContent className="p-5 flex flex-col justify-between h-full space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Upcoming Class</span>
+                  <span className="text-xs font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider">Upcoming Class</span>
                   <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
                     <Clock className="h-4 w-4" />
                   </div>
@@ -144,9 +177,9 @@ export default function StudentDashboard() {
             <Card className="h-full border-slate-100 hover:border-blue-100 transition-all duration-300 hover:-translate-y-0.5">
               <CardContent className="p-5 flex flex-col justify-between h-full space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Next Event</span>
-                  <div className="h-8 w-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-                    <Sparkles className="h-4 w-4" />
+                  <span className="text-xs font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider">Next Event</span>
+                  <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                    <Star className="h-4 w-4" />
                   </div>
                 </div>
                 <div>
@@ -162,8 +195,8 @@ export default function StudentDashboard() {
             <Card className="h-full border-slate-100 hover:border-blue-100 transition-all duration-300 hover:-translate-y-0.5">
               <CardContent className="p-5 flex flex-col justify-between h-full space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Latest Info</span>
-                  <div className="h-8 w-8 rounded-lg bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                  <span className="text-xs font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider">Latest Info</span>
+                  <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
                     <Megaphone className="h-4 w-4" />
                   </div>
                 </div>
@@ -180,9 +213,9 @@ export default function StudentDashboard() {
             <Card className="h-full border-slate-100 hover:border-blue-100 transition-all duration-300 hover:-translate-y-0.5">
               <CardContent className="p-5 flex flex-col justify-between h-full space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Leaderboard</span>
-                  <div className="h-8 w-8 rounded-lg bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                    <Award className="h-4 w-4" />
+                  <span className="text-xs font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider">Leaderboard</span>
+                  <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                    <Trophy className="h-4 w-4" />
                   </div>
                 </div>
                 <div>
@@ -315,28 +348,28 @@ export default function StudentDashboard() {
               </CardHeader>
               <CardContent className="grid grid-cols-1 gap-3">
                 <Link href="/dashboard/student/timetable">
-                  <button className="w-full flex items-center justify-between p-3.5 rounded-xl border border-slate-100 dark:border-slate-850 hover:bg-slate-50 dark:hover:bg-slate-900/50 hover:border-slate-200 transition-all font-medium text-slate-700 dark:text-slate-300 text-xs">
+                  <button className="w-full flex items-center justify-between p-3.5 rounded-xl border border-blue-200/60 dark:border-blue-900/30 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 hover:border-blue-400 dark:hover:border-blue-850 hover:shadow-md hover:shadow-blue-500/5 active:bg-gradient-to-r active:from-blue-600 active:to-blue-500 active:text-white transition-all font-medium text-slate-700 dark:text-slate-300 text-xs cursor-pointer">
                     <span>View Timetable</span>
                     <ArrowUpRight className="h-4 w-4 text-slate-400" />
                   </button>
                 </Link>
 
                 <Link href="/dashboard/student/attendance">
-                  <button className="w-full flex items-center justify-between p-3.5 rounded-xl border border-slate-100 dark:border-slate-850 hover:bg-slate-50 dark:hover:bg-slate-900/50 hover:border-slate-200 transition-all font-medium text-slate-700 dark:text-slate-300 text-xs">
+                  <button className="w-full flex items-center justify-between p-3.5 rounded-xl border border-blue-200/60 dark:border-blue-900/30 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 hover:border-blue-400 dark:hover:border-blue-850 hover:shadow-md hover:shadow-blue-500/5 active:bg-gradient-to-r active:from-blue-600 active:to-blue-500 active:text-white transition-all font-medium text-slate-700 dark:text-slate-300 text-xs cursor-pointer">
                     <span>View Attendance</span>
                     <ArrowUpRight className="h-4 w-4 text-slate-400" />
                   </button>
                 </Link>
 
                 <Link href="/dashboard/student/events">
-                  <button className="w-full flex items-center justify-between p-3.5 rounded-xl border border-slate-100 dark:border-slate-850 hover:bg-slate-50 dark:hover:bg-slate-900/50 hover:border-slate-200 transition-all font-medium text-slate-700 dark:text-slate-300 text-xs">
+                  <button className="w-full flex items-center justify-between p-3.5 rounded-xl border border-blue-200/60 dark:border-blue-900/30 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 hover:border-blue-400 dark:hover:border-blue-850 hover:shadow-md hover:shadow-blue-500/5 active:bg-gradient-to-r active:from-blue-600 active:to-blue-500 active:text-white transition-all font-medium text-slate-700 dark:text-slate-300 text-xs cursor-pointer">
                     <span>Explore Events</span>
                     <ArrowUpRight className="h-4 w-4 text-slate-400" />
                   </button>
                 </Link>
 
                 <Link href="/dashboard/student/notes">
-                  <button className="w-full flex items-center justify-between p-3.5 rounded-xl border border-slate-100 dark:border-slate-850 hover:bg-slate-50 dark:hover:bg-slate-900/50 hover:border-slate-200 transition-all font-medium text-slate-700 dark:text-slate-300 text-xs">
+                  <button className="w-full flex items-center justify-between p-3.5 rounded-xl border border-blue-200/60 dark:border-blue-900/30 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 hover:border-blue-400 dark:hover:border-blue-850 hover:shadow-md hover:shadow-blue-500/5 active:bg-gradient-to-r active:from-blue-600 active:to-blue-500 active:text-white transition-all font-medium text-slate-700 dark:text-slate-300 text-xs cursor-pointer">
                     <span>Browse Study Notes</span>
                     <ArrowUpRight className="h-4 w-4 text-slate-400" />
                   </button>

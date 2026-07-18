@@ -1,8 +1,11 @@
 'use client';
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useSocket } from './SocketProvider';
+import { useAuth } from './AuthProvider';
+import { api } from '../utils/api';
 
-// Data types
+// Data structures matching application views
 export interface Note {
   id: string;
   title: string;
@@ -47,201 +50,364 @@ interface StudentDataContextType {
   notes: Note[];
   events: Event[];
   announcements: Announcement[];
-  addNote: (note: Omit<Note, 'id' | 'downloadCount' | 'uploadDate'>) => void;
-  toggleEventParticipation: (eventId: string) => void;
+  loading: boolean;
+  addNote: (note: Omit<Note, 'id' | 'downloadCount' | 'uploadDate'>) => Promise<void>;
+  toggleEventParticipation: (eventId: string) => Promise<void>;
   toggleAnnouncementRead: (announcementId: string) => void;
-  incrementDownload: (noteId: string) => void;
+  incrementDownload: (noteId: string) => Promise<void>;
+  refreshData: () => Promise<void>;
 }
 
 const StudentDataContext = createContext<StudentDataContextType | undefined>(undefined);
 
 export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Mock initial notes data
-  const [notes, setNotes] = useState<Note[]>([
-    {
-      id: 'note-1',
-      title: 'Unit 1: Introduction to Relational Databases',
-      subject: 'Database Management System',
-      semester: 1,
-      teacher: 'Dr. Sarah Jenkins',
-      uploadDate: '2026-07-01',
-      fileSize: '2.5 MB',
-      downloadCount: 34,
-      pdfUrl: '/files/dbms-unit1.pdf',
-      videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-      referenceLinks: [
-        { name: 'Codd\'s 12 Rules of RDBMS', url: 'https://en.wikipedia.org/wiki/Codd%27s_12_rules' },
-        { name: 'SQL Basics Cheat Sheet', url: 'https://sqlbolt.com/' }
-      ],
-      assignments: [
-        { title: 'DBMS Assignment 1: Schema Design', dueDate: '2026-07-12' }
-      ]
-    },
-    {
-      id: 'note-2',
-      title: 'Unit 2: ER Diagrams and Normalization',
-      subject: 'Database Management System',
-      semester: 1,
-      teacher: 'Dr. Sarah Jenkins',
-      uploadDate: '2026-07-02',
-      fileSize: '3.1 MB',
-      downloadCount: 28,
-      pdfUrl: '/files/dbms-unit2.pdf',
-      videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-      referenceLinks: [
-        { name: 'Normalization Guide', url: 'https://www.geeksforgeeks.org/dbms-normalization-rules/' }
-      ]
-    },
-    {
-      id: 'note-3',
-      title: 'Unit 1: Process Management & CPU Scheduling',
-      subject: 'Operating System',
-      semester: 1,
-      teacher: 'Prof. Alan Turing',
-      uploadDate: '2026-07-02',
-      fileSize: '4.2 MB',
-      downloadCount: 56,
-      pdfUrl: '/files/os-unit1.pdf',
-      videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
-    },
-    {
-      id: 'note-4',
-      title: 'Unit 1: Basics of Python Syntax & Control Flows',
-      subject: 'Python Programming',
-      semester: 1,
-      teacher: 'Prof. Amit Patil',
-      uploadDate: '2026-07-03',
-      fileSize: '2.1 MB',
-      downloadCount: 45,
-      pdfUrl: '/files/python-unit1.pdf',
-      videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-      referenceLinks: [
-        { name: 'Official Python Tutorial', url: 'https://docs.python.org/3/tutorial/' }
-      ],
-      assignments: [
-        { title: 'Python Assignment 1: Basic Math Scripts', dueDate: '2026-07-10' }
-      ]
-    }
-  ]);
+  const { user } = useAuth();
+  const { socket } = useSocket();
 
-  // Mock initial events
-  const [events, setEvents] = useState<Event[]>([
-    {
-      id: 'evt-1',
-      title: 'Tech Fest 2026 Hackathon',
-      date: '15 July 2026',
-      time: '09:00 AM - 09:00 PM',
-      venue: 'Main Auditorium',
-      organizer: 'CSE Department',
-      registrationEnd: '10 July 2026',
-      seatsTotal: 100,
-      seatsLeft: 40,
-      isParticipating: false,
-      category: 'technical',
-      description: 'A 12-hour hackathon to build open-source campus productivity tools. Food and swags provided.'
-    },
-    {
-      id: 'evt-2',
-      title: 'Inter-College Basketball Finals',
-      date: '18 July 2026',
-      time: '04:00 PM - 06:00 PM',
-      venue: 'Campus Indoor Stadium',
-      organizer: 'Sports Association',
-      registrationEnd: '16 July 2026',
-      seatsTotal: 50,
-      seatsLeft: 12,
-      isParticipating: false,
-      category: 'sports',
-      description: 'Cheer for the home team in the grand finals of the Inter-College Basketball championship!'
-    },
-    {
-      id: 'evt-3',
-      title: 'Annual Cultural Fusion Night',
-      date: '22 July 2026',
-      time: '06:30 PM - 10:00 PM',
-      venue: 'Open Air Theatre',
-      organizer: 'Cultural Committee',
-      registrationEnd: '20 July 2026',
-      seatsTotal: 250,
-      seatsLeft: 89,
-      isParticipating: false,
-      category: 'cultural',
-      description: 'A vibrant evening showcasing classical dance, fusion music bands, and theatre performances.'
-    }
-  ]);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock initial announcements
-  const [announcements, setAnnouncements] = useState<Announcement[]>([
-    {
-      id: 'ann-1',
-      title: 'Semester Results Published',
-      category: 'results',
-      date: '3 July 2026',
-      content: 'The end-semester exam results for all courses in Semester 3 are now available. You can view your scorecard under the Performance tab.',
-      isRead: false
-    },
-    {
-      id: 'ann-2',
-      title: 'Attendance Warning',
-      category: 'warnings',
-      date: '2 July 2026',
-      content: 'Attention students: Several divisions have average attendance below 75%. Please ensure you attend regular lectures to avoid exam detentions.',
-      isRead: false
-    },
-    {
-      id: 'ann-3',
-      title: 'Mid Semester Examination Schedule',
-      category: 'exams',
-      date: '1 July 2026',
-      content: 'The Mid Semester assessments will commence on July 20th, 2026. The detailed subject-wise timetable is updated on the Timetable page.',
-      isRead: true
-    },
-    {
-      id: 'ann-4',
-      title: 'Monsoon Holiday Notice',
-      category: 'holidays',
-      date: '28 June 2026',
-      content: 'The college will remain closed on Saturday, July 11th, 2026 on account of local heavy rains forecasts.',
-      isRead: true
-    }
-  ]);
+  // ────────────────── Data Fetching Handlers ──────────────────
 
-  const addNote = (newNote: Omit<Note, 'id' | 'downloadCount' | 'uploadDate'>) => {
-    const note: Note = {
-      ...newNote,
-      id: `note-${Date.now()}`,
-      downloadCount: 0,
-      uploadDate: new Date().toISOString().split('T')[0]
+  const fetchNotes = useCallback(async () => {
+    try {
+      const resp = await api.getStudentNotes();
+      if (resp.success && resp.data) {
+        setNotes(resp.data);
+      }
+    } catch (err) {
+      console.warn('Failed to load notes from API:', err);
+    }
+  }, []);
+
+  const fetchAnnouncements = useCallback(async () => {
+    try {
+      const resp = await api.getAnnouncements();
+      if (resp.success && resp.data) {
+        // Read IDs tracking helper
+        const readIdsStr = typeof window !== 'undefined' ? localStorage.getItem('cc_read_announcements') || '[]' : '[]';
+        let readIds: string[] = [];
+        try { readIds = JSON.parse(readIdsStr); } catch (_) {}
+
+        const mapped: Announcement[] = resp.data.map((ann: any) => ({
+          id: ann.id,
+          title: ann.title,
+          category: (ann.category?.toLowerCase() || 'notices') as any,
+          date: new Date(ann.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+          content: ann.content,
+          isRead: readIds.includes(ann.id),
+          target: ann.target,
+        }));
+        setAnnouncements(mapped);
+      }
+    } catch (err) {
+      console.warn('Failed to load announcements from API:', err);
+    }
+  }, []);
+
+  const fetchEvents = useCallback(async () => {
+    try {
+      const resp = await api.getEvents();
+      if (resp.success && resp.data) {
+        const mapped: Event[] = resp.data.map((evt: any) => {
+          const seatsTotal = evt.maximumParticipants || 100;
+          const registeredCount = Array.isArray(evt.registrations) ? evt.registrations.length : 0;
+          
+          const isParticipating = Array.isArray(evt.registrations)
+            ? evt.registrations.some((r: any) => 
+                r.studentId === user?.id || 
+                r.userId === user?.id || 
+                (r.student && r.student.userId === user?.id)
+              )
+            : false;
+
+          return {
+            id: evt.id,
+            title: evt.title,
+            date: new Date(evt.startDatetime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+            time: new Date(evt.startDatetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + 
+                  (evt.endDatetime ? ' - ' + new Date(evt.endDatetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''),
+            venue: evt.venue || 'Main Auditorium',
+            organizer: evt.createdBy?.name || 'CSE Department',
+            registrationEnd: evt.registrationEnd ? new Date(evt.registrationEnd).toLocaleDateString('en-IN') : 'N/A',
+            seatsTotal,
+            seatsLeft: Math.max(0, seatsTotal - registeredCount),
+            isParticipating,
+            category: (evt.category?.name?.toLowerCase() || 'technical') as any,
+            description: evt.description || '',
+          };
+        });
+        setEvents(mapped);
+      }
+    } catch (err) {
+      console.warn('Failed to load events from API:', err);
+    }
+  }, [user]);
+
+  const refreshData = useCallback(async () => {
+    setLoading(true);
+    await Promise.all([fetchNotes(), fetchAnnouncements(), fetchEvents()]);
+    setLoading(false);
+  }, [fetchNotes, fetchAnnouncements, fetchEvents]);
+
+  // Fetch initial records on login state change
+  useEffect(() => {
+    if (user) {
+      refreshData();
+    } else {
+      setNotes([]);
+      setEvents([]);
+      setAnnouncements([]);
+      setLoading(false);
+    }
+  }, [user, refreshData]);
+
+  // ────────────────── Socket.IO Event Listener Handlers ──────────────────
+
+  useEffect(() => {
+    if (!socket || !user) return;
+
+    // 1. Note uploaded listener
+    const handleNoteUploaded = (newNote: any) => {
+      setNotes(prev => {
+        if (prev.some(n => n.id === newNote.id)) return prev;
+        const mapped: Note = {
+          id: newNote.id,
+          title: newNote.title,
+          subject: newNote.subject?.name || 'Subject',
+          semester: newNote.semester?.number || 1,
+          teacher: newNote.teacher?.user?.name || 'Faculty',
+          uploadDate: new Date(newNote.createdAt).toLocaleDateString(),
+          fileSize: newNote.fileSize ? `${(newNote.fileSize / (1024 * 1024)).toFixed(1)} MB` : '2.5 MB',
+          downloadCount: 0,
+          pdfUrl: newNote.fileUrl || '/files/mock-pdf.pdf',
+          videoUrl: newNote.videoUrl || undefined,
+          referenceLinks: newNote.referenceLinks || undefined,
+          assignments: newNote.assignments || undefined,
+        };
+        return [mapped, ...prev];
+      });
     };
-    setNotes(prev => [note, ...prev]);
+
+    // 2. Announcements triggers
+    const handleAnnouncementCreated = (ann: any) => {
+      setAnnouncements(prev => {
+        if (prev.some(a => a.id === ann.id)) return prev;
+        const mapped: Announcement = {
+          id: ann.id,
+          title: ann.title,
+          category: (ann.category?.toLowerCase() || 'notices') as any,
+          date: new Date(ann.createdAt).toLocaleDateString(),
+          content: ann.content,
+          isRead: false,
+          target: ann.target,
+        };
+        return [mapped, ...prev];
+      });
+    };
+
+    const handleAnnouncementUpdated = (ann: any) => {
+      setAnnouncements(prev =>
+        prev.map(a =>
+          a.id === ann.id
+            ? {
+                ...a,
+                title: ann.title,
+                category: (ann.category?.toLowerCase() || a.category) as any,
+                content: ann.content,
+              }
+            : a
+        )
+      );
+    };
+
+    const handleAnnouncementDeleted = ({ id }: { id: string }) => {
+      setAnnouncements(prev => prev.filter(a => a.id !== id));
+    };
+
+    // 3. Events triggers
+    const handleEventCreated = (evt: any) => {
+      setEvents(prev => {
+        if (prev.some(e => e.id === evt.id)) return prev;
+        const seatsTotal = evt.maximumParticipants || 100;
+        const registeredCount = Array.isArray(evt.registrations) ? evt.registrations.length : 0;
+        
+        const isParticipating = Array.isArray(evt.registrations)
+          ? evt.registrations.some((r: any) => 
+              r.studentId === user.id || 
+              r.userId === user.id || 
+              (r.student && r.student.userId === user.id)
+            )
+          : false;
+
+        const mapped: Event = {
+          id: evt.id,
+          title: evt.title,
+          date: new Date(evt.startDatetime).toLocaleDateString(),
+          time: new Date(evt.startDatetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + 
+                (evt.endDatetime ? ' - ' + new Date(evt.endDatetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''),
+          venue: evt.venue || 'Main Auditorium',
+          organizer: evt.createdBy?.name || 'CSE Department',
+          registrationEnd: evt.registrationEnd ? new Date(evt.registrationEnd).toLocaleDateString() : 'N/A',
+          seatsTotal,
+          seatsLeft: Math.max(0, seatsTotal - registeredCount),
+          isParticipating,
+          category: (evt.category?.name?.toLowerCase() || 'technical') as any,
+          description: evt.description || '',
+        };
+        return [mapped, ...prev];
+      });
+    };
+
+    const handleEventUpdated = (evt: any) => {
+      setEvents(prev =>
+        prev.map(e => {
+          if (e.id === evt.id) {
+            const seatsTotal = evt.maximumParticipants || 100;
+            const registeredCount = Array.isArray(evt.registrations) ? evt.registrations.length : 0;
+            const isParticipating = Array.isArray(evt.registrations)
+              ? evt.registrations.some((r: any) => 
+                  r.studentId === user.id || 
+                  r.userId === user.id || 
+                  (r.student && r.student.userId === user.id)
+                )
+              : false;
+
+            return {
+              ...e,
+              title: evt.title,
+              description: evt.description || '',
+              venue: evt.venue || e.venue,
+              date: new Date(evt.startDatetime).toLocaleDateString(),
+              time: new Date(evt.startDatetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + 
+                    (evt.endDatetime ? ' - ' + new Date(evt.endDatetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''),
+              seatsTotal,
+              seatsLeft: Math.max(0, seatsTotal - registeredCount),
+              isParticipating,
+              category: (evt.category?.name?.toLowerCase() || e.category) as any,
+            };
+          }
+          return e;
+        })
+      );
+    };
+
+    const handleEventDeleted = ({ id }: { id: string }) => {
+      setEvents(prev => prev.filter(e => e.id !== id));
+    };
+
+    const handleEventRegistration = (data: { eventId: string; registration: any }) => {
+      setEvents(prev =>
+        prev.map(e => {
+          if (e.id === data.eventId) {
+            const isMe = data.registration.studentId === user.id || 
+                         data.registration.userId === user.id || 
+                         (data.registration.student && data.registration.student.userId === user.id);
+            return {
+              ...e,
+              seatsLeft: Math.max(0, e.seatsLeft - 1),
+              isParticipating: isMe ? true : e.isParticipating,
+            };
+          }
+          return e;
+        })
+      );
+    };
+
+    // Subscriptions setup
+    socket.on('noteUploaded', handleNoteUploaded);
+    socket.on('ANNOUNCEMENT.CREATED', handleAnnouncementCreated);
+    socket.on('ANNOUNCEMENT.UPDATED', handleAnnouncementUpdated);
+    socket.on('ANNOUNCEMENT.DELETED', handleAnnouncementDeleted);
+    socket.on('EVENT.CREATED', handleEventCreated);
+    socket.on('EVENT.PUBLISHED', handleEventCreated);
+    socket.on('EVENT.UPDATED', handleEventUpdated);
+    socket.on('EVENT.DELETED', handleEventDeleted);
+    socket.on('EVENT.REGISTRATION', handleEventRegistration);
+
+    return () => {
+      socket.off('noteUploaded', handleNoteUploaded);
+      socket.off('ANNOUNCEMENT.CREATED', handleAnnouncementCreated);
+      socket.off('ANNOUNCEMENT.UPDATED', handleAnnouncementUpdated);
+      socket.off('ANNOUNCEMENT.DELETED', handleAnnouncementDeleted);
+      socket.off('EVENT.CREATED', handleEventCreated);
+      socket.off('EVENT.PUBLISHED', handleEventCreated);
+      socket.off('EVENT.UPDATED', handleEventUpdated);
+      socket.off('EVENT.DELETED', handleEventDeleted);
+      socket.off('EVENT.REGISTRATION', handleEventRegistration);
+    };
+  }, [socket, user]);
+
+  // ────────────────── Interaction Actions ──────────────────
+
+  const addNote = async (newNote: Omit<Note, 'id' | 'downloadCount' | 'uploadDate'>) => {
+    try {
+      const resp = await api.uploadTeacherNote(newNote);
+      if (resp.success) {
+        await fetchNotes();
+      }
+    } catch (err) {
+      console.warn('Failed to upload note:', err);
+    }
   };
 
-  const toggleEventParticipation = (eventId: string) => {
-    setEvents(prev =>
-      prev.map(evt => {
-        if (evt.id === eventId) {
-          const isRegistering = !evt.isParticipating;
-          return {
-            ...evt,
-            isParticipating: isRegistering,
-            seatsLeft: isRegistering ? evt.seatsLeft - 1 : evt.seatsLeft + 1
-          };
-        }
-        return evt;
-      })
-    );
+  const toggleEventParticipation = async (eventId: string) => {
+    try {
+      const resp = await api.registerForEvent(eventId);
+      if (resp.success) {
+        // Toggle locally for instant visual feedback, while socket handles count updates
+        setEvents(prev =>
+          prev.map(evt => {
+            if (evt.id === eventId) {
+              const nextStatus = !evt.isParticipating;
+              return {
+                ...evt,
+                isParticipating: nextStatus,
+                seatsLeft: nextStatus ? Math.max(0, evt.seatsLeft - 1) : evt.seatsLeft + 1,
+              };
+            }
+            return evt;
+          })
+        );
+      }
+    } catch (err) {
+      console.warn('Failed to register for event:', err);
+    }
   };
 
   const toggleAnnouncementRead = (announcementId: string) => {
+    const readIdsStr = typeof window !== 'undefined' ? localStorage.getItem('cc_read_announcements') || '[]' : '[]';
+    let readIds: string[] = [];
+    try { readIds = JSON.parse(readIdsStr); } catch (_) {}
+
+    if (readIds.includes(announcementId)) {
+      readIds = readIds.filter(id => id !== announcementId);
+    } else {
+      readIds.push(announcementId);
+    }
+    
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cc_read_announcements', JSON.stringify(readIds));
+    }
+
     setAnnouncements(prev =>
       prev.map(ann => (ann.id === announcementId ? { ...ann, isRead: !ann.isRead } : ann))
     );
   };
 
-  const incrementDownload = (noteId: string) => {
-    setNotes(prev =>
-      prev.map(note => (note.id === noteId ? { ...note, downloadCount: note.downloadCount + 1 } : note))
-    );
+  const incrementDownload = async (noteId: string) => {
+    try {
+      const success = await api.recordDownload(noteId);
+      if (success) {
+        setNotes(prev =>
+          prev.map(n => (n.id === noteId ? { ...n, downloadCount: n.downloadCount + 1 } : n))
+        );
+      }
+    } catch (err) {
+      console.warn('Failed to increment download count:', err);
+    }
   };
 
   return (
@@ -250,10 +416,12 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
         notes,
         events,
         announcements,
+        loading,
         addNote,
         toggleEventParticipation,
         toggleAnnouncementRead,
-        incrementDownload
+        incrementDownload,
+        refreshData,
       }}
     >
       {children}

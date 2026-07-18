@@ -1124,5 +1124,39 @@ export const api = {
     }
     return false;
   },
+
+  async getEvents(): Promise<{ success: boolean; data: any[] }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/events`, {
+          headers: getHeaders(),
+        });
+        const payload = await res.json();
+        if (payload.success) return { success: true, data: payload.data };
+      } catch (err) {
+        console.warn('Failed to fetch events:', err);
+      }
+    }
+    return { success: true, data: [] };
+  },
+
+  async registerForEvent(eventId: string): Promise<{ success: boolean; message?: string }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/events/${eventId}/register`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({}),
+        });
+        const payload = await res.json();
+        return { success: payload.success, message: payload.message };
+      } catch (err) {
+        console.warn('Failed to register for event:', err);
+      }
+    }
+    return { success: false, message: 'API is offline' };
+  },
 };
 
