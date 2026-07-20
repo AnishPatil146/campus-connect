@@ -1,4 +1,4 @@
-﻿import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { TimetableService } from './timetable.service';
 import { CreateTimetableDto, PublishTimetableDto, SubstituteTeacherDto, UpdateTimetableDto } from './dto/timetable.dto';
@@ -77,6 +77,15 @@ export class TimetableController {
   async publish(@Body() dto: PublishTimetableDto, @Req() req: any) {
     const data = await this.timetableService.publishTimetable(dto, req.user.id, req.user.name, req.user.role);
     return { message: 'Timetable published successfully', data };
+  }
+
+  @Post('save')
+  @Roles(Role.ADMIN)
+  @Permissions('timetable.create')
+  @ApiOperation({ summary: 'Save all timetable entries' })
+  async saveAll(@Body() dto: { entries: any[] }, @Req() req: any) {
+    const data = await this.timetableService.saveAllTimetableEntries(dto.entries, req.user.collegeId, req.user.id, req.user.name, req.user.role);
+    return { success: true, message: 'Timetable slots synced successfully', data };
   }
 
   @Post('substitute')

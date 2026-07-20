@@ -5,6 +5,7 @@ import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, Badge, Modal, Input } from '@campus-connect/ui';
 import { useAuth } from '../../../../components/AuthProvider';
 import { useSocket } from '../../../../components/SocketProvider';
+import { useLoading } from '../../../../components/LoadingProvider';
 import { api } from '../../../../utils/api';
 import { 
   Folder, 
@@ -42,6 +43,7 @@ interface Note {
 export default function NotesPage() {
   const { user } = useAuth();
   const { socket } = useSocket();
+  const { startLoading, stopLoading } = useLoading();
   const [notesList, setNotesList] = useState<Note[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [semesterFilter, setSemesterFilter] = useState<string>('all');
@@ -92,16 +94,58 @@ export default function NotesPage() {
     4: ['Artificial Intelligence', 'Cyber Security', 'DevOps Systems', 'Machine Learning']
   };
 
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const loadNotes = async () => {
-    const res = isTeacher ? await api.getNotes() : await api.getStudentNotes();
-    if (res.success && res.data) {
-      setNotesList(res.data);
+    setLoading(true);
+    setError(null);
+    try {
+      const res = isTeacher ? await api.getNotes() : await api.getStudentNotes();
+      if (res.success && res.data) {
+        setNotesList(res.data);
+      } else {
+        setError(res.message || 'Failed to load study notes.');
+      }
+    } catch (e) {
+      setError('A connection issue occurred while fetching notes.');
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     loadNotes();
   }, [user]);
+
+  if (loading) {
+    return (
+      <DashboardLayout title="Study Resource Hub" icon={<BookOpen className="h-6 w-6" />}>
+        <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
+          <div className="h-8 w-8 border-4 border-slate-200 border-t-blue-500 rounded-full animate-spin" />
+          <p className="text-xs text-slate-400 font-semibold">Loading study materials...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout title="Study Resource Hub" icon={<BookOpen className="h-6 w-6" />}>
+        <div className="p-6 bg-red-50/60 dark:bg-red-950/10 border border-red-200/50 dark:border-red-900/30 rounded-2xl text-center space-y-4 max-w-md mx-auto mt-12">
+          <AlertCircle className="h-10 w-10 text-red-550 mx-auto" />
+          <h3 className="font-bold text-slate-900 dark:text-white">Connection Error</h3>
+          <p className="text-xs text-slate-500">{error}</p>
+          <button 
+            onClick={loadNotes}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl cursor-pointer"
+          >
+            Retry Loading
+          </button>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   // Real-time socket listener
   useEffect(() => {
@@ -140,23 +184,30 @@ export default function NotesPage() {
       assignments: newNoteAssignTitle ? [{ title: newNoteAssignTitle, dueDate: newNoteAssignDate || new Date().toISOString() }] : undefined,
     };
 
-    const res = await api.uploadTeacherNote(payload);
+    startLoading("Uploading notes...");
+    try {
+      const res = await api.uploadTeacherNote(payload);
 
-    if (res.success) {
-      // Reset and close
-      setNewNoteTitle('');
-      setNewNoteVideo('');
-      setNewNoteRefName('');
-      setNewNoteRefUrl('');
-      setNewNoteAssignTitle('');
-      setNewNoteAssignDate('');
-      setIsUploadOpen(false);
-      loadNotes();
+      if (res.success) {
+        // Reset and close
+        setNewNoteTitle('');
+        setNewNoteVideo('');
+        setNewNoteRefName('');
+        setNewNoteRefUrl('');
+        setNewNoteAssignTitle('');
+        setNewNoteAssignDate('');
+        setIsUploadOpen(false);
+        loadNotes();
 
-      // Emit WS event
-      if (socket) {
-        socket.emit('noteUploaded', res.data);
+        // Emit WS event
+        if (socket) {
+          socket.emit('noteUploaded', res.data);
+        }
       }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      stopLoading();
     }
   };
 
@@ -172,10 +223,17 @@ export default function NotesPage() {
       videoUrl: newNoteVideo || null,
     };
 
-    const res = await api.updateNote(editingNote.id, payload);
-    if (res.success) {
-      setEditingNote(null);
-      loadNotes();
+    startLoading("Saving changes...");
+    try {
+      const res = await api.updateNote(editingNote.id, payload);
+      if (res.success) {
+        setEditingNote(null);
+        loadNotes();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      stopLoading();
     }
   };
 
@@ -191,9 +249,16 @@ export default function NotesPage() {
   // Handle Delete Note
   const handleDeleteNote = async (id: string) => {
     if (confirm('Are you sure you want to delete this notes document?')) {
-      const res = await api.deleteNote(id);
-      if (res.success) {
-        loadNotes();
+      startLoading("Deleting notes...");
+      try {
+        const res = await api.deleteNote(id);
+        if (res.success) {
+          loadNotes();
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        stopLoading();
       }
     }
   };

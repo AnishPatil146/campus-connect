@@ -57,7 +57,7 @@ export class StudentsService {
       ];
     }
 
-    return await this.prisma.student.findMany({
+    const studentsList = await this.prisma.student.findMany({
       where,
       include: {
         user: {
@@ -75,6 +75,23 @@ export class StudentsService {
         promotions: true,
         logins: true,
         statusHistories: true,
+        attendanceRecords: {
+          select: {
+            status: true,
+          },
+        },
+        submissions: {
+          where: {
+            status: 'GRADED',
+          },
+          include: {
+            assignment: {
+              select: {
+                totalMarks: true,
+              },
+            },
+          },
+        },
         division: {
           include: {
             semester: {
@@ -96,6 +113,30 @@ export class StudentsService {
       orderBy: {
         createdAt: 'desc',
       },
+    });
+
+    return studentsList.map((student) => {
+      const records = student.attendanceRecords || [];
+      const presentCount = records.filter((r) => r.status === 'PRESENT' || r.status === 'LATE').length;
+      const totalAttendance = records.filter((r) => r.status === 'PRESENT' || r.status === 'LATE' || r.status === 'ABSENT').length;
+      const attendancePct = totalAttendance > 0 ? parseFloat(((presentCount / totalAttendance) * 100).toFixed(1)) : 100.0;
+
+      const studentSubmissions = student.submissions || [];
+      let totalScore = 0;
+      let totalMax = 0;
+      studentSubmissions.forEach((sub) => {
+        if (sub.marks !== null && sub.assignment?.totalMarks !== null) {
+          totalScore += sub.marks;
+          totalMax += sub.assignment.totalMarks;
+        }
+      });
+      const performancePct = totalMax > 0 ? parseFloat(((totalScore / totalMax) * 100).toFixed(1)) : 100.0;
+
+      return {
+        ...student,
+        attendancePct,
+        performancePct,
+      };
     });
   }
 
@@ -311,6 +352,7 @@ export class StudentsService {
     });
 
     this.eventsGateway.broadcast('student.created', { id: student.id, name: createDto.name });
+    this.eventsGateway.broadcast('student:created', { id: student.id, name: createDto.name });
     return student;
   }
 

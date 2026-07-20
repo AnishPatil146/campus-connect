@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from './AuthProvider';
 import { useTheme } from './ThemeProvider';
+import { useLoading } from './LoadingProvider';
 import { Button } from '@campus-connect/ui';
 import { CollegeId, UserRole } from '@campus-connect/types';
 import { 
@@ -25,6 +26,7 @@ import { api } from '../utils/api';
 export default function LoginContainer({ initialRole, brandingMessage }: { initialRole?: UserRole; brandingMessage?: string }) {
   const { login, loginWithGoogle, isLoading } = useAuth();
   const { theme, toggleTheme, setRole: setGlobalRole } = useTheme();
+  const { startLoading, stopLoading } = useLoading();
   const router = useRouter();
 
   const [collegeId, setCollegeId] = useState<CollegeId>('college-a');
@@ -146,6 +148,7 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
     e.preventDefault();
     setError(null);
     setIsGoogleLoading(true);
+    startLoading("Authenticating with Google...");
 
     try {
       // Trigger the real Google OAuth popup via Firebase
@@ -164,8 +167,10 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
           redirectUser(role);
         } else {
           setError('Google login failed. Make sure your Google account email is registered in this college and matches the selected role.');
+          stopLoading();
         }
       } catch (err: any) {
+        stopLoading();
         if (err.errorCode === 'AUTH_007') {
           // Unregistered Google user -> start onboarding!
           setOnboardingRole(role);
@@ -177,6 +182,7 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
         }
       }
     } catch (err: any) {
+      stopLoading();
       if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
         // User closed the popup — not an error
       } else if (err.code === 'auth/popup-blocked') {
@@ -336,15 +342,18 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
       return;
     }
 
+    startLoading("Signing you in...");
     try {
       const success = await login(email, collegeId, role, password);
       if (success) {
         redirectUser(role);
       } else {
         setError('Invalid credentials. Check your selected college, role, and details.');
+        stopLoading();
       }
     } catch (err: any) {
       setError(err.message || 'Invalid credentials. Check your selected college, role, and details.');
+      stopLoading();
     }
   };
 

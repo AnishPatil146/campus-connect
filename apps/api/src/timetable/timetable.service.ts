@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateTimetableDto, PublishTimetableDto, SubstituteTeacherDto, UpdateTimetableDto } from './dto/timetable.dto';
 import { EventsGateway } from '../events/events.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class TimetableService {
@@ -10,6 +11,7 @@ export class TimetableService {
     private prisma: PrismaService,
     private audit: AuditService,
     private eventsGateway: EventsGateway,
+    private notificationsService: NotificationsService,
   ) {}
 
   async createTimetable(dto: CreateTimetableDto, actorId: string, actorName: string, actorRole: string) {
@@ -210,6 +212,32 @@ export class TimetableService {
     );
 
     this.eventsGateway.broadcast('TIMETABLE_UPDATED', { type: 'publish', timetableId: dto.timetableId, version });
+    this.eventsGateway.broadcast('timetable:published', { timetableId: dto.timetableId, version });
+
+    // Notify all students in the timetable's division
+    try {
+      const timetableWithDivision = await this.prisma.timetable.findUnique({
+        where: { id: dto.timetableId },
+        select: { divisionId: true },
+      });
+      if (timetableWithDivision?.divisionId) {
+        const students = await this.prisma.student.findMany({
+          where: { divisionId: timetableWithDivision.divisionId, status: 'ACTIVE' },
+          select: { userId: true },
+        });
+        for (const student of students) {
+          this.notificationsService.sendNotification({
+            recipientId: student.userId,
+            title: 'Timetable Updated',
+            body: 'Your class timetable has been updated. Please check the new schedule.',
+            type: 'IN_APP',
+            link: '/dashboard/student/timetable',
+          }).catch(() => { /* Non-blocking */ });
+        }
+      }
+    } catch (e) {
+      // Non-blocking: never fail timetable publish due to notification error
+    }
 
     return published;
   }
@@ -247,6 +275,122 @@ export class TimetableService {
       where: { timetableId },
       orderBy: { changedAt: 'desc' },
     });
+  }
+
+  async saveAllTimetableEntries(entries: any[], collegeId: string, actorId: string, actorName: string, actorRole: string) {
+    await this.prisma.timetableSlot.deleteMany({
+      where: { timetable: { collegeId } }
+    });
+    await this.prisma.timetable.deleteMany({
+      where: { collegeId }
+    });
+
+    if (entries.length === 0) {
+      this.eventsGateway.broadcast('TIMETABLE_UPDATED', { type: 'save_all' });
+      return [];
+    }
+
+    const defaultDept = await this.prisma.department.findFirst({ where: { collegeId } });
+    const defaultCourse = await this.prisma.course.findFirst({ where: { department: { collegeId } } });
+    const defaultSession = await this.prisma.academicSession.findFirst({ where: { course: { department: { collegeId } } } });
+    const defaultSemester = await this.prisma.semester.findFirst({ where: { academicSession: { course: { department: { collegeId } } } } });
+    const defaultDivision = await this.prisma.division.findFirst({ where: { semester: { academicSession: { course: { department: { collegeId } } } } } });
+
+    if (!defaultDept || !defaultCourse || !defaultSession || !defaultSemester || !defaultDivision) {
+      throw new BadRequestException('Academic structure (departments/courses/semesters/divisions) is not fully seeded.');
+    }
+
+    const divisions = await this.prisma.division.findMany({ where: { semester: { academicSession: { course: { department: { collegeId } } } } } });
+    const subjects = await this.prisma.subject.findMany({ where: { department: { collegeId } } });
+    const teachers = await this.prisma.teacher.findMany({ where: { collegeId }, include: { user: true } });
+
+    const slotsByDivision: Record<string, any[]> = {};
+    const daysOfWeekNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
+      const matchedDiv = divisions.find(d => d.name.toLowerCase() === (entry.division || '').toLowerCase()) || defaultDivision;
+      
+      let matchedSub = subjects.find(s => s.code?.toLowerCase() === (entry.subjectCode || '').toLowerCase() || s.name.toLowerCase() === (entry.subject || '').toLowerCase());
+      if (!matchedSub && entry.subject) {
+        matchedSub = await this.prisma.subject.create({
+          data: {
+            code: entry.subjectCode || `SUB-${i}`,
+            name: entry.subject,
+            departmentId: defaultDept.id,
+            courseId: defaultCourse.id,
+          }
+        });
+      }
+
+      const matchedTeacher = teachers.find(t => t.user.name.toLowerCase().includes((entry.teacher || '').toLowerCase()));
+      const dayIndex = daysOfWeekNames.findIndex(d => d.toLowerCase() === (entry.day || '').toLowerCase());
+      const dayOfWeekVal = dayIndex !== -1 ? dayIndex : 0;
+
+      let startTime = '09:00';
+      let endTime = '10:00';
+      if (entry.timeSlot && entry.timeSlot.includes('-')) {
+        const parts = entry.timeSlot.split('-');
+        startTime = parts[0].trim();
+        endTime = parts[1].trim();
+      }
+
+      if (!slotsByDivision[matchedDiv.id]) {
+        slotsByDivision[matchedDiv.id] = [];
+      }
+
+      slotsByDivision[matchedDiv.id].push({
+        dayOfWeek: dayOfWeekVal,
+        slotNumber: slotsByDivision[matchedDiv.id].length + 1,
+        startTime,
+        endTime,
+        subjectId: matchedSub?.id || null,
+        teacherId: matchedTeacher?.id || null,
+        divisionId: matchedDiv.id,
+        room: entry.classroom || 'TBD',
+        isPublished: true,
+      });
+    }
+
+    const createdTimetables = [];
+    for (const [divId, slots] of Object.entries(slotsByDivision)) {
+      const divObj = divisions.find(d => d.id === divId)!;
+      const semObj = await this.prisma.semester.findUnique({ where: { id: divObj.semesterId } });
+      const sessObj = await this.prisma.academicSession.findUnique({ where: { id: semObj?.academicSessionId } });
+      const courseObj = await this.prisma.course.findUnique({ where: { id: sessObj?.courseId } });
+
+      const tt = await this.prisma.timetable.create({
+        data: {
+          collegeId,
+          academicSessionId: sessObj?.id || defaultSession.id,
+          departmentId: courseObj?.departmentId || defaultDept.id,
+          courseId: courseObj?.id || defaultCourse.id,
+          semesterId: semObj?.id || defaultSemester.id,
+          divisionId: divId,
+          active: true,
+          slots: {
+            create: slots
+          }
+        }
+      });
+      createdTimetables.push(tt);
+    }
+
+    await this.audit.log(
+      actorId,
+      actorName,
+      actorRole,
+      'Save Timetable Slots',
+      `Saved ${entries.length} timetable slots across ${createdTimetables.length} timetables`,
+      'timetable',
+      'Timetable',
+      createdTimetables[0]?.id || ''
+    );
+
+    this.eventsGateway.broadcast('TIMETABLE_UPDATED', { type: 'save_all' });
+    this.eventsGateway.broadcast('timetable:published', { type: 'save_all' });
+
+    return createdTimetables;
   }
 
   async deleteTimetable(id: string, actorId: string, actorName: string, actorRole: string) {

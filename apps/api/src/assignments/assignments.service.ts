@@ -203,6 +203,12 @@ export class AssignmentsService {
       studentId,
       marks,
     });
+    this.eventsGateway.broadcast('result:published', {
+      assignmentId,
+      submissionId: submission.id,
+      studentId,
+      marks,
+    });
 
     await this.auditService.log(
       teacherId,
@@ -286,6 +292,12 @@ export class AssignmentsService {
 
     // Emit live WebSocket update
     this.eventsGateway.broadcast('RESULT_PUBLISHED', {
+      assignmentId: id,
+      submissionId: dto.submissionId,
+      studentId: submission.studentId,
+      marks: dto.obtainedMarks,
+    });
+    this.eventsGateway.broadcast('result:published', {
       assignmentId: id,
       submissionId: dto.submissionId,
       studentId: submission.studentId,

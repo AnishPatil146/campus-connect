@@ -6,22 +6,54 @@ import { Card, CardContent, CardHeader, CardTitle, Badge, Tabs, TabsList, TabsTr
 import { Clock, MapPin, User, BookOpen } from 'lucide-react';
 import { api, TimetableEntry } from '../../../../utils/api';
 import { useAuth } from '../../../../components/AuthProvider';
+import { useSocket } from '../../../../components/SocketProvider';
 
 export default function TimetablePage() {
   const { user } = useAuth();
+  const { socket } = useSocket();
   const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
   const [selectedCourse, setSelectedCourse] = useState('BSc IT');
   const [selectedDivision, setSelectedDivision] = useState('Division A');
+  const [loading, setLoading] = useState(true);
+
+  // Synchronize selections with logged-in user profile attributes
+  useEffect(() => {
+    const profile = (user as any)?.studentProfile;
+    if (profile?.division) {
+      const divName = profile.division.name;
+      const courseName = profile.division.semester?.academicSession?.course?.name;
+      if (divName) setSelectedDivision(divName);
+      if (courseName) setSelectedCourse(courseName);
+    }
+  }, [user]);
 
   const loadTimetable = async () => {
-    const list = await api.getTimetable(selectedCourse, selectedDivision);
-    setTimetable(list);
+    setLoading(true);
+    try {
+      const list = await api.getTimetable(selectedCourse, selectedDivision);
+      setTimetable(list);
+    } catch (err) {
+      console.warn(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadTimetable();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, selectedCourse, selectedDivision]);
+
+  useEffect(() => {
+    if (!socket) return;
+    const handleTimetableUpdate = () => {
+      loadTimetable();
+    };
+    socket.on('TIMETABLE_UPDATED', handleTimetableUpdate);
+    return () => {
+      socket.off('TIMETABLE_UPDATED', handleTimetableUpdate);
+    };
+  }, [socket]);
 
   const days = [
     { value: 'monday', label: 'Mon' },
@@ -50,6 +82,16 @@ export default function TimetablePage() {
   const weekdayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   const todayValue = weekdayNames[new Date().getDay()];
   const todayLectures = filterLecturesByDay(todayValue);
+  if (loading) {
+    return (
+      <DashboardLayout title="Student Timetable" icon={<Clock className="h-6 w-6" />}>
+        <div className="flex flex-col items-center justify-center min-h-[300px] gap-3">
+          <div className="h-8 w-8 border-4 border-slate-200 border-t-blue-500 rounded-full animate-spin" />
+          <p className="text-xs text-slate-400 font-semibold">Loading class schedules...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Student Timetable" icon={<Clock className="h-6 w-6" />}>

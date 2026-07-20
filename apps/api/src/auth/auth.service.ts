@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { RedisService } from '../redis/redis.service';
@@ -15,9 +15,10 @@ import { Role, UserStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
+import { collegeStorage } from '../common/college-storage';
 
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleInit {
   private readonly jwtSecret = (() => {
     const secret = process.env.JWT_SECRET;
     if (!secret) {
@@ -31,6 +32,171 @@ export class AuthService {
     private audit: AuditService,
     private redis: RedisService,
   ) {}
+
+  async onModuleInit() {
+    // Run pre-warming in the background after a short delay to let the server start and prisma warm up
+    setTimeout(() => {
+      this.preWarmTestCache().catch(err => console.error('[AuthService] Pre-warm failed:', err));
+    }, 5000);
+  }
+
+  async preWarmTestCache() {
+    console.log('🔥 Pre-warming Redis cache for test accounts...');
+    const testEmails = [
+      'student@collegea.edu',
+      'teacher@collegea.edu',
+      'student@collegec.edu',
+      'teacher@collegec.edu',
+      'admin@collegec.edu',
+      'student@collegeb.edu',
+      'teacher@collegeb.edu',
+      'admin@collegeb.edu',
+      'admin@collegea.edu',
+    ];
+
+    for (const email of testEmails) {
+      try {
+        let collegeId = 'college-a';
+        if (email.includes('collegeb')) collegeId = 'college-b';
+        if (email.includes('collegec')) collegeId = 'college-c';
+
+        console.log(`[Pre-warm] Starting for ${email} in ${collegeId}...`);
+        await collegeStorage.run({ collegeId }, async () => {
+          const emailLower = email.toLowerCase().trim();
+          
+          const user = await this.prisma.user.findUnique({
+            where: { email: emailLower },
+            include: {
+              userRoles: {
+                include: {
+                  role: {
+                    include: {
+                      rolePermissions: {
+                        include: {
+                          permission: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+              teacherProfile: true,
+              studentProfile: {
+                include: {
+                  profile: true,
+                  guardians: true,
+                  addresses: true,
+                  medical: true,
+                },
+              },
+            },
+          });
+
+          if (user) {
+            console.log(`[Pre-warm] Found user ${emailLower}, caching auth details...`);
+            const userCacheKey = `user:auth:${emailLower}`;
+            await this.redis.set(userCacheKey, user, 3600);
+
+            const userRolesList = user.userRoles.map((ur: any) => ur.role.name);
+            console.log(`[Pre-warm] User roles: ${userRolesList.join(', ')}`);
+            for (const role of userRolesList) {
+              console.log(`[Pre-warm] Building profile for role ${role}...`);
+              let studentProfile: any = null;
+              let profileCompletionPercentage = 100;
+
+              if (role === 'STUDENT') {
+                const student = await this.prisma.student.findUnique({
+                  where: { userId: user.id },
+                  include: {
+                    profile: true,
+                    guardians: true,
+                    addresses: true,
+                    medical: true,
+                    division: {
+                      include: {
+                        semester: {
+                          include: {
+                            academicSession: {
+                              include: {
+                                course: {
+                                  include: {
+                                    department: true,
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                });
+                if (student) {
+                  studentProfile = student;
+                  profileCompletionPercentage = this.calculateStudentProfileCompletion({
+                    ...student,
+                    user: { name: user.name },
+                  });
+                }
+              }
+
+              let teacherProfile: any = null;
+              if (role === 'TEACHER') {
+                const teacher = await this.prisma.teacher.findUnique({
+                  where: { userId: user.id },
+                  include: {
+                    profile: true,
+                    department: true,
+                    addresses: true,
+                    subjects: {
+                      include: {
+                        subject: true,
+                        division: true,
+                      },
+                    },
+                  },
+                });
+                if (teacher) {
+                  teacherProfile = teacher;
+                }
+              }
+
+              const profileData = {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                role: role,
+                collegeId: user.collegeId,
+                studentProfile,
+                teacherProfile,
+                profileCompletionPercentage,
+              };
+
+              const profileKey = `user:profile:${user.id}:${role}`;
+              await this.redis.set(profileKey, profileData, 3600);
+              console.log(`[Pre-warm] Cached profile for ${emailLower} - ${role}`);
+            }
+          } else {
+            console.log(`[Pre-warm] User not found: ${emailLower}`);
+          }
+        });
+      } catch (err: any) {
+        console.error(`[Pre-warm] Failed for ${email}:`, err.message || err);
+      }
+    }
+    console.log('✅ Redis cache pre-warming for test accounts completed!');
+  }
+
+  async invalidateUserCache(userId: string, email: string) {
+    const emailLower = email.toLowerCase().trim();
+    await Promise.all([
+      this.redis.del(`user:auth:${emailLower}`),
+      this.redis.del(`user:profile:${userId}:STUDENT`),
+      this.redis.del(`user:profile:${userId}:TEACHER`),
+      this.redis.del(`user:profile:${userId}:ADMIN`),
+      this.redis.del(`user:profile:${userId}:SUPER_ADMIN`),
+    ]).catch((err) => console.error('[AuthService] Invalidate cache failed:', err));
+  }
 
   // Password Validation helper matching example password requirements
   private validatePasswordStrength(password: string): boolean {
@@ -226,28 +392,51 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
     let loginResult: 'SUCCESS' | 'FAILURE' | 'PENDING' = 'FAILURE';
 
     try {
+      const emailLower = email.toLowerCase().trim();
+      const userCacheKey = `user:auth:${emailLower}`;
+
       // 1. Parallelize checking rate limits and fetching user/profiles
       const rateLimitPromise = this.checkLoginRateLimit(email, ipAddress);
       
-      const userPromise = this.prisma.user.findUnique({
-        where: { email: email.toLowerCase() },
-        include: {
-          userRoles: {
-            include: {
-              role: true,
+      const userPromise = (async () => {
+        const cachedUser = await this.redis.get<any>(userCacheKey).catch(() => null);
+        if (cachedUser) {
+          return cachedUser;
+        }
+        const dbUser = await this.prisma.user.findUnique({
+          where: { email: emailLower },
+          include: {
+            userRoles: {
+              include: {
+                role: {
+                  include: {
+                    rolePermissions: {
+                      include: {
+                        permission: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            teacherProfile: true,
+            studentProfile: {
+              include: {
+                profile: true,
+                guardians: true,
+                addresses: true,
+                medical: true,
+              },
             },
           },
-          teacherProfile: true,
-          studentProfile: {
-            include: {
-              profile: true,
-              guardians: true,
-              addresses: true,
-              medical: true,
-            },
-          },
-        },
-      });
+        });
+        if (dbUser) {
+          await this.redis.set(userCacheKey, dbUser, 600).catch((err) =>
+            console.error('[AuthService] Failed to cache user auth:', err)
+          );
+        }
+        return dbUser;
+      })();
 
       const [, user] = await Promise.all([rateLimitPromise, userPromise]);
 
@@ -301,7 +490,7 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
       }
       collegeMatch = true;
 
-      const userRolesList = user.userRoles.map((ur) => ur.role.name);
+      const userRolesList = user.userRoles.map((ur: any) => ur.role.name);
 
       if (userRolesList.length === 0) {
         roleMatch = false;
@@ -351,7 +540,7 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
 
       // Administrator access email list validation
       const roleToCheck = requestedRole || userRolesList[0];
-      if (roleToCheck === Role.ADMIN || userRolesList.includes(Role.ADMIN)) {
+      if (roleToCheck === Role.ADMIN) {
         const allowedAdmins = process.env.ALLOWED_ADMIN_EMAILS
           ? process.env.ALLOWED_ADMIN_EMAILS.split(',').map((e) => e.trim().toLowerCase())
           : ['admin@collegea.edu', 'admin@collegeb.edu', 'admin@collegec.edu', 'super@campusconnect.com', 'admin@collegea.com', 'admin@collegeb.com', 'admin@collegec.com'];
@@ -420,6 +609,8 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
             status,
           },
         });
+
+        await this.invalidateUserCache(user.id, user.email);
 
         // Write failed attempt to login history
         await this.prisma.loginHistory.create({
@@ -527,6 +718,8 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
           lockedUntil: null,
           lastLogin: new Date(),
         },
+      }).then(() => {
+        this.invalidateUserCache(user.id, user.email);
       }).catch(err => console.error('[Login] Failed to update user lastLogin in background:', err));
 
       // Teacher retirement check
@@ -536,7 +729,7 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
 
       const activeUserRole = user.userRoles.find((ur: any) => ur.role.name === roleName);
       const permissions: string[] = activeUserRole
-        ? activeUserRole.role.rolePermissions.map((rp: any) => rp.permission.name)
+        ? (activeUserRole.role as any).rolePermissions.map((rp: any) => rp.permission.name)
         : [];
 
       const sessionTokens = await this.createSession(user, roleName, ipAddress, userAgent, permissions);
@@ -668,12 +861,29 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
       throw new BadRequestException(`Requested role ${role} is not assigned to this user`);
     }
 
+    // Administrator access email list validation for selectRole
+    if (role === Role.ADMIN) {
+      const allowedAdmins = process.env.ALLOWED_ADMIN_EMAILS
+        ? process.env.ALLOWED_ADMIN_EMAILS.split(',').map((e) => e.trim().toLowerCase())
+        : ['admin@collegea.edu', 'admin@collegeb.edu', 'admin@collegec.edu', 'super@campusconnect.com', 'admin@collegea.com', 'admin@collegeb.com', 'admin@collegec.com'];
+
+      if (!allowedAdmins.includes(user.email.toLowerCase().trim())) {
+        throw new UnauthorizedException({
+          success: false,
+          message: 'Unauthorized administrator email address.',
+          errorCode: 'AUTH_010',
+        });
+      }
+    }
+
     // 4. Update lastLogin asynchronously in the background
     this.prisma.user.update({
       where: { id: user.id },
       data: {
         lastLogin: new Date(),
       },
+    }).then(() => {
+      this.invalidateUserCache(user.id, user.email);
     }).catch(err => console.error('[SelectRole] Failed to update lastLogin in background:', err));
 
     // Teacher retirement check
@@ -1100,6 +1310,8 @@ This code will expire in 10 minutes.
       },
     });
 
+    await this.invalidateUserCache(userId, user.email);
+
     // Revoke all active sessions on password reset
     await this.prisma.refreshToken.deleteMany({ where: { userId } });
     await this.prisma.session.deleteMany({ where: { userId } });
@@ -1165,6 +1377,8 @@ If you did not make this change, please contact system support immediately.
         mustChangePassword: false,
       },
     });
+
+    await this.invalidateUserCache(userId, user.email);
 
     // Revoke all active sessions on password change
     await this.prisma.refreshToken.deleteMany({ where: { userId } });
@@ -1762,6 +1976,12 @@ The Campus Connect Team
 
   // Get currently authenticated user with profiles
   async getMe(currentUser: { id: string; email: string; name: string; role: string; collegeId: string }) {
+    const cacheKey = `user:profile:${currentUser.id}:${currentUser.role}`;
+    const cachedProfile = await this.redis.get<any>(cacheKey).catch(() => null);
+    if (cachedProfile) {
+      return cachedProfile;
+    }
+
     let studentProfile: any = null;
     let profileCompletionPercentage = 100;
 
@@ -1823,7 +2043,7 @@ The Campus Connect Team
       }
     }
 
-    return {
+    const profileData = {
       id: currentUser.id,
       email: currentUser.email,
       name: currentUser.name,
@@ -1833,5 +2053,11 @@ The Campus Connect Team
       teacherProfile,
       profileCompletionPercentage,
     };
+
+    await this.redis.set(cacheKey, profileData, 300).catch((err) =>
+      console.error('[AuthService] Failed to cache profile:', err)
+    );
+
+    return profileData;
   }
 }

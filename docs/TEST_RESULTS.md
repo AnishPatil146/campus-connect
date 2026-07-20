@@ -1,9 +1,9 @@
 # Campus Connect — Authentication Test Results
 ## Sprint 1 — Authentication & Identity System
 
-> **Run Date:** 18/7/2026, 2:09:41 pm IST
+> **Run Date:** 19/7/2026, 10:55:08 am IST
 > **API:** `http://localhost:10000/api/v1`
-> **Status:** ⚠️  7 TEST(S) FAILED
+> **Status:** ⚠️  1 TEST(S) FAILED
 
 ---
 
@@ -12,55 +12,57 @@
 | Metric | Value |
 |--------|-------|
 | Total TCs | 8 |
-| Passed | 1 ✅ |
-| Failed | 7 ❌ |
-| Pass Rate | 13% |
+| Passed | 7 ✅ |
+| Failed | 1 ❌ |
+| Pass Rate | 88% |
+| Login Latency | 4432ms |
+| Full Auth Flow | 6906ms |
 
 ---
 
 ## Test Case Results
 
-### ❌ FAIL — TC1 — Rate Limit Enforcement
+### ✅ PASS — TC1 — Rate Limit Enforcement
 
-**Result:** First 5 succeed: NO | Attempt 6 rate-limited: YES
+**Result:** First 5 succeed: YES | Attempt 6 rate-limited: YES
 
 ---
 
 ### ❌ FAIL — TC2 — Real User Performance
 
-**Result:** Login failed: Too many login attempts. Please try again in a minute.
+**Result:** Login 4432ms | Flow 6906ms | JWT issued: true
 
 ---
 
-### ❌ FAIL — TC3 — Multi-Role Concurrent Login
+### ✅ PASS — TC3 — Multi-Role Concurrent Login
 
-**Result:** 0/3 roles logged in successfully
+**Result:** 3/3 roles logged in successfully
 
 ---
 
-### ❌ FAIL — TC4 — Concurrent Load Test
+### ✅ PASS — TC4 — Concurrent Load Test
 
-**Result:** 0/3 logins succeeded concurrently in 3620ms wall time
+**Result:** 3/3 logins succeeded concurrently in 7938ms wall time
 
 > **Note:** Full 18-user test requires additional seeded accounts per environment.
 
 ---
 
-### ❌ FAIL — TC5 — Multi-Tenant Security
+### ✅ PASS — TC5 — Multi-Tenant Security
 
-**Result:** Cross-tenant rejected: YES | Same-tenant succeeds: NO
-
----
-
-### ❌ FAIL — TC6 — Security Tests
-
-**Result:** 5/6 security checks passed
+**Result:** Cross-tenant rejected: YES | Same-tenant succeeds: YES
 
 ---
 
-### ❌ FAIL — TC7 — Session Lifecycle
+### ✅ PASS — TC6 — Security Tests
 
-**Result:** Login failed: Too many login attempts. Please try again in a minute.
+**Result:** 6/6 security checks passed
+
+---
+
+### ✅ PASS — TC7 — Session Lifecycle
+
+**Result:** Login: true | Verify: true | Logout: true | Revoke enforced: true
 
 ---
 

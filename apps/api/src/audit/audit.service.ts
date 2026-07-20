@@ -1,10 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginationDto } from '../common/dto/pagination.dto';
+import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class AuditService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(forwardRef(() => EventsGateway))
+    private eventsGateway: EventsGateway,
+  ) {}
 
   /**
    * Write an audit log entry.
@@ -22,7 +27,7 @@ export class AuditService {
     ipAddress?: string,
   ) {
     try {
-      return await this.prisma.activityLog.create({
+      const logEntry = await this.prisma.activityLog.create({
         data: {
           userId,
           userName,
@@ -35,6 +40,12 @@ export class AuditService {
           ipAddress,
         },
       });
+
+      if (logEntry) {
+        this.eventsGateway.broadcast('audit:log', logEntry);
+      }
+
+      return logEntry;
     } catch (error) {
       console.error('Failed to write activity log:', error);
       return null;

@@ -695,8 +695,21 @@ export const api = {
   },
 
   async saveTimetable(entries: TimetableEntry[]): Promise<boolean> {
-    saveMockTimetable(entries);
-    return true;
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/timetable/save`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({ entries }),
+        });
+        const resp = await res.json();
+        return resp.success;
+      } catch (err) {
+        console.warn('Failed to save timetable slots to API:', err);
+      }
+    }
+    return false;
   },
 
   async addTimetableEntries(entries: TimetableEntry[]): Promise<boolean> {
@@ -794,15 +807,18 @@ export const api = {
     }
   },
 
-  async getAuditLogs(): Promise<{ success: boolean; data: any[] }> {
+  async getAuditLogs(query?: { page?: number; limit?: number }): Promise<{ success: boolean; data: any[] }> {
     const isOnline = await pingAPI();
     if (isOnline) {
       try {
-        const res = await fetch(`${API_BASE_URL}/audit-logs`, {
+        const params = new URLSearchParams();
+        if (query?.page) params.append('page', String(query.page));
+        if (query?.limit) params.append('limit', String(query.limit));
+        const res = await fetch(`${API_BASE_URL}/audit-logs?${params.toString()}`, {
           headers: getHeaders(),
         });
         const payload = await res.json();
-        if (payload.success) return { success: true, data: payload.data };
+        if (payload.success) return { success: true, data: payload.data || [] };
       } catch (err) {
         console.warn('Failed to fetch audit logs from NestJS API:', err);
       }
@@ -828,15 +844,17 @@ export const api = {
 
   // ────────────────── Announcements ──────────────────
 
-  async getAnnouncements(): Promise<{ success: boolean; data: any[] }> {
+  async getAnnouncements(collegeId?: string): Promise<{ success: boolean; data: any[] }> {
     const isOnline = await pingAPI();
     if (isOnline) {
       try {
-        const res = await fetch(`${API_BASE_URL}/announcements`, {
+        const params = new URLSearchParams();
+        if (collegeId) params.append('collegeId', collegeId);
+        const res = await fetch(`${API_BASE_URL}/announcements?${params.toString()}`, {
           headers: getHeaders(),
         });
         const payload = await res.json();
-        if (payload.success) return { success: true, data: payload.data };
+        if (payload.success) return { success: true, data: payload.data || [] };
       } catch (err) {
         console.warn('Failed to fetch announcements from API:', err);
       }
@@ -950,26 +968,25 @@ export const api = {
       }
     }
     return {
-      success: true,
-      data: {
-        percentage: 87,
-        present: 24,
-        absent: 3,
-        monthlyTrend: [
-          { month: 'May', percentage: 90 },
-          { month: 'Jun', percentage: 85 },
-          { month: 'Jul', percentage: 87 },
-        ],
-        subjectWise: [
-          { subjectName: 'Database Management Systems (DBMS)', present: 10, absent: 1, percentage: 90.9 },
-          { subjectName: 'Operating Systems', present: 8, absent: 1, percentage: 88.8 },
-          { subjectName: 'Python Programming Lab', present: 6, absent: 1, percentage: 85.7 },
-        ],
-        history: [
-          { id: 'mock-1', date: new Date().toISOString(), status: 'PRESENT', subjectName: 'Database Management Systems (DBMS)' },
-        ],
-      },
+      success: false,
+      message: 'API is offline',
     };
+  },
+
+  async getStudentDashboard(): Promise<{ success: boolean; data: any; message?: string }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/student/dashboard`, {
+          headers: getHeaders(),
+        });
+        const payload = await res.json();
+        return { success: payload.success, data: payload.data, message: payload.message };
+      } catch (err) {
+        console.warn('Failed to fetch student dashboard:', err);
+      }
+    }
+    return { success: false, data: null, message: 'API is offline' };
   },
 
   async requestLeave(payload: {
@@ -1542,7 +1559,14 @@ export const api = {
           headers: getHeaders(),
         });
         const resp = await res.json();
-        if (resp.success) return { success: true, data: resp.data };
+        if (resp.success && resp.data) {
+          const mapped = resp.data.map((n: any) => ({
+            ...n,
+            read: n.isRead,
+            content: n.body,
+          }));
+          return { success: true, data: mapped };
+        }
       } catch (err) {
         console.warn('Failed to fetch notifications:', err);
       }
@@ -1617,5 +1641,72 @@ export const api = {
     }
     return { success: false, data: null };
   },
+
+  // ─── Admin Dashboard ───────────────────────────────────────────────────────
+
+  async getAdminDashboard(): Promise<{ success: boolean; data: any }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/dashboard/admin`, {
+          headers: getHeaders(),
+        });
+        const payload = await res.json();
+        if (payload.success) return { success: true, data: payload.data };
+      } catch (err) {
+        console.warn('Failed to fetch admin dashboard:', err);
+      }
+    }
+    return { success: false, data: null };
+  },
+
+
+
+
+  async getAdminTimetable(query?: { divisionId?: string; semesterId?: string }): Promise<{ success: boolean; data: any[] }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const params = new URLSearchParams();
+        if (query?.divisionId) params.append('divisionId', query.divisionId);
+        if (query?.semesterId) params.append('semesterId', query.semesterId);
+        const res = await fetch(`${API_BASE_URL}/timetable/class?${params.toString()}`, {
+          headers: getHeaders(),
+        });
+        const payload = await res.json();
+        if (payload.success) return { success: true, data: payload.data || [] };
+      } catch (err) {
+        console.warn('Failed to fetch admin timetable:', err);
+      }
+    }
+    return { success: true, data: [] };
+  },
+
+  async uploadFile(file: File, module = 'notes'): Promise<{ success: boolean; data: any }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('module', module);
+
+        const headers = getHeaders();
+        delete headers['Content-Type'];
+
+        const res = await fetch(`${API_BASE_URL}/files/upload`, {
+          method: 'POST',
+          headers,
+          body: formData,
+        });
+        const resp = await res.json();
+        return { success: res.ok, data: resp.data || resp };
+      } catch (err) {
+        console.warn('Failed to upload file:', err);
+      }
+    }
+    return { success: false, data: null };
+  },
 };
+
+
 

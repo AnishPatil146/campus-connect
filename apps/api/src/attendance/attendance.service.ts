@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { EventsGateway } from '../events/events.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   AttendanceCorrectionDto,
   AttendanceRequestDto,
@@ -17,6 +18,7 @@ export class AttendanceService {
     private prisma: PrismaService,
     private audit: AuditService,
     private eventsGateway: EventsGateway,
+    private notificationsService: NotificationsService,
   ) {}
 
   async createSession(dto: CreateAttendanceSessionDto, actorId: string, actorName: string, actorRole: string) {
@@ -128,8 +130,25 @@ export class AttendanceService {
         } catch (e) {
           // ignore
         }
+        // Deliver in-app notification to the student about their attendance status
+        try {
+          const statusLabel = record.status === 'PRESENT' ? 'Present ✅' :
+            record.status === 'ABSENT' ? 'Absent ❌' :
+            record.status === 'LATE' ? 'Late ⏰' : record.status;
+          await this.notificationsService.sendNotification({
+            recipientId: student.userId,
+            title: 'Attendance Recorded',
+            body: `Your attendance has been recorded: ${statusLabel}`,
+            type: 'IN_APP',
+            link: '/dashboard/student/attendance',
+          });
+        } catch (e) {
+          // Non-blocking: never fail attendance marking due to notification error
+        }
       }
     }
+
+    this.eventsGateway.broadcast('attendance:updated', { attendanceSessionId: dto.attendanceSessionId });
 
     return records;
   }
@@ -182,6 +201,8 @@ export class AttendanceService {
         // ignore
       }
     }
+
+    this.eventsGateway.broadcast('attendance:updated', { attendanceRecordId: record.id });
 
     return updated;
   }

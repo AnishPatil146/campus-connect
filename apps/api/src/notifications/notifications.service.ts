@@ -198,6 +198,15 @@ export class NotificationsService {
       targetType: broadcast.targetType,
     });
 
+    for (const recipientId of uniqueUserIds) {
+      this.gateway.broadcastToUser(recipientId, 'notification:new', {
+        title: dto.title,
+        body: dto.body,
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
     return broadcast;
   }
 
@@ -279,6 +288,7 @@ export class NotificationsService {
 
     if (nType === 'IN_APP') {
       this.gateway.broadcastToUser(dto.recipientId, 'NOTIFICATION.RECEIVED', notif);
+      this.gateway.broadcastToUser(dto.recipientId, 'notification:new', notif);
     }
 
     return notif;

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { EventsGateway } from '../events/events.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
 import { UploadNoteFileDto } from './dto/upload-note-file.dto';
@@ -13,6 +14,7 @@ export class NotesService {
     private prisma: PrismaService,
     private auditService: AuditService,
     private eventsGateway: EventsGateway,
+    private notificationsService: NotificationsService,
   ) {}
 
   async findAll(filters: any) {
@@ -134,6 +136,9 @@ export class NotesService {
 
     if (note.status === 'PUBLISHED') {
       this.eventsGateway.broadcast('noteUploaded', fullNote);
+      this.eventsGateway.broadcast('notes:uploaded', fullNote);
+      // Notify all students in the division
+      await this.notifyStudentsOfNewNote(divisionId, dto.title, note.id).catch(() => {});
     }
 
     return note;
@@ -205,9 +210,29 @@ export class NotesService {
 
     if (note.status === 'PUBLISHED') {
       this.eventsGateway.broadcast('noteUploaded', fullNote);
+      this.eventsGateway.broadcast('notes:uploaded', fullNote);
+      // Notify all students in the division
+      await this.notifyStudentsOfNewNote(division.id, dto.title, note.id).catch(() => {});
     }
 
     return fullNote;
+  }
+
+  /** Helper: send in-app notification to all active students in a division */
+  private async notifyStudentsOfNewNote(divisionId: string, noteTitle: string, noteId: string) {
+    const students = await this.prisma.student.findMany({
+      where: { divisionId, status: 'ACTIVE' },
+      select: { userId: true },
+    });
+    for (const student of students) {
+      this.notificationsService.sendNotification({
+        recipientId: student.userId,
+        title: 'New Study Material Available',
+        body: `New notes uploaded: "${noteTitle}". Access them in your Notes section.`,
+        type: 'IN_APP',
+        link: `/dashboard/student/notes?id=${noteId}`,
+      }).catch(() => { /* Non-blocking */ });
+    }
   }
 
   async update(id: string, dto: UpdateNoteDto, userId: string, actorName: string) {
@@ -261,6 +286,7 @@ export class NotesService {
 
     if (note.status === 'PUBLISHED') {
       this.eventsGateway.broadcast('noteUploaded', fullNote);
+      this.eventsGateway.broadcast('notes:uploaded', fullNote);
     }
 
     return note;

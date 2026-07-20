@@ -33,50 +33,33 @@ export default function StudentAttendancePage() {
 
 
   // Active month in the line chart
-  const [activeMonthIdx, setActiveMonthIdx] = useState(3); // Default to April
+  const [activeMonthIdx, setActiveMonthIdx] = useState(0);
 
-  // Seeded/Mock Data matching constraints
+  // Statistics from database
   const [stats, setStats] = useState({
-    percentage: 91,
-    present: 180,
-    absent: 12,
-    medicalLeaves: 3,
+    percentage: 0,
+    present: 0,
+    absent: 0,
+    medicalLeaves: 0,
   });
 
-  const [subjects, setSubjects] = useState([
-    { name: 'DBMS', percentage: 95, present: 38, total: 40 },
-    { name: 'Operating Systems', percentage: 89, present: 32, total: 36 },
-    { name: 'DSA', percentage: 92, present: 46, total: 50 },
-    { name: 'Mathematics', percentage: 85, present: 34, total: 40 },
-    { name: 'Computer Networks', percentage: 71, present: 25, total: 35 }, // Below 75% for highlight
-  ]);
+  const [subjects, setSubjects] = useState<{ name: string; percentage: number; present: number; total: number }[]>([]);
 
-  const [monthlyTrend, setMonthlyTrend] = useState([
-    { month: 'January', percentage: 88, present: 44, total: 50 },
-    { month: 'February', percentage: 90, present: 45, total: 50 },
-    { month: 'March', percentage: 93, present: 47, total: 50 },
-    { month: 'April', percentage: 91, present: 46, total: 50 },
-  ]);
+  const [monthlyTrend, setMonthlyTrend] = useState<{ month: string; percentage: number; present: number; total: number }[]>([]);
 
-  const [recentAttendance, setRecentAttendance] = useState<AttendanceLog[]>([
-    { date: 'Today', status: 'PRESENT', subjectName: 'DBMS', remarks: 'Attended full session' },
-    { date: 'Yesterday', status: 'PRESENT', subjectName: 'Operating Systems', remarks: 'On time' },
-    { date: '15 July', status: 'ABSENT', subjectName: 'DSA', remarks: 'Unexcused absence' },
-    { date: '14 July', status: 'PRESENT', subjectName: 'Mathematics', remarks: 'Attended full session' },
-  ]);
+  const [recentAttendance, setRecentAttendance] = useState<AttendanceLog[]>([]);
 
   const fetchAttendanceData = async () => {
     setLoading(true);
     try {
       const dbRes = await api.getStudentAttendanceDashboard();
       if (dbRes.success && dbRes.data) {
-        // Integrate real API data with required defaults
         const d = dbRes.data;
         setStats({
-          percentage: d.percentage ?? 91,
-          present: d.present ?? 180,
-          absent: d.absent ?? 12,
-          medicalLeaves: d.medicalLeaves ?? 3,
+          percentage: d.percentage ?? 0,
+          present: d.present ?? 0,
+          absent: d.absent ?? 0,
+          medicalLeaves: d.medicalLeaves ?? 0,
         });
 
         if (d.subjectWise && d.subjectWise.length > 0) {
@@ -86,20 +69,23 @@ export default function StudentAttendancePage() {
             present: s.present,
             total: s.present + s.absent,
           }));
-          // Merge with Computer Networks if missing to ensure low attendance highlight is visible
-          if (!mappedSubjects.some((s: any) => s.percentage < 75)) {
-            mappedSubjects.push({ name: 'Computer Networks', percentage: 71, present: 25, total: 35 });
-          }
           setSubjects(mappedSubjects);
+        } else {
+          setSubjects([]);
         }
 
         if (d.monthlyTrend && d.monthlyTrend.length > 0) {
-          setMonthlyTrend(d.monthlyTrend.map((m: any) => ({
+          const mappedTrend = d.monthlyTrend.map((m: any) => ({
             month: m.month,
             percentage: Math.round(m.percentage),
-            present: m.present || 45,
-            total: m.total || 50,
-          })));
+            present: m.present || 0,
+            total: m.total || 0,
+          }));
+          setMonthlyTrend(mappedTrend);
+          setActiveMonthIdx(mappedTrend.length - 1);
+        } else {
+          setMonthlyTrend([]);
+          setActiveMonthIdx(0);
         }
 
         if (d.history && d.history.length > 0) {
@@ -116,6 +102,8 @@ export default function StudentAttendancePage() {
             };
           });
           setRecentAttendance(mappedHistory);
+        } else {
+          setRecentAttendance([]);
         }
       }
       setLastUpdated(new Date());
@@ -190,6 +178,17 @@ export default function StudentAttendancePage() {
   const normalizedRadius = radius - stroke * 2;
   const circumference = normalizedRadius * 2 * Math.PI;
   const strokeDashoffset = circumference - (stats.percentage / 100) * circumference;
+
+  if (loading) {
+    return (
+      <DashboardLayout title="Attendance Overview" icon={<Calendar className="h-6 w-6 text-blue-600" />}>
+        <div className="flex flex-col items-center justify-center min-h-[300px] gap-3">
+          <div className="h-8 w-8 border-4 border-slate-200 border-t-blue-500 rounded-full animate-spin" />
+          <p className="text-xs text-slate-400 font-semibold">Loading attendance records...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Attendance Overview" icon={<Calendar className="h-6 w-6 text-blue-600" />}>
@@ -375,69 +374,83 @@ export default function StudentAttendancePage() {
             </CardHeader>
             <CardContent className="flex flex-col justify-between min-h-[220px] p-5 pt-2">
               <div className="relative w-full h-32 flex items-end">
-                <svg className="w-full h-full" viewBox="0 0 400 120" preserveAspectRatio="none">
-                  {/* Gradients */}
-                  <defs>
-                    <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.15" />
-                      <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0" />
-                    </linearGradient>
-                  </defs>
+                {(() => {
+                  const points = monthlyTrend.length > 0 
+                    ? monthlyTrend.map((item, idx) => {
+                        const x = 50 + (idx / Math.max(1, monthlyTrend.length - 1)) * 300;
+                        const y = 110 - (item.percentage / 100) * 80;
+                        return { x, y };
+                      })
+                    : [];
 
-                  {/* Horizontal Grid lines */}
-                  <line x1="0" y1="30" x2="400" y2="30" stroke="#f1f5f9" strokeWidth="1" className="dark:stroke-slate-900" />
-                  <line x1="0" y1="60" x2="400" y2="60" stroke="#f1f5f9" strokeWidth="1" className="dark:stroke-slate-900" />
-                  <line x1="0" y1="90" x2="400" y2="90" stroke="#f1f5f9" strokeWidth="1" className="dark:stroke-slate-900" />
+                  const linePath = points.length > 0 ? points.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ') : 'M 50,110 L 350,110';
+                  const areaPath = points.length > 0 
+                    ? `${linePath} L ${points[points.length - 1].x},120 L ${points[0].x},120 Z`
+                    : 'M 50,110 L 350,110 L 350,120 L 50,120 Z';
 
-                  {/* Gradient Area under line */}
-                  <path
-                    d="M 50,74.4 L 150,62 L 250,26.4 L 350,50.8 L 350,120 L 50,120 Z"
-                    fill="url(#areaGrad)"
-                  />
+                  return (
+                    <svg className="w-full h-full" viewBox="0 0 400 120" preserveAspectRatio="none">
+                      {/* Gradients */}
+                      <defs>
+                        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.15" />
+                          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0" />
+                        </linearGradient>
+                      </defs>
 
-                  {/* Connecting Line */}
-                  <path
-                    d="M 50,74.4 L 150,62 L 250,26.4 L 350,50.8"
-                    fill="none"
-                    stroke="#3b82f6"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
+                      {/* Horizontal Grid lines */}
+                      <line x1="0" y1="30" x2="400" y2="30" stroke="#f1f5f9" strokeWidth="1" className="dark:stroke-slate-900" />
+                      <line x1="0" y1="60" x2="400" y2="60" stroke="#f1f5f9" strokeWidth="1" className="dark:stroke-slate-900" />
+                      <line x1="0" y1="90" x2="400" y2="90" stroke="#f1f5f9" strokeWidth="1" className="dark:stroke-slate-900" />
 
-                  {/* Hoverable Nodes */}
-                  {[
-                    { x: 50, y: 74.4 },
-                    { x: 150, y: 62 },
-                    { x: 250, y: 26.4 },
-                    { x: 350, y: 50.8 },
-                  ].map((node, i) => (
-                    <g key={i} className="cursor-pointer" onClick={() => setActiveMonthIdx(i)}>
-                      <circle
-                        cx={node.x}
-                        cy={node.y}
-                        r={activeMonthIdx === i ? 6 : 4}
-                        fill={activeMonthIdx === i ? '#3b82f6' : '#fff'}
+                      {/* Gradient Area under line */}
+                      <path
+                        d={areaPath}
+                        fill="url(#areaGrad)"
+                      />
+
+                      {/* Connecting Line */}
+                      <path
+                        d={linePath}
+                        fill="none"
                         stroke="#3b82f6"
                         strokeWidth="2.5"
-                        className="transition-all duration-300"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
                       />
-                    </g>
-                  ))}
-                </svg>
+
+                      {/* Hoverable Nodes */}
+                      {points.map((node, i) => (
+                        <g key={i} className="cursor-pointer" onClick={() => setActiveMonthIdx(i)}>
+                          <circle
+                            cx={node.x}
+                            cy={node.y}
+                            r={activeMonthIdx === i ? 6 : 4}
+                            fill={activeMonthIdx === i ? '#3b82f6' : '#fff'}
+                            stroke="#3b82f6"
+                            strokeWidth="2.5"
+                            className="transition-all duration-300"
+                          />
+                        </g>
+                      ))}
+                    </svg>
+                  );
+                })()}
 
                 {/* Popover tooltip */}
-                <div className="absolute top-2 right-2 bg-slate-900 dark:bg-slate-800 text-white text-[10px] rounded-xl px-2.5 py-1.5 shadow font-semibold">
-                  <span className="block text-slate-400 font-bold uppercase text-[8px] tracking-wider">
-                    {monthlyTrend[activeMonthIdx].month}
-                  </span>
-                  <span className="text-xs font-black text-blue-400 mt-0.5 block">
-                    {monthlyTrend[activeMonthIdx].percentage}% Attendance
-                  </span>
-                  <span className="block text-[8px] mt-0.5 text-slate-400">
-                    {monthlyTrend[activeMonthIdx].present}/{monthlyTrend[activeMonthIdx].total} classes
-                  </span>
-                </div>
+                {monthlyTrend.length > 0 && monthlyTrend[activeMonthIdx] && (
+                  <div className="absolute top-2 right-2 bg-slate-900 dark:bg-slate-800 text-white text-[10px] rounded-xl px-2.5 py-1.5 shadow font-semibold">
+                    <span className="block text-slate-400 font-bold uppercase text-[8px] tracking-wider">
+                      {monthlyTrend[activeMonthIdx].month}
+                    </span>
+                    <span className="text-xs font-black text-blue-400 mt-0.5 block">
+                      {monthlyTrend[activeMonthIdx].percentage}% Attendance
+                    </span>
+                    <span className="block text-[8px] mt-0.5 text-slate-400">
+                      {monthlyTrend[activeMonthIdx].present}/{monthlyTrend[activeMonthIdx].total} classes
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* X Axis Labels */}

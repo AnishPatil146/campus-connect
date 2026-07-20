@@ -6,11 +6,13 @@ import { NotesService } from './notes.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuditModule } from '../audit/audit.module';
 import { EventsModule } from '../events/events.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [PrismaModule, AuditModule, EventsModule],
+  imports: [PrismaModule, AuditModule, EventsModule, NotificationsModule],
   controllers: [NotesController, TeacherNotesController, StudentNotesController],
   providers: [NotesService],
   exports: [NotesService],
 })
 export class NotesModule {}
+

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, Badge } from '@campus-connect
 import { Clock, BookOpen, AlertCircle, Save, RotateCcw, ChevronLeft, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../../../components/AuthProvider';
 import { useSocket } from '../../../../components/SocketProvider';
+import { useLoading } from '../../../../components/LoadingProvider';
 import { api } from '../../../../utils/api';
 
 interface StudentAttendanceState {
@@ -34,6 +35,7 @@ interface ClassSession {
 export default function TeacherAttendancePage() {
   const { user } = useAuth();
   const { socket } = useSocket();
+  const { startLoading, stopLoading } = useLoading();
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [secondsAgo, setSecondsAgo] = useState(0);
@@ -56,10 +58,11 @@ export default function TeacherAttendancePage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Statistics
+  // Statistics — computed from real loaded data
   const totalClasses = classes.length;
   const pendingAttendanceCount = classes.filter(c => c.pending).length;
-  const totalStudentsTaught = 42; // Division A size
+  // totalStudentsTaught is computed from the currently selected class's roster size (from API)
+  const totalStudentsTaught = students.length > 0 ? students.length : (classes.length > 0 ? null : 0);
 
   // Keep ticking counter updated
   useEffect(() => {
@@ -127,15 +130,14 @@ export default function TeacherAttendancePage() {
 
   // Real-time listener for socket events to update schedule
   useEffect(() => {
-    if (socket) {
-      const handleTimetableUpdate = () => {
-        fetchClassesSchedule();
-      };
-      socket.on('TIMETABLE_UPDATED', handleTimetableUpdate);
-      return () => {
-        socket.off('TIMETABLE_UPDATED', handleTimetableUpdate);
-      };
-    }
+    if (!socket) return;
+    const handleTimetableUpdate = () => {
+      fetchClassesSchedule();
+    };
+    socket.on('TIMETABLE_UPDATED', handleTimetableUpdate);
+    return () => {
+      socket.off('TIMETABLE_UPDATED', handleTimetableUpdate);
+    };
   }, [socket]);
 
   // Select class and load roster
@@ -201,7 +203,7 @@ export default function TeacherAttendancePage() {
     setLoading(true);
     setSuccessMsg(null);
     setErrorMsg(null);
-
+    startLoading("Saving attendance...");
     try {
       let activeSessionId = selectedClass.sessionId;
       const todayDateStr = new Date().toISOString().split('T')[0];
@@ -209,7 +211,7 @@ export default function TeacherAttendancePage() {
       // 1. Create session if it doesn't exist
       if (!activeSessionId) {
         // Fallback to subjects taught to find academicSessionId or use default placeholder
-        const academicSessionId = user.teacherProfile.subjects?.[0]?.academicSessionId || 'academic-session-placeholder';
+        const academicSessionId = (user.teacherProfile as any).subjects?.[0]?.academicSessionId || 'academic-session-placeholder';
         
         const sessionRes = await api.createAttendanceSession({
           collegeId: user.collegeId,
@@ -253,15 +255,18 @@ export default function TeacherAttendancePage() {
         }
 
         setTimeout(() => {
+          stopLoading();
           setSelectedClass(null);
           fetchClassesSchedule();
         }, 1500);
       } else {
         setErrorMsg('Failed to save attendance records.');
+        stopLoading();
       }
     } catch (e: any) {
       console.error(e);
       setErrorMsg(e.message || 'An error occurred while saving attendance.');
+      stopLoading();
     } finally {
       setLoading(false);
     }

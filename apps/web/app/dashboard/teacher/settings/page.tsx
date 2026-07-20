@@ -46,27 +46,45 @@ export default function TeacherSettingsPage() {
     setIsSessionsLoading(false);
   };
 
+  const fetchPreferences = async () => {
+    try {
+      const res = await api.getNotificationPreferences();
+      if (res.success && res.data) {
+        setEmailAlerts(res.data.allowEmail);
+        setSmsAlerts(res.data.allowSMS);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     fetchActiveSessions();
-    
-    // Load local notification settings
-    const storedPrefs = localStorage.getItem('cc_teacher_notif_prefs');
-    if (storedPrefs) {
-      try {
-        const parsed = JSON.parse(storedPrefs);
-        setEmailAlerts(parsed.email);
-        setSmsAlerts(parsed.sms);
-      } catch (e) {
-        console.error(e);
-      }
-    }
+    fetchPreferences();
   }, []);
 
-  const handleSavePreferences = () => {
-    localStorage.setItem('cc_teacher_notif_prefs', JSON.stringify({ email: emailAlerts, sms: smsAlerts }));
-    setToastMsg('Notification settings saved successfully!');
-    setToastType('success');
-    setToastOpen(true);
+  const handleSavePreferences = async () => {
+    try {
+      const res = await api.updateNotificationPreferences({
+        allowEmail: emailAlerts,
+        allowSMS: smsAlerts,
+        allowPush: true,
+        allowInApp: true,
+      });
+      if (res.success) {
+        setToastMsg('Notification settings saved successfully!');
+        setToastType('success');
+        setToastOpen(true);
+      } else {
+        setToastMsg('Failed to update notification settings.');
+        setToastType('error');
+        setToastOpen(true);
+      }
+    } catch (e) {
+      setToastMsg('Error saving notification settings.');
+      setToastType('error');
+      setToastOpen(true);
+    }
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {

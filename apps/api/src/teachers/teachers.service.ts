@@ -161,6 +161,7 @@ export class TeachersService {
     );
 
     this.eventsGateway.broadcast('teacher.created', { id: teacher.id, employeeId: teacher.employeeId });
+    this.eventsGateway.broadcast('teacher:created', { id: teacher.id, employeeId: teacher.employeeId });
 
     return teacher;
   }

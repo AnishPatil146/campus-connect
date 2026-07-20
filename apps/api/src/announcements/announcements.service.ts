@@ -121,6 +121,7 @@ export class AnnouncementsService {
       );
 
       this.gateway.broadcast('ANNOUNCEMENT.CREATED', announcement);
+      this.gateway.broadcast('announcement:new', announcement);
     }
 
     return announcement;

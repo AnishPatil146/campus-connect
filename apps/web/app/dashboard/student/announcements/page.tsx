@@ -7,9 +7,20 @@ import { useStudentData } from '../../../../components/StudentDataProvider';
 import { Megaphone, Search, Eye, EyeOff, Calendar } from 'lucide-react';
 
 export default function AnnouncementsPage() {
-  const { announcements, toggleAnnouncementRead } = useStudentData();
+  const { announcements, toggleAnnouncementRead, loading } = useStudentData();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('all');
+
+  if (loading) {
+    return (
+      <DashboardLayout title="Announcements" icon={<Megaphone className="h-6 w-6" />}>
+        <div className="flex flex-col items-center justify-center min-h-[300px] gap-3">
+          <div className="h-8 w-8 border-4 border-slate-200 border-t-blue-500 rounded-full animate-spin" />
+          <p className="text-xs text-slate-400 font-semibold">Loading notices & announcements...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const categories = [
     { value: 'all', label: 'All' },

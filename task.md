@@ -1,0 +1,41 @@
+# Production Recovery Task List
+
+- [x] Task 1: Secure Socket.IO Gateway & Periodic System Health
+  - [x] Add JWT authentication middleware in `EventsGateway` (`afterInit`).
+  - [x] Implement `@Interval(5000)` scheduler to broadcast `system:health` with DB, Redis, API, and active session metrics.
+- [x] Task 2: Implement Real-time Events & Propagation Contract
+  - [x] Emit `student:created` when student is admitted.
+  - [x] Emit `teacher:created` when teacher is registered.
+  - [x] Emit `attendance:updated` when attendance is marked or updated.
+  - [x] Emit `notes:uploaded` when a teacher uploads notes.
+  - [x] Emit `result:published` when grades are recorded.
+  - [x] Emit `timetable:published` when timetable version is published.
+  - [x] Emit `announcement:new` when announcements are created.
+  - [x] Emit `notification:new` when in-app or broadcast notifications are created.
+  - [x] Emit `event:created` when events are created.
+  - [x] Emit `audit:log` when an audit log is created.
+- [x] Task 3: Backend Admin Dashboard API Recovery
+  - [x] Update `getAdminDashboard` in `DashboardService` to fetch dynamic database metrics: Total Departments, Pending Tasks, Active Sessions, and System Health.
+- [x] Task 4: Frontend Socket Authentication
+  - [x] Update `SocketProvider.tsx` to pass the stored `cc_token` in the connection auth payload.
+- [x] Task 5: Admin Portal Dashboard Recovery
+  - [x] Update Admin page to display the 6 dynamic KPIs.
+  - [x] Connect system nodes status cards to live `system:health` socket event.
+  - [x] Support Loading, Empty, and Error states on Admin Dashboard.
+  - [x] Fix JavaScript-to-Prisma `dayOfWeek` comparison filter bug.
+- [x] Task 6: Admin Timetable Operations API Sync
+  - [x] Connect timetable creation, deletion, and publishing directly to backend endpoints.
+- [x] Task 7: Teacher Settings API Integration
+  - [x] Modify notification preference toggle inside settings to write directly to the database via API.
+- [x] Task 8: Teacher Portal Complete Recovery
+  - [x] Create `/dashboard/teacher/notifications` page.
+  - [x] Create `/dashboard/teacher/announcements` page (supporting announcements list + publishing).
+  - [x] Create `/dashboard/teacher/performance` page (supporting student performance metrics and monitoring).
+  - [x] Register new pages in `DashboardLayout.tsx` for `TEACHER` role.
+  - [x] Fix unread notifications bell counting bug (map `isRead` to `read` in layout and API helper).
+- [x] Task 9: Real File Upload Registry & Notes
+  - [x] Update `api.ts` to include `uploadFile(file, module)` helper.
+  - [x] Replace text input file fields on Teacher and Student notes pages with real file inputs that execute file uploads to `/files/upload` (supporting Cloudinary/local fallback).
+- [/] Task 10: E2E Playwright Recovery Test Suite
+  - [x] Create E2E tests validating the 15 cross-portal user journeys.
+  - [/] Verify monorepo builds and all tests execute successfully.

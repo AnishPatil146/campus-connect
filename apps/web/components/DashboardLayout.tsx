@@ -5,6 +5,9 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from './AuthProvider';
 import { useTheme } from './ThemeProvider';
+import { useLoading } from './LoadingProvider';
+import { useSocket } from './SocketProvider';
+import { api } from '../utils/api';
 import { getCollegeName, getCollegeLogo } from '@campus-connect/utils';
 import { LogOut, User as UserIcon, Settings, GraduationCap, BookOpen, Menu, X, Bell, Sun, Moon, LayoutDashboard, LineChart, Calendar, Clock, Sparkles, Megaphone, Users, Building2, Activity, FolderInput, ClipboardCheck } from 'lucide-react';
 import { CommandPalette } from './CommandPalette';
@@ -18,13 +21,160 @@ interface DashboardLayoutProps {
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title, icon }) => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { startLoading, stopLoading } = useLoading();
+  const { socket } = useSocket();
   const router = useRouter();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
+  // Notifications State
+  const [showNotifications, setShowNotifications] = React.useState(false);
+  const [notifications, setNotifications] = React.useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = React.useState(0);
+
+  React.useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const res = await api.getNotifications();
+        if (res.success && res.data) {
+          setNotifications(res.data);
+          setUnreadCount(res.data.filter((n: any) => !n.read).length);
+        }
+      } catch (err) {
+        console.error('Failed to load notifications:', err);
+      }
+    };
+    if (user) {
+      fetchNotifications();
+    }
+  }, [user]);
+
+  React.useEffect(() => {
+    if (socket) {
+      const handleTimetableUpdate = (data: any) => {
+        console.log('Socket TIMETABLE_UPDATED in layout:', data);
+        const newNotif = {
+          id: `timetable-notif-${Date.now()}`,
+          title: 'Timetable Updated',
+          content: data.message || 'The central academic timetable slots have been updated.',
+          read: false,
+          createdAt: new Date().toISOString(),
+        };
+        setNotifications(prev => [newNotif, ...prev]);
+        setUnreadCount(prev => prev + 1);
+      };
+
+      const handleResultPublished = (data: any) => {
+        console.log('Socket RESULT_PUBLISHED in layout:', data);
+        const newNotif = {
+          id: `result-notif-${Date.now()}`,
+          title: 'Result Published',
+          content: data.message || `Results for ${data.title || 'exam'} have been successfully published.`,
+          read: false,
+          createdAt: new Date().toISOString(),
+        };
+        setNotifications(prev => [newNotif, ...prev]);
+        setUnreadCount(prev => prev + 1);
+      };
+
+      const handleNoteUploaded = (data: any) => {
+        console.log('Socket noteUploaded in layout:', data);
+        const newNotif = {
+          id: `note-notif-${Date.now()}`,
+          title: 'Notes Uploaded Successfully',
+          content: data.message || `Study material "${data.title || 'Notes'}" uploaded successfully.`,
+          read: false,
+          createdAt: new Date().toISOString(),
+        };
+        setNotifications(prev => [newNotif, ...prev]);
+        setUnreadCount(prev => prev + 1);
+      };
+
+      const handleAttendanceMarked = (data: any) => {
+        console.log('Socket attendanceMarked in layout:', data);
+        const newNotif = {
+          id: `attendance-notif-${Date.now()}`,
+          title: 'Attendance Session Logged',
+          content: data.message || `Attendance logged for division successfully.`,
+          read: false,
+          createdAt: new Date().toISOString(),
+        };
+        setNotifications(prev => [newNotif, ...prev]);
+        setUnreadCount(prev => prev + 1);
+      };
+
+      const handleNotificationNew = (data: any) => {
+        console.log('Socket notification:new in layout:', data);
+        const newNotif = {
+          id: data.id || `socket-notif-${Date.now()}`,
+          title: data.title || 'New Notification',
+          content: data.body || data.content || 'You have received a new update.',
+          read: false,
+          createdAt: data.createdAt || new Date().toISOString(),
+        };
+        setNotifications(prev => [newNotif, ...prev]);
+        setUnreadCount(prev => prev + 1);
+      };
+
+      socket.on('TIMETABLE_UPDATED', handleTimetableUpdate);
+      socket.on('RESULT_PUBLISHED', handleResultPublished);
+      socket.on('noteUploaded', handleNoteUploaded);
+      socket.on('attendanceMarked', handleAttendanceMarked);
+      socket.on('notification:new', handleNotificationNew);
+
+      return () => {
+        socket.off('TIMETABLE_UPDATED', handleTimetableUpdate);
+        socket.off('RESULT_PUBLISHED', handleResultPublished);
+        socket.off('noteUploaded', handleNoteUploaded);
+        socket.off('attendanceMarked', handleAttendanceMarked);
+        socket.off('notification:new', handleNotificationNew);
+      };
+    }
+    return () => {};
+  }, [socket]);
+
+  const handleMarkAsRead = async (id: string) => {
+    if (id.startsWith('timetable-') || id.startsWith('result-') || id.startsWith('note-') || id.startsWith('attendance-') || id.startsWith('socket-')) {
+      setNotifications(prev =>
+        prev.map(n => n.id === id ? { ...n, read: true } : n)
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
+      return;
+    }
+    try {
+      const res = await api.markNotificationAsRead(id);
+      if (res.success) {
+        setNotifications(prev =>
+          prev.map(n => n.id === id ? { ...n, read: true } : n)
+        );
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await api.markAllNotificationsAsRead();
+    } catch (e) {
+      console.error(e);
+    }
+    setNotifications(prev =>
+      prev.map(n => ({ ...n, read: true }))
+    );
+    setUnreadCount(0);
+  };
+
   const handleLogout = () => {
-    logout();
-    router.push('/');
+    startLoading("Logging out...");
+    setTimeout(() => {
+      logout();
+      router.push('/');
+      setTimeout(() => {
+        stopLoading();
+      }, 500);
+    }, 600);
   };
 
   if (!user) {
@@ -49,7 +199,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
     sidebarItems.push(
       { name: 'Dashboard', path: '/dashboard/teacher', icon: <LayoutDashboard className="h-5 w-5" /> },
       { name: 'Attendance Work Center', path: '/dashboard/teacher/attendance', icon: <ClipboardCheck className="h-5 w-5" /> },
-      { name: 'Notes & Learning Hub', path: '/dashboard/student/notes', icon: <BookOpen className="h-5 w-5" /> },
+      { name: 'Notes & Learning Hub', path: '/dashboard/teacher/notes', icon: <BookOpen className="h-5 w-5" /> },
+      { name: 'Student Performance', path: '/dashboard/teacher/performance', icon: <LineChart className="h-5 w-5" /> },
+      { name: 'Announcements', path: '/dashboard/teacher/announcements', icon: <Megaphone className="h-5 w-5" /> },
+      { name: 'Notifications', path: '/dashboard/teacher/notifications', icon: <Bell className="h-5 w-5" /> },
       { name: 'Settings', path: '/dashboard/teacher/settings', icon: <Settings className="h-5 w-5" /> }
     );
   } else if (user.role === 'ADMIN') {
@@ -144,10 +297,71 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
             {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </button>
 
-          <button className="p-2 text-slate-400 hover:text-role-primary rounded-lg hover:bg-role-surface-hover/20 dark:hover:bg-role-surface-hover/10 relative">
-            <Bell className="h-5 w-5" />
-            <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full" />
-          </button>
+          <div className="relative">
+            <button 
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="p-2 text-slate-400 hover:text-role-primary rounded-lg hover:bg-role-surface-hover/20 dark:hover:bg-role-surface-hover/10 transition-colors relative"
+            >
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-emerald-500 rounded-full animate-pulse" />
+              )}
+            </button>
+
+            {showNotifications && (
+              <>
+                <div className="fixed inset-0 z-45" onClick={() => setShowNotifications(false)} />
+                <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 text-xs overflow-hidden transition-all select-none">
+                  <div className="p-3 border-b border-slate-100 dark:border-slate-900 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/30">
+                    <span className="font-bold text-slate-900 dark:text-white">Notifications ({unreadCount})</span>
+                    {unreadCount > 0 && (
+                      <button 
+                        onClick={handleMarkAllRead}
+                        className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-505 transition-colors"
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="max-h-72 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-8 text-center text-slate-400 dark:text-slate-500">
+                        <Bell className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                        <p className="font-semibold">All caught up!</p>
+                        <p className="text-[10px] mt-0.5 opacity-80">No new notifications.</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-slate-100 dark:divide-slate-900/50">
+                        {notifications.map((notif) => (
+                          <div 
+                            key={notif.id}
+                            onClick={() => handleMarkAsRead(notif.id)}
+                            className={`p-3 text-left transition-colors cursor-pointer flex items-start gap-2.5 ${
+                              notif.read 
+                                ? 'bg-white dark:bg-slate-950 opacity-60' 
+                                : 'bg-slate-50/40 dark:bg-slate-900/10 hover:bg-slate-50/80 dark:hover:bg-slate-900/20'
+                            }`}
+                          >
+                            {!notif.read && (
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0 mt-1.5" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className={`font-bold text-slate-900 dark:text-white ${notif.read ? 'font-medium' : ''}`}>{notif.title}</p>
+                              <p className="text-slate-505 dark:text-slate-400 mt-0.5 text-[11px] leading-relaxed break-words">{notif.content}</p>
+                              <p className="text-[9px] text-slate-400 mt-1">
+                                {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
 
           <div className="flex items-center gap-3 pl-3 border-l border-slate-100 dark:border-slate-800">
             <div className="h-9 w-9 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-655 dark:text-slate-300">
