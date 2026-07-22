@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, Badge, Modal, Input } from '@campus-connect/ui';
 import { useAuth } from '../../../../components/AuthProvider';
@@ -73,7 +73,7 @@ export default function NotesPage() {
 
   // Role details
   const isTeacher = user?.role === 'TEACHER';
-  const subjectsTaught = (user?.teacherProfile as any)?.subjects || [];
+  const subjectsTaught = useMemo(() => (user?.teacherProfile as any)?.subjects || [], [user]);
 
   // Set default subject and teacher name for upload form
   useEffect(() => {
@@ -83,7 +83,7 @@ export default function NotesPage() {
         setNewNoteSubject(subjectsTaught[0].subject?.name || '');
       }
     }
-  }, [user]);
+  }, [user, subjectsTaught]);
 
   // Folders organization
   const semesters = [1, 2, 3, 4];
@@ -97,7 +97,7 @@ export default function NotesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadNotes = async () => {
+  const loadNotes = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -105,18 +105,31 @@ export default function NotesPage() {
       if (res.success && res.data) {
         setNotesList(res.data);
       } else {
-        setError(res.message || 'Failed to load study notes.');
+        setError((res as any).message || 'Failed to load study notes.');
       }
     } catch (e) {
       setError('A connection issue occurred while fetching notes.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [isTeacher]);
 
   useEffect(() => {
     loadNotes();
-  }, [user]);
+  }, [loadNotes]);
+
+  // Real-time socket listener
+  useEffect(() => {
+    if (!socket) return;
+    const handleNoteUploaded = (newNote: any) => {
+      console.log('Socket event: Note uploaded -> refreshing state', newNote);
+      loadNotes();
+    };
+    socket.on('noteUploaded', handleNoteUploaded);
+    return () => {
+      socket.off('noteUploaded', handleNoteUploaded);
+    };
+  }, [socket, loadNotes]);
 
   if (loading) {
     return (
@@ -147,20 +160,7 @@ export default function NotesPage() {
     );
   }
 
-  // Real-time socket listener
-  useEffect(() => {
-    if (socket) {
-      const handleNoteUploaded = (newNote: any) => {
-        console.log('Socket event: Note uploaded -> refreshing state', newNote);
-        loadNotes();
-      };
-      socket.on('noteUploaded', handleNoteUploaded);
-      return () => {
-        socket.off('noteUploaded', handleNoteUploaded);
-      };
-    }
-    return () => {};
-  }, [socket]);
+
 
   // Handle Note Upload
   const handleUploadSubmit = async (e: React.FormEvent) => {

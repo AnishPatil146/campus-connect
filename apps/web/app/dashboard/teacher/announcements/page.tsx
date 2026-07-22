@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle, Badge, Input } from '@campus-connect/ui';
+import { Card, CardContent, CardHeader, CardTitle, Badge } from '@campus-connect/ui';
 import { useAuth } from '../../../../components/AuthProvider';
 import { useSocket } from '../../../../components/SocketProvider';
 import { useLoading } from '../../../../components/LoadingProvider';
 import { api } from '../../../../utils/api';
-import { Megaphone, Plus, Bell, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Megaphone, Plus, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function TeacherAnnouncementsPage() {
   const { user } = useAuth();
@@ -50,13 +50,12 @@ export default function TeacherAnnouncementsPage() {
   }, [user]);
 
   useEffect(() => {
-    if (socket) {
-      const handleNewAnnouncement = () => fetchAnnouncements();
-      socket.on('announcement:new', handleNewAnnouncement);
-      return () => {
-        socket.off('announcement:new', handleNewAnnouncement);
-      };
-    }
+    if (!socket) return;
+    const handleNewAnnouncement = () => fetchAnnouncements();
+    socket.on('announcement:new', handleNewAnnouncement);
+    return () => {
+      socket.off('announcement:new', handleNewAnnouncement);
+    };
   }, [socket]);
 
   const handleSubmit = async (e: React.FormEvent) => {

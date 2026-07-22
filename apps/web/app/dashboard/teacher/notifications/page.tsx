@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle, Badge } from '@campus-connect/ui';
+import { Card, CardContent } from '@campus-connect/ui';
 import { useAuth } from '../../../../components/AuthProvider';
 import { useSocket } from '../../../../components/SocketProvider';
 import { api } from '../../../../utils/api';
-import { Bell, CheckCircle2, AlertCircle, Trash2, Eye } from 'lucide-react';
+import { Bell, CheckCircle2 } from 'lucide-react';
 
 export default function TeacherNotificationsPage() {
   const { user } = useAuth();
@@ -36,13 +36,12 @@ export default function TeacherNotificationsPage() {
   }, [user]);
 
   useEffect(() => {
-    if (socket) {
-      const handleNotification = () => fetchNotifications();
-      socket.on('notification:new', handleNotification);
-      return () => {
-        socket.off('notification:new', handleNotification);
-      };
-    }
+    if (!socket) return;
+    const handleNotification = () => fetchNotifications();
+    socket.on('notification:new', handleNotification);
+    return () => {
+      socket.off('notification:new', handleNotification);
+    };
   }, [socket]);
 
   const handleMarkRead = async (id: string) => {
