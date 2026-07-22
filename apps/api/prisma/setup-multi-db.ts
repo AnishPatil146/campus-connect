@@ -326,6 +326,25 @@ async function seedCollegeDatabase(collegeId: string, url: string) {
         },
       });
 
+      // Primary Admin: rnagarkar001@gmail.com
+      await prisma.user.create({
+        data: {
+          email: 'rnagarkar001@gmail.com',
+          passwordHash: defaultPasswordHash,
+          name: 'Admin R. Nagarkar',
+          status: 'ACTIVE',
+          collegeId: college.id,
+          userRoles: { create: { roleId: adminRole.id } },
+          userProfile: {
+            create: {
+              firstName: 'Admin',
+              lastName: 'Nagarkar',
+              phone: '+91 9900990099',
+            },
+          },
+        },
+      });
+
       // HOD Admin for College A
       await prisma.user.create({
         data: {

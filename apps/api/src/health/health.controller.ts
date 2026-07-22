@@ -44,6 +44,7 @@ export class HealthController {
     };
 
     return {
+      status: 'OK',
       success: true,
       message: 'System is healthy',
       data: result,

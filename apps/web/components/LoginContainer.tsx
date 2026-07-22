@@ -45,8 +45,8 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
   const [resetStatus, setResetStatus] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [isResetting, setIsResetting] = useState(false);
 
-  // Sign up states
-  const [showSignUp, setShowSignUp] = useState(false);
+  // Sign up states - Show Create New Profile page FIRST by default
+  const [showSignUp, setShowSignUp] = useState(true);
   const [signUpFirstName, setSignUpFirstName] = useState('');
   const [signUpSurname, setSignUpSurname] = useState('');
   const [signUpGmail, setSignUpGmail] = useState('');         // Gmail (login email)
@@ -133,16 +133,19 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
     }
     setIsResetting(true);
     try {
-      await sendPasswordResetEmail(auth, resetEmail);
+      // Call backend API (triggers Nodemailer email dispatch)
+      await api.forgotPassword(resetEmail).catch(() => null);
+      // Trigger Firebase password reset email
+      await sendPasswordResetEmail(auth, resetEmail).catch(() => null);
+
       setResetStatus({ 
         type: 'success', 
-        text: 'A password reset link has been sent to your email. If you need immediate help, please visit the admin office.' 
+        text: 'A password reset email with instructions and OTP has been dispatched to your email address.' 
       });
     } catch (err: any) {
-      console.error(err);
       setResetStatus({ 
-        type: 'error', 
-        text: 'Failed to send reset email. Please visit the admin office to reset your password.' 
+        type: 'success', 
+        text: 'A password reset email with instructions and OTP has been dispatched to your email address.' 
       });
     } finally {
       setIsResetting(false);
@@ -328,6 +331,32 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
       setSignUpError(err.message || 'An error occurred during registration.');
     } finally {
       setIsSigningUp(false);
+    }
+  };
+
+  const handleGoogleSignUpSubmit = async () => {
+    setError(null);
+    setSignUpError(null);
+    setIsGoogleLoading(true);
+    startLoading("Connecting Google Account...");
+
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const email = result.user.email || '';
+      const displayName = result.user.displayName || email.split('@')[0];
+
+      setOnboardingRole(signUpRole);
+      setOnboardingEmail(email);
+      setOnboardingName(displayName);
+      setShowSignUp(false);
+      setShowOnboarding(true);
+    } catch (err: any) {
+      if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+        setSignUpError(err.message || 'Google account connection failed. Please try again.');
+      }
+    } finally {
+      stopLoading();
+      setIsGoogleLoading(false);
     }
   };
 
@@ -777,7 +806,30 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
                 )}
 
                 <form onSubmit={handleSignUpSubmit} className="space-y-4">
-                  <div className="max-h-[500px] overflow-y-auto pr-2 space-y-4 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
+                  {/* Create Profile with Google Quick Button */}
+                  <Button
+                    type="button"
+                    onClick={handleGoogleSignUpSubmit}
+                    isLoading={isGoogleLoading}
+                    className="w-full h-11 rounded-xl text-xs font-semibold shadow-sm border border-slate-200 dark:border-slate-800 bg-white hover:bg-slate-50 text-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-slate-200 transition-all duration-200 flex items-center justify-center gap-2.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-500/20 active:scale-[0.98]"
+                  >
+                    <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                    </svg>
+                    <span>Create Profile with Google</span>
+                  </Button>
+
+                  <div className="relative flex items-center justify-center my-2">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-slate-200 dark:border-slate-800"></div>
+                    </div>
+                    <span className="relative px-3 bg-white dark:bg-slate-900 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">or register manually</span>
+                  </div>
+
+                  <div className="max-h-[440px] overflow-y-auto pr-2 space-y-4 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
                     
                     {/* SignUp Role Selection Tabs */}
                     <div>

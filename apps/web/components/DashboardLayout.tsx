@@ -192,6 +192,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
       { name: 'Timetable', path: '/dashboard/student/timetable', icon: <Clock className="h-5 w-5" /> },
       { name: 'Events', path: '/dashboard/student/events', icon: <Sparkles className="h-5 w-5" /> },
       { name: 'Announcements', path: '/dashboard/student/announcements', icon: <Megaphone className="h-5 w-5" /> },
+      { name: 'Notifications', path: '/dashboard/student/notifications', icon: <Bell className="h-5 w-5" /> },
+      { name: 'Activity Stream', path: '/dashboard/student/activity', icon: <Activity className="h-5 w-5" /> },
       { name: 'Profile', path: '/dashboard/student/profile', icon: <UserIcon className="h-5 w-5" /> },
       { name: 'Settings', path: '/dashboard/student/settings', icon: <Settings className="h-5 w-5" /> }
     );
@@ -201,8 +203,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
       { name: 'Attendance Work Center', path: '/dashboard/teacher/attendance', icon: <ClipboardCheck className="h-5 w-5" /> },
       { name: 'Notes & Learning Hub', path: '/dashboard/teacher/notes', icon: <BookOpen className="h-5 w-5" /> },
       { name: 'Student Performance', path: '/dashboard/teacher/performance', icon: <LineChart className="h-5 w-5" /> },
+      { name: 'Timetable Schedule', path: '/dashboard/teacher/timetable', icon: <Clock className="h-5 w-5" /> },
+      { name: 'My Students', path: '/dashboard/teacher/students', icon: <GraduationCap className="h-5 w-5" /> },
       { name: 'Announcements', path: '/dashboard/teacher/announcements', icon: <Megaphone className="h-5 w-5" /> },
       { name: 'Notifications', path: '/dashboard/teacher/notifications', icon: <Bell className="h-5 w-5" /> },
+      { name: 'Activity Feed', path: '/dashboard/teacher/activity', icon: <Activity className="h-5 w-5" /> },
+      { name: 'My Profile', path: '/dashboard/teacher/profile', icon: <UserIcon className="h-5 w-5" /> },
       { name: 'Settings', path: '/dashboard/teacher/settings', icon: <Settings className="h-5 w-5" /> }
     );
   } else if (user.role === 'ADMIN') {
@@ -220,6 +226,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
       { name: 'Notification Center', path: '/dashboard/admin/notifications', icon: <Bell className="h-5 w-5" /> },
       { name: 'Import / Export Center', path: '/dashboard/admin/import', icon: <FolderInput className="h-5 w-5" /> },
       { name: 'Audit Logs', path: '/dashboard/admin/audit-logs', icon: <Activity className="h-5 w-5" /> },
+      { name: 'Admin Profile', path: '/dashboard/admin/profile', icon: <UserIcon className="h-5 w-5" /> },
       { name: 'College Settings', path: '/dashboard/admin/settings', icon: <Settings className="h-5 w-5" /> }
     );
   }
