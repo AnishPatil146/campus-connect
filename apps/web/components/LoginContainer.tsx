@@ -19,8 +19,8 @@ import {
   EyeOff, 
   Shield 
 } from 'lucide-react';
-import { auth } from '../config/firebase';
-import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth, googleProvider } from '../config/firebase';
+import { sendPasswordResetEmail, signInWithPopup } from 'firebase/auth';
 import { api } from '../utils/api';
 
 export default function LoginContainer({ initialRole, brandingMessage }: { initialRole?: UserRole; brandingMessage?: string }) {
@@ -96,11 +96,16 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
   const [onboardingError, setOnboardingError] = useState<string | null>(null);
   const [isOnboardingSubmitting, setIsOnboardingSubmitting] = useState(false);
 
-  // Sync selected role to theme provider
+  // Sync selected role to theme provider and prefetch dashboard routes
   React.useEffect(() => {
     const activeRole = showOnboarding ? onboardingRole : (showSignUp ? signUpRole : role);
     setGlobalRole(activeRole.toLowerCase() as any);
-  }, [role, signUpRole, showSignUp, showOnboarding, onboardingRole, setGlobalRole]);
+    
+    // Prefetch target dashboard routes for instant page transitions after login
+    router.prefetch('/dashboard/student');
+    router.prefetch('/dashboard/teacher');
+    router.prefetch('/dashboard/admin');
+  }, [role, signUpRole, showSignUp, showOnboarding, onboardingRole, setGlobalRole, router]);
 
   // Subject lists per stream
   const scienceSubjects = ['Physics', 'Chemistry', 'Biology', 'Mathematics', 'Computer Science', 'English'];
@@ -151,11 +156,8 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
     startLoading("Authenticating with Google...");
 
     try {
-      // Trigger the real Google OAuth popup via Firebase
-      const { signInWithPopup } = await import('firebase/auth');
-      const { auth: firebaseAuth, googleProvider } = await import('../config/firebase');
-
-      const result = await signInWithPopup(firebaseAuth, googleProvider);
+      // Trigger the real Google OAuth popup via static Firebase import (instant response)
+      const result = await signInWithPopup(auth, googleProvider);
       const email = result.user.email || '';
       const displayName = result.user.displayName || '';
       // Get the real Firebase ID token to send to our backend
@@ -1285,7 +1287,7 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
                       <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
                       <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                     </svg>
-                    <span>Continue with Google</span>
+                    <span>Continue as {role === 'STUDENT' ? 'Student' : role === 'TEACHER' ? 'Teacher' : 'Admin'} with Google</span>
                   </Button>
 
                   <button

@@ -19,6 +19,8 @@ import { collegeStorage } from '../common/college-storage';
 
 @Injectable()
 export class AuthService implements OnModuleInit {
+  private googleTokenCache = new Map<string, { email: string; name?: string; picture?: string; expiresAt: number }>();
+
   private readonly jwtSecret = (() => {
     const secret = process.env.JWT_SECRET;
     if (!secret) {
@@ -1924,16 +1926,24 @@ The Campus Connect Team
       return { email, name };
     }
 
+    const cached = this.googleTokenCache.get(token);
+    if (cached && cached.expiresAt > Date.now()) {
+      return { email: cached.email, name: cached.name, picture: cached.picture };
+    }
+
     try {
       const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
       if (response.ok) {
         const payload = await response.json();
         if (payload.email) {
-          return {
+          const result = {
             email: payload.email,
             name: payload.name,
             picture: payload.picture,
           };
+          // Cache verified token for 3 minutes
+          this.googleTokenCache.set(token, { ...result, expiresAt: Date.now() + 180000 });
+          return result;
         }
       }
     } catch (err) {
