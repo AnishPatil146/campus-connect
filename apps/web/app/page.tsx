@@ -121,11 +121,8 @@ export default function Home() {
               <div className="mt-8 flex flex-col gap-3">
                 <div className="text-xs text-slate-400 dark:text-slate-500 font-mono">Target: Standalone release binary</div>
                 <a 
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    alert("Downloading CampusConnect.apk release file (simulated).");
-                  }}
+                  href="/downloads/CampusConnect.apk"
+                  download="CampusConnect.apk"
                   className="w-full text-center py-2.5 text-sm font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-sm flex items-center justify-center gap-2 transition-all duration-200"
                 >
                   <Download size={16} /> Download APK (Direct)
