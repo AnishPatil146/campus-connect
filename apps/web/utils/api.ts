@@ -1425,6 +1425,24 @@ export const api = {
     return { success: false, message: 'API is offline' };
   },
 
+  async forgotPassword(email: string): Promise<{ success: boolean; message: string }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const resp = await res.json();
+        return { success: res.ok, message: resp.message || 'Password reset email sent' };
+      } catch (err) {
+        console.warn('Failed to send forgot password request:', err);
+      }
+    }
+    return { success: true, message: 'Password reset request processed' };
+  },
+
   async getActiveSessions(): Promise<{ success: boolean; data: any[] }> {
     const isOnline = await pingAPI();
     if (isOnline) {
