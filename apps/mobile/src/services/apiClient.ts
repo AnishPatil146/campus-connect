@@ -24,8 +24,11 @@ apiClient.interceptors.request.use(
     if (state.token) {
       config.headers.Authorization = `Bearer ${state.token}`;
     }
-    // Inject multi-tenant header
+    // Inject multi-tenant header & mandatory audit platform metadata
     config.headers['x-college-id'] = state.tenantId || 'college-a';
+    config.headers['x-platform'] = Platform.OS === 'android' ? 'ANDROID_APP' : 'IOS_APP';
+    config.headers['x-device-model'] = Platform.OS;
+    config.headers['x-app-version'] = '1.0.0';
     return config;
   },
   (error) => Promise.reject(error)

@@ -4,11 +4,9 @@ import { colors } from '../theme/colors';
 import { TeacherHomeScreen } from '../screens/teacher/TeacherHomeScreen';
 import { TeacherAttendanceScreen } from '../screens/teacher/TeacherAttendanceScreen';
 import { TeacherStudentsScreen } from '../screens/teacher/TeacherStudentsScreen';
-import { TeacherNotesScreen } from '../screens/teacher/TeacherNotesScreen';
-import { TeacherResultsScreen } from '../screens/teacher/TeacherResultsScreen';
 import { TeacherNotificationsScreen } from '../screens/teacher/TeacherNotificationsScreen';
 import { TeacherProfileScreen } from '../screens/teacher/TeacherProfileScreen';
-import { Home, CheckSquare, Users, BookOpen, Award, Bell, User } from 'lucide-react-native';
+import { Home, CheckSquare, Users, Bell, User } from 'lucide-react-native';
 
 const Tab = createBottomTabNavigator();
 
@@ -61,28 +59,10 @@ export const TeacherTabNavigator: React.FC = () => {
       />
 
       <Tab.Screen
-        name="Notes"
-        component={TeacherNotesScreen}
-        options={{
-          tabBarLabel: 'Notes',
-          tabBarIcon: ({ color, size }) => <BookOpen color={color} size={size} />,
-        }}
-      />
-
-      <Tab.Screen
-        name="Results"
-        component={TeacherResultsScreen}
-        options={{
-          tabBarLabel: 'Results',
-          tabBarIcon: ({ color, size }) => <Award color={color} size={size} />,
-        }}
-      />
-
-      <Tab.Screen
         name="Notifications"
         component={TeacherNotificationsScreen}
         options={{
-          tabBarLabel: 'Alerts',
+          tabBarLabel: 'Notifications',
           tabBarIcon: ({ color, size }) => <Bell color={color} size={size} />,
         }}
       />

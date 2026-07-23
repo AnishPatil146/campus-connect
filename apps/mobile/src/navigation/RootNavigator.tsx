@@ -4,6 +4,10 @@ import { useAuthStore } from '../store/useAuthStore';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { StudentTabNavigator } from './StudentTabNavigator';
 import { TeacherTabNavigator } from './TeacherTabNavigator';
+import { StudentTimetableScreen } from '../screens/student/StudentTimetableScreen';
+import { StudentResultsScreen } from '../screens/student/StudentResultsScreen';
+import { TeacherNotesScreen } from '../screens/teacher/TeacherNotesScreen';
+import { TeacherResultsScreen } from '../screens/teacher/TeacherResultsScreen';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 
 const Stack = createNativeStackNavigator();
@@ -24,9 +28,17 @@ export const RootNavigator: React.FC = () => {
       {!token ? (
         <Stack.Screen name="Auth" component={LoginScreen} />
       ) : user?.role === 'TEACHER' ? (
-        <Stack.Screen name="TeacherApp" component={TeacherTabNavigator} />
+        <>
+          <Stack.Screen name="TeacherApp" component={TeacherTabNavigator} />
+          <Stack.Screen name="TeacherNotes" component={TeacherNotesScreen} />
+          <Stack.Screen name="TeacherResults" component={TeacherResultsScreen} />
+        </>
       ) : (
-        <Stack.Screen name="StudentApp" component={StudentTabNavigator} />
+        <>
+          <Stack.Screen name="StudentApp" component={StudentTabNavigator} />
+          <Stack.Screen name="StudentTimetable" component={StudentTimetableScreen} />
+          <Stack.Screen name="StudentResults" component={StudentResultsScreen} />
+        </>
       )}
     </Stack.Navigator>
   );
