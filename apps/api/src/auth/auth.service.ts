@@ -1786,8 +1786,8 @@ The Campus Connect Team
             data: {
               userId: admin.id,
               title: notifTitle,
-              content: notifContent,
-              type: 'SYSTEM',
+              body: notifContent,
+              type: 'IN_APP',
             },
           }).catch(() => null);
 

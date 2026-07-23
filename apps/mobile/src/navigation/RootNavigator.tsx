@@ -1,0 +1,33 @@
+import React, { useEffect } from 'react';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useAuthStore } from '../store/useAuthStore';
+import { LoginScreen } from '../screens/auth/LoginScreen';
+import { StudentTabNavigator } from './StudentTabNavigator';
+import { TeacherTabNavigator } from './TeacherTabNavigator';
+import { LoadingSpinner } from '../components/ui/LoadingSpinner';
+
+const Stack = createNativeStackNavigator();
+
+export const RootNavigator: React.FC = () => {
+  const { token, user, isLoading, loadSession } = useAuthStore();
+
+  useEffect(() => {
+    loadSession();
+  }, []);
+
+  if (isLoading) {
+    return <LoadingSpinner fullScreen message="Initializing Campus Connect Mobile..." />;
+  }
+
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {!token ? (
+        <Stack.Screen name="Auth" component={LoginScreen} />
+      ) : user?.role === 'TEACHER' ? (
+        <Stack.Screen name="TeacherApp" component={TeacherTabNavigator} />
+      ) : (
+        <Stack.Screen name="StudentApp" component={StudentTabNavigator} />
+      )}
+    </Stack.Navigator>
+  );
+};

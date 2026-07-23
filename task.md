@@ -36,6 +36,6 @@
 - [x] Task 9: Real File Upload Registry & Notes
   - [x] Update `api.ts` to include `uploadFile(file, module)` helper.
   - [x] Replace text input file fields on Teacher and Student notes pages with real file inputs that execute file uploads to `/files/upload` (supporting Cloudinary/local fallback).
-- [/] Task 10: E2E Playwright Recovery Test Suite
+- [x] Task 10: E2E Playwright Recovery Test Suite
   - [x] Create E2E tests validating the 15 cross-portal user journeys.
-  - [/] Verify monorepo builds and all tests execute successfully.
+  - [x] Verify monorepo builds and all tests execute successfully.

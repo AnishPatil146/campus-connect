@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Campus Connect Mobile</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #111827;
+      --text: #f9fafb;
+      --text-subtle: #9ca3af;
+      --border: #1f2937;
+      --role-blue: #3b82f6;
+      --role-green: #10b981;
+      --role-purple: #8b5cf6;
+      --active-role: #3b82f6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+    header { padding: 16px 20px; background: rgba(17, 24, 39, 0.8); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); display: flex; items-center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+    .brand { font-weight: 800; font-size: 1.125rem; tracking: -0.025em; display: flex; align-items: center; gap: 8px; }
+    .brand-icon { width: 28px; height: 28px; background: var(--active-role); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: white; }
+    
+    .container { padding: 24px 20px; flex: 1; display: flex; flex-direction: column; gap: 24px; max-width: 480px; margin: 0 auto; width: 100%; }
+    .hero { text-align: center; display: flex; flex-direction: column; gap: 8px; }
+    .hero h1 { font-size: 1.75rem; font-weight: 800; line-height: 1.2; }
+    .hero p { font-size: 0.875rem; color: var(--text-subtle); }
+    
+    .role-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .role-card { background: var(--card-bg); border: 1px solid var(--border); padding: 14px 10px; border-radius: 14px; text-align: center; cursor: pointer; transition: all 0.2s; }
+    .role-card.active-student { border-color: var(--role-blue); background: rgba(59, 130, 246, 0.1); color: var(--role-blue); }
+    .role-card.active-teacher { border-color: var(--role-green); background: rgba(16, 185, 129, 0.1); color: var(--role-green); }
+    .role-card.active-admin { border-color: var(--role-purple); background: rgba(139, 92, 246, 0.1); color: var(--role-purple); }
+    .role-title { font-size: 0.8125rem; font-weight: 700; }
+    
+    .form-card { background: var(--card-bg); border: 1px solid var(--border); padding: 24px; border-radius: 20px; display: flex; flex-direction: column; gap: 16px; }
+    .input-group { display: flex; flex-direction: column; gap: 6px; }
+    .input-group label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-subtle); }
+    .input-group input { background: #030712; border: 1px solid var(--border); padding: 12px 14px; border-radius: 12px; color: white; font-size: 0.9375rem; outline: none; }
+    .input-group input:focus { border-color: var(--active-role); }
+    
+    .btn { background: var(--active-role); color: white; font-weight: 700; padding: 14px; border-radius: 12px; border: none; font-size: 0.9375rem; cursor: pointer; transition: opacity 0.2s; width: 100%; text-align: center; }
+    .btn:active { opacity: 0.85; }
+
+    .dashboard-view { display: none; flex-direction: column; gap: 20px; }
+    .stat-card { background: var(--card-bg); border: 1px solid var(--border); padding: 20px; border-radius: 16px; display: flex; flex-direction: column; gap: 6px; }
+    .stat-val { font-size: 2rem; font-weight: 800; color: var(--active-role); }
+    .stat-lbl { font-size: 0.8125rem; color: var(--text-subtle); font-weight: 600; }
+    
+    .nav-bar { background: var(--card-bg); border-top: 1px solid var(--border); padding: 12px 20px; display: flex; justify-content: space-around; position: sticky; bottom: 0; }
+    .nav-item { color: var(--text-subtle); font-size: 0.75rem; font-weight: 600; text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .nav-item.active { color: var(--active-role); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="brand-icon" id="brand-logo">C</div>
+      <span>Campus Connect</span>
+    </div>
+    <span style="font-size: 0.75rem; font-weight: 700; padding: 4px 10px; background: rgba(255,255,255,0.05); border-radius: 20px; border: 1px solid var(--border);" id="role-badge">STUDENT</span>
+  </header>
+
+  <div class="container">
+    <!-- Auth Section -->
+    <div id="auth-section" style="display: flex; flex-direction: column; gap: 24px;">
+      <div class="hero">
+        <h1>Welcome Back</h1>
+        <p>Select your portal role to access your campus workspace.</p>
+      </div>
+
+      <div class="role-grid">
+        <div class="role-card active-student" id="role-student" onclick="setRole('STUDENT')">
+          <div class="role-title">Student</div>
+        </div>
+        <div class="role-card" id="role-teacher" onclick="setRole('TEACHER')">
+          <div class="role-title">Teacher</div>
+        </div>
+        <div class="role-card" id="role-admin" onclick="setRole('ADMIN')">
+          <div class="role-title">Admin</div>
+        </div>
+      </div>
+
+      <form class="form-card" onsubmit="handleLogin(event)">
+        <div class="input-group">
+          <label>Email Address</label>
+          <input type="email" id="email" value="student@campus.edu" required />
+        </div>
+        <div class="input-group">
+          <label>Password</label>
+          <input type="password" id="password" value="••••••••" required />
+        </div>
+        <button type="submit" class="btn" id="login-btn">Log In to Workspace</button>
+      </form>
+    </div>
+
+    <!-- Main Mobile Dashboard -->
+    <div id="dashboard-section" class="dashboard-view">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2 style="font-size: 1.25rem; font-weight: 800;" id="user-greeting">Welcome, Student</h2>
+          <p style="font-size: 0.8125rem; color: var(--text-subtle);" id="college-name">Science & Technology Institute</p>
+        </div>
+        <button onclick="handleLogout()" style="background: none; border: 1px solid var(--border); color: #ef4444; padding: 6px 12px; border-radius: 8px; font-size: 0.75rem; font-weight: 700;">Logout</button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="stat-card">
+          <div class="stat-val" id="stat-1">92.4%</div>
+          <div class="stat-lbl" id="lbl-1">Attendance Rate</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="stat-2">6</div>
+          <div class="stat-lbl" id="lbl-2">Active Courses</div>
+        </div>
+      </div>
+
+      <div class="form-card">
+        <h3 style="font-size: 0.9375rem; font-weight: 700;">Quick Actions</h3>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <button class="btn" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: white;" onclick="alert('Viewing Central Timetable Schedule')">📅 Today's Schedule</button>
+          <button class="btn" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: white;" onclick="alert('Downloading Learning Notes & Materials')">📚 Notes & Materials</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentRole = 'STUDENT';
+    
+    function setRole(role) {
+      currentRole = role;
+      document.getElementById('role-student').className = 'role-card ' + (role === 'STUDENT' ? 'active-student' : '');
+      document.getElementById('role-teacher').className = 'role-card ' + (role === 'TEACHER' ? 'active-teacher' : '');
+      document.getElementById('role-admin').className = 'role-card ' + (role === 'ADMIN' ? 'active-admin' : '');
+      
+      const badge = document.getElementById('role-badge');
+      const logo = document.getElementById('brand-logo');
+      const email = document.getElementById('email');
+      
+      if (role === 'STUDENT') {
+        document.documentElement.style.setProperty('--active-role', '#3b82f6');
+        badge.innerText = 'STUDENT';
+        email.value = 'student@campus.edu';
+      } else if (role === 'TEACHER') {
+        document.documentElement.style.setProperty('--active-role', '#10b981');
+        badge.innerText = 'TEACHER';
+        email.value = 'teacher@campus.edu';
+      } else {
+        document.documentElement.style.setProperty('--active-role', '#8b5cf6');
+        badge.innerText = 'ADMIN';
+        email.value = 'admin@campus.edu';
+      }
+    }
+    
+    function handleLogin(e) {
+      e.preventDefault();
+      document.getElementById('auth-section').style.display = 'none';
+      document.getElementById('dashboard-section').style.display = 'flex';
+      
+      if (currentRole === 'STUDENT') {
+        document.getElementById('user-greeting').innerText = 'Welcome, Rahul Sharma';
+        document.getElementById('stat-1').innerText = '92.4%';
+        document.getElementById('lbl-1').innerText = 'Attendance Rate';
+        document.getElementById('stat-2').innerText = '6';
+        document.getElementById('lbl-2').innerText = 'Enrolled Courses';
+      } else if (currentRole === 'TEACHER') {
+        document.getElementById('user-greeting').innerText = 'Welcome, Prof. Anita Varma';
+        document.getElementById('stat-1').innerText = '48';
+        document.getElementById('lbl-1').innerText = 'Assigned Students';
+        document.getElementById('stat-2').innerText = '3';
+        document.getElementById('lbl-2').innerText = 'Today Lectures';
+      } else {
+        document.getElementById('user-greeting').innerText = 'Welcome, System Administrator';
+        document.getElementById('stat-1').innerText = '3';
+        document.getElementById('lbl-1').innerText = 'Connected Colleges';
+        document.getElementById('stat-2').innerText = '1,240';
+        document.getElementById('lbl-2').innerText = 'Total Users';
+      }
+    }
+
+    function handleLogout() {
+      document.getElementById('dashboard-section').style.display = 'none';
+      document.getElementById('auth-section').style.display = 'flex';
+    }
+  </script>
+</body>
+</html>

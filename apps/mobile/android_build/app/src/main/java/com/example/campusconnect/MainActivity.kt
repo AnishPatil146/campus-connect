@@ -39,10 +39,12 @@ class MainActivity : ComponentActivity() {
                                 settings.javaScriptEnabled = true
                                 settings.domStorageEnabled = true
                                 settings.databaseEnabled = true
+                                settings.allowFileAccess = true
+                                settings.allowContentAccess = true
                                 settings.loadWithOverviewMode = true
                                 settings.useWideViewPort = true
                                 settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-                                loadUrl("https://campus-connect.vercel.app")
+                                loadUrl("file:///android_asset/www/index.html")
                             }
                         }
                     )
