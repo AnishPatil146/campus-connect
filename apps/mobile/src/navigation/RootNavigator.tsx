@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { StudentTabNavigator } from './StudentTabNavigator';
 import { TeacherTabNavigator } from './TeacherTabNavigator';
+import { AdminTabNavigator } from './AdminTabNavigator';
 import { StudentTimetableScreen } from '../screens/student/StudentTimetableScreen';
 import { StudentResultsScreen } from '../screens/student/StudentResultsScreen';
 import { TeacherNotesScreen } from '../screens/teacher/TeacherNotesScreen';
@@ -27,6 +28,8 @@ export const RootNavigator: React.FC = () => {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {!token ? (
         <Stack.Screen name="Auth" component={LoginScreen} />
+      ) : user?.role === 'ADMIN' ? (
+        <Stack.Screen name="AdminApp" component={AdminTabNavigator} />
       ) : user?.role === 'TEACHER' ? (
         <>
           <Stack.Screen name="TeacherApp" component={TeacherTabNavigator} />
