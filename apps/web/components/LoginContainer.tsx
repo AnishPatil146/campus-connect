@@ -236,7 +236,18 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
 
       const resp = await api.register(payload);
       if (resp.success) {
-        setShowPendingApproval(true);
+        startLoading("Profile registered successfully! Signing you in...");
+        const success = await login(onboardingEmail, collegeId, onboardingRole, derivedPassword);
+        if (success) {
+          redirectUser(onboardingRole);
+        } else {
+          setShowOnboarding(false);
+          setShowSignUp(false);
+          setEmail(onboardingEmail);
+          setPassword(derivedPassword);
+          setRole(onboardingRole);
+          stopLoading();
+        }
       } else {
         setOnboardingError(resp.data?.message || 'Onboarding submission failed.');
       }

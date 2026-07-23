@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle, Badge } from '@campus-connect/ui';
+import { Card, CardContent, Badge } from '@campus-connect/ui';
 import { useAuth } from '../../../../components/AuthProvider';
 import { useSocket } from '../../../../components/SocketProvider';
 import { api } from '../../../../utils/api';
-import { Users, Search, GraduationCap, Mail, CheckCircle2 } from 'lucide-react';
+import { Users, Search, GraduationCap, Mail } from 'lucide-react';
 
 export default function TeacherStudentsPage() {
   const { user } = useAuth();
@@ -36,17 +36,16 @@ export default function TeacherStudentsPage() {
   }, [user]);
 
   useEffect(() => {
-    if (socket) {
-      const handleStudentCreated = () => {
-        fetchStudents();
-      };
-      socket.on('student:created', handleStudentCreated);
-      socket.on('student.created', handleStudentCreated);
-      return () => {
-        socket.off('student:created', handleStudentCreated);
-        socket.off('student.created', handleStudentCreated);
-      };
-    }
+    if (!socket) return;
+    const handleStudentCreated = () => {
+      fetchStudents();
+    };
+    socket.on('student:created', handleStudentCreated);
+    socket.on('student.created', handleStudentCreated);
+    return () => {
+      socket.off('student:created', handleStudentCreated);
+      socket.off('student.created', handleStudentCreated);
+    };
   }, [socket]);
 
   const filteredStudents = students.filter(
@@ -104,7 +103,7 @@ export default function TeacherStudentsPage() {
                         </p>
                       </div>
                     </div>
-                    <Badge variant="outline" className="text-[10px] uppercase">
+                    <Badge variant="secondary" className="text-[10px] uppercase">
                       {st.status || 'ACTIVE'}
                     </Badge>
                   </div>

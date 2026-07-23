@@ -1277,19 +1277,44 @@ export const api = {
 
   async getTeacherTimetable(teacherId: string): Promise<{ success: boolean; data: any[] }> {
     const isOnline = await pingAPI();
+    const daysMap = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     if (isOnline) {
       try {
         const res = await fetch(`${API_BASE_URL}/timetable/teacher?teacherId=${teacherId}`, {
           headers: getHeaders(),
         });
         const payload = await res.json();
-        if (payload.success) return { success: true, data: payload.data };
+        if (payload.success && payload.data) {
+          const mapped = payload.data.map((slot: any) => ({
+            ...slot,
+            dayOfWeek: daysMap[slot.dayOfWeek] || 'Monday',
+            subjectName: slot.subject?.name || 'Lecture',
+            roomNo: slot.room || 'Room 301',
+            classroom: slot.division?.name || 'Division A',
+            divisionName: slot.division?.name || 'Division A',
+          }));
+          return { success: true, data: mapped };
+        }
       } catch (err) {
         console.warn('Failed to fetch teacher timetable:', err);
       }
     }
-    return { success: true, data: [] };
+    // Mock Fallback
+    const mockTimetable = getMockTimetable();
+    const mappedMock = mockTimetable.map((slot: any) => ({
+      id: slot.id,
+      dayOfWeek: slot.day,
+      startTime: slot.timeSlot.split('-')[0].trim(),
+      endTime: slot.timeSlot.split('-')[1].trim(),
+      roomNo: slot.classroom,
+      classroom: slot.division,
+      divisionName: slot.division,
+      subject: { name: slot.subject, code: slot.subjectCode },
+      subjectName: slot.subject,
+    }));
+    return { success: true, data: mappedMock };
   },
+
 
   async getAttendanceSessions(query: {
     divisionId?: string;

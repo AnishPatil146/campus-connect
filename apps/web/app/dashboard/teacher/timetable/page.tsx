@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, Badge } from '@campus-connect
 import { useAuth } from '../../../../components/AuthProvider';
 import { useSocket } from '../../../../components/SocketProvider';
 import { api } from '../../../../utils/api';
-import { Clock, Calendar, BookOpen, User, Building2 } from 'lucide-react';
+import { Clock, Calendar, BookOpen, Building2 } from 'lucide-react';
 
 export default function TeacherTimetablePage() {
   const { user } = useAuth();
@@ -17,9 +17,13 @@ export default function TeacherTimetablePage() {
   const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   const fetchTimetable = async () => {
+    if (!user?.teacherProfile?.id) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
-      const res = await api.getTimetables({ collegeId: user?.collegeId });
+      const res = await api.getTeacherTimetable(user.teacherProfile.id);
       if (res.success && res.data) {
         setTimetable(res.data);
       }
@@ -37,17 +41,16 @@ export default function TeacherTimetablePage() {
   }, [user]);
 
   useEffect(() => {
-    if (socket) {
-      const handleUpdate = () => {
-        fetchTimetable();
-      };
-      socket.on('TIMETABLE_UPDATED', handleUpdate);
-      socket.on('timetable:published', handleUpdate);
-      return () => {
-        socket.off('TIMETABLE_UPDATED', handleUpdate);
-        socket.off('timetable:published', handleUpdate);
-      };
-    }
+    if (!socket) return;
+    const handleUpdate = () => {
+      fetchTimetable();
+    };
+    socket.on('TIMETABLE_UPDATED', handleUpdate);
+    socket.on('timetable:published', handleUpdate);
+    return () => {
+      socket.off('TIMETABLE_UPDATED', handleUpdate);
+      socket.off('timetable:published', handleUpdate);
+    };
   }, [socket]);
 
   return (
@@ -81,7 +84,7 @@ export default function TeacherTimetablePage() {
                         <Calendar className="h-4 w-4 text-role-primary" />
                         {day}
                       </span>
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge variant="secondary" className="text-[10px]">
                         {dayLectures.length} {dayLectures.length === 1 ? 'Lecture' : 'Lectures'}
                       </Badge>
                     </CardTitle>
