@@ -558,7 +558,7 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
             ) : showOnboarding ? (
               /* GOOGLE ONBOARDING DETAILS FORM */
               <div className="space-y-6 animate-fade-in">
-                <div>
+                <div className="w-full text-left">
                   <h2 className="font-display font-extrabold text-2xl tracking-tight text-slate-900 dark:text-slate-50">
                     Onboarding Details
                   </h2>
@@ -728,7 +728,7 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
             ) : showForgotPassword ? (
               /* PASSWORD RECOVERY FORM */
               <div className="space-y-6">
-                <div>
+                <div className="w-full text-left">
                   <h2 className="font-display font-extrabold text-2xl tracking-tight text-slate-900 dark:text-slate-50 animate-fade-in">
                     Password Recovery
                   </h2>
@@ -793,11 +793,11 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
             ) : showSignUp ? (
               /* SIGN UP FORM (CREATE PROFILE) */
               <div className="space-y-6">
-                <div>
+                <div className="w-full text-left">
                   <h2 className="font-display font-extrabold text-2xl tracking-tight text-slate-900 dark:text-slate-50">
                     Create New Profile
                   </h2>
-                  <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                  <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                     Join your college community portal
                   </p>
                 </div>
@@ -822,6 +822,7 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
                     type="button"
                     onClick={handleGoogleSignUpSubmit}
                     isLoading={isGoogleLoading}
+                    variant="outline"
                     className="w-full h-11 rounded-xl text-xs font-semibold shadow-sm border border-slate-200 dark:border-slate-800 bg-white hover:bg-slate-50 text-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-slate-200 transition-all duration-200 flex items-center justify-center gap-2.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-500/20 active:scale-[0.98]"
                   >
                     <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
@@ -1182,7 +1183,7 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
             ) : (
               /* STANDARD LOGIN FORM */
               <div className="space-y-6">
-                <div>
+                <div className="w-full text-left">
                   <h2 className="font-display font-extrabold text-2xl tracking-tight text-slate-900 dark:text-slate-50">
                     Welcome Back!
                   </h2>
@@ -1342,6 +1343,7 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
                     type="button"
                     onClick={handleGoogleLoginSubmit}
                     isLoading={isGoogleLoading || isLoading}
+                    variant="outline"
                     className="w-full h-[52px] rounded-xl text-xs font-semibold shadow-sm border border-slate-200 dark:border-slate-800 bg-white hover:bg-slate-50 text-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-slate-200 transition-all duration-200 flex items-center justify-center gap-3 cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-500/20 active:scale-[0.98]"
                   >
                     <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" width="24" height="24">
