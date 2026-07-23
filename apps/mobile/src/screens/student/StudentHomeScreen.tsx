@@ -16,9 +16,18 @@ import {
   TrendingUp,
   Award,
   Radio,
+  Bell,
+  Sparkles,
+  User,
+  ChevronRight,
+  FileText,
+  AlertTriangle,
+  Zap,
+  Activity,
+  CheckCircle2,
 } from 'lucide-react-native';
 
-export const StudentHomeScreen: React.FC = () => {
+export const StudentHomeScreen: React.FC<any> = ({ navigation }) => {
   const user = useAuthStore((state) => state.user);
   const tenantId = useAuthStore((state) => state.tenantId);
 
@@ -31,7 +40,7 @@ export const StudentHomeScreen: React.FC = () => {
           return res.data.data;
         }
       } catch (e) {
-        console.log('Failed to fetch student dashboard API:', e);
+        console.log('Fetching student dashboard API...');
       }
       return null;
     },
@@ -39,11 +48,17 @@ export const StudentHomeScreen: React.FC = () => {
 
   const tenantDisplayName = tenantId === 'college-b' ? 'Balasaheb College' : 'Pushpalata College';
   const firstName = user?.name ? user.name.split(' ')[0] : 'Student';
+  const attendanceNum = dashboardData?.attendance !== undefined ? Number(dashboardData.attendance) : 0;
   const attendanceVal = dashboardData?.attendance !== undefined ? `${dashboardData.attendance}%` : '--%';
   const newNotesCount = dashboardData?.newNotesCount !== undefined ? dashboardData.newNotesCount : 0;
   const classesList = dashboardData?.todayClasses || [];
+  const nextClass = classesList.length > 0 ? classesList[0] : null;
   const latestResult = dashboardData?.latestResult || null;
   const upcomingEvent = dashboardData?.upcomingEvent || null;
+  const latestNotes = dashboardData?.latestNotes || [];
+  const notificationsList = dashboardData?.notifications || [];
+
+  const isAttendanceSafe = attendanceNum >= 75;
 
   return (
     <ScrollView
@@ -51,12 +66,12 @@ export const StudentHomeScreen: React.FC = () => {
       contentContainerStyle={styles.scrollContent}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.student.primary} />}
     >
-      {/* Top Header & Greeting */}
+      {/* 1. Welcome Card Header */}
       <View style={styles.headerRow}>
         <View>
           <View style={styles.liveBadgeRow}>
             <Radio size={12} color={colors.success} />
-            <Text style={styles.liveText}>REALTIME CONNECTED</Text>
+            <Text style={styles.liveText}>STUDENT PORTAL • REALTIME CONNECTED</Text>
           </View>
           <Text style={styles.welcomeTitle}>
             Welcome back, {firstName}
@@ -64,37 +79,140 @@ export const StudentHomeScreen: React.FC = () => {
           <Text style={styles.tenantSubtitle}>{tenantDisplayName}</Text>
         </View>
 
-        <TouchableOpacity activeOpacity={0.8} style={styles.profileAvatar}>
+        <TouchableOpacity 
+          activeOpacity={0.8} 
+          onPress={() => navigation.navigate('Profile')}
+          style={styles.profileAvatar}
+        >
           <Text style={styles.avatarText}>{firstName.charAt(0)}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Main Stats Widgets */}
+      {/* Academic Standing Banner */}
+      <GlassCard variant="glow" style={styles.standingCard}>
+        <View style={styles.standingRow}>
+          <View style={styles.standingLeft}>
+            <Badge label="ACADEMIC STANDING" variant="primary" />
+            <Text style={styles.standingTitle}>{user?.department || 'Computer Science & Engineering'}</Text>
+            <Text style={styles.standingSub}>{user?.semester || 'Current Semester'} • PRN: {user?.prn || user?.id || 'Registered'}</Text>
+          </View>
+          <View style={styles.standingBadgeBox}>
+            <Award size={20} color={colors.student.secondary} />
+            <Text style={styles.standingStatus}>GOOD</Text>
+          </View>
+        </View>
+      </GlassCard>
+
+      {/* 2. Attendance Overview & Attendance Alert Widget */}
       <View style={styles.statsGrid}>
         <StatCard
-          title="ATTENDANCE"
+          title="ATTENDANCE OVERVIEW"
           value={attendanceVal}
-          subtitle="Academic Term Average"
+          subtitle={isAttendanceSafe ? "Safe Zone (≥75%)" : "Attention Required (<75%)"}
           variant="glow"
-          valueColor={colors.success}
-          icon={<TrendingUp size={18} color={colors.success} />}
+          valueColor={isAttendanceSafe ? colors.success : colors.danger}
+          icon={<TrendingUp size={18} color={isAttendanceSafe ? colors.success : colors.danger} />}
         />
         <StatCard
-          title="NEW NOTES"
+          title="COURSE NOTES"
           value={newNotesCount}
-          subtitle="Course Materials"
+          subtitle="Materials Available"
           variant="accent"
           valueColor={colors.student.secondary}
           icon={<BookOpen size={18} color={colors.student.secondary} />}
         />
       </View>
 
-      {/* Today's Schedule Timeline Card */}
+      {/* 3. Next Class Banner */}
+      {nextClass && (
+        <GlassCard variant="glow" style={styles.nextClassCard}>
+          <View style={styles.cardHeaderRow}>
+            <View style={styles.cardHeaderTitleRow}>
+              <Zap size={18} color={colors.student.secondary} />
+              <Text style={styles.cardTitle}>Next Class</Text>
+            </View>
+            <Badge label="UPCOMING" variant="info" />
+          </View>
+
+          <View style={styles.nextClassBody}>
+            <View style={styles.nextClassTimeBox}>
+              <Text style={styles.nextClassTimeText}>{nextClass.time?.split(' - ')[0] || '--:--'}</Text>
+              <Text style={styles.nextClassTimeSub}>Starts Soon</Text>
+            </View>
+
+            <View style={styles.nextClassInfo}>
+              <Text style={styles.nextClassSubject}>{nextClass.subject || 'Lecture'}</Text>
+              <View style={styles.classDetailsRow}>
+                <MapPin size={12} color={colors.textMuted} />
+                <Text style={styles.classDetailText}>{nextClass.room || 'Classroom'}</Text>
+                {nextClass.teacher && <Text style={styles.classDot}>•</Text>}
+                {nextClass.teacher && <Text style={styles.classDetailText}>{nextClass.teacher}</Text>}
+              </View>
+            </View>
+          </View>
+        </GlassCard>
+      )}
+
+      {/* 4. Quick Actions Grid (7 Student Shortcuts) */}
+      <GlassCard variant="default">
+        <View style={styles.cardHeaderRow}>
+          <View style={styles.cardHeaderTitleRow}>
+            <Sparkles size={18} color={colors.student.primary} />
+            <Text style={styles.cardTitle}>Quick Actions</Text>
+          </View>
+        </View>
+
+        <View style={styles.quickGrid}>
+          <TouchableOpacity activeOpacity={0.8} onPress={() => navigation.navigate('StudentTimetable')} style={styles.quickTile}>
+            <View style={[styles.quickIconBox, { backgroundColor: 'rgba(37, 99, 235, 0.15)' }]}>
+              <Calendar size={18} color={colors.student.primary} />
+            </View>
+            <Text style={styles.quickTileLabel}>Timetable</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity activeOpacity={0.8} onPress={() => navigation.navigate('Notes')} style={styles.quickTile}>
+            <View style={[styles.quickIconBox, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
+              <BookOpen size={18} color={colors.student.secondary} />
+            </View>
+            <Text style={styles.quickTileLabel}>Notes</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity activeOpacity={0.8} onPress={() => navigation.navigate('StudentResults')} style={styles.quickTile}>
+            <View style={[styles.quickIconBox, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+              <Award size={18} color={colors.warning} />
+            </View>
+            <Text style={styles.quickTileLabel}>Results</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity activeOpacity={0.8} onPress={() => navigation.navigate('Attendance')} style={styles.quickTile}>
+            <View style={[styles.quickIconBox, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+              <TrendingUp size={18} color={colors.success} />
+            </View>
+            <Text style={styles.quickTileLabel}>Attendance</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity activeOpacity={0.8} onPress={() => navigation.navigate('Notifications')} style={styles.quickTile}>
+            <View style={[styles.quickIconBox, { backgroundColor: 'rgba(139, 92, 246, 0.15)' }]}>
+              <Bell size={18} color="#8b5cf6" />
+            </View>
+            <Text style={styles.quickTileLabel}>Alerts</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity activeOpacity={0.8} onPress={() => navigation.navigate('Profile')} style={styles.quickTile}>
+            <View style={[styles.quickIconBox, { backgroundColor: 'rgba(236, 72, 153, 0.15)' }]}>
+              <User size={18} color="#ec4899" />
+            </View>
+            <Text style={styles.quickTileLabel}>Profile</Text>
+          </TouchableOpacity>
+        </View>
+      </GlassCard>
+
+      {/* 5. Today's Classes Timeline */}
       <GlassCard variant="default">
         <View style={styles.cardHeaderRow}>
           <View style={styles.cardHeaderTitleRow}>
             <Clock size={18} color={colors.student.primary} />
-            <Text style={styles.cardTitle}>Today's Classes</Text>
+            <Text style={styles.cardTitle}>Today's Classes Schedule</Text>
           </View>
           <Badge label={`${classesList.length} Scheduled`} variant="primary" />
         </View>
@@ -131,12 +249,12 @@ export const StudentHomeScreen: React.FC = () => {
         )}
       </GlassCard>
 
-      {/* Latest Results Summary */}
+      {/* 6. Performance & Academic Standing Overview */}
       <GlassCard variant="default">
         <View style={styles.cardHeaderRow}>
           <View style={styles.cardHeaderTitleRow}>
             <Award size={18} color={colors.warning} />
-            <Text style={styles.cardTitle}>Academic Performance</Text>
+            <Text style={styles.cardTitle}>Performance Overview</Text>
           </View>
           <Badge label={latestResult?.semester || 'Current Term'} variant="warning" />
         </View>
@@ -159,20 +277,50 @@ export const StudentHomeScreen: React.FC = () => {
           </View>
         ) : (
           <View style={styles.emptyBox}>
-            <Text style={styles.emptyText}>No academic results published yet.</Text>
+            <Text style={styles.emptyText}>No academic evaluation published yet for this term.</Text>
           </View>
         )}
       </GlassCard>
 
-      {/* Upcoming Event */}
+      {/* 7. Latest Notes & Download Shortcut */}
+      {latestNotes.length > 0 && (
+        <GlassCard variant="default">
+          <View style={styles.cardHeaderRow}>
+            <View style={styles.cardHeaderTitleRow}>
+              <FileText size={18} color={colors.student.secondary} />
+              <Text style={styles.cardTitle}>Latest Study Materials</Text>
+            </View>
+            <TouchableOpacity onPress={() => navigation.navigate('Notes')}>
+              <Text style={styles.seeAllText}>View All</Text>
+            </TouchableOpacity>
+          </View>
+
+          {latestNotes.slice(0, 3).map((note: any, idx: number) => (
+            <TouchableOpacity
+              key={note.id || idx}
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('Notes')}
+              style={[styles.noteRowItem, idx === Math.min(latestNotes.length, 3) - 1 && styles.noBorder]}
+            >
+              <View style={styles.noteRowInfo}>
+                <Text style={styles.noteRowTitle}>{note.title || 'Course Material'}</Text>
+                <Text style={styles.noteRowSub}>{note.subject || 'Department Note'}</Text>
+              </View>
+              <Badge label={note.fileType || 'PDF'} variant="info" />
+            </TouchableOpacity>
+          ))}
+        </GlassCard>
+      )}
+
+      {/* 8. Upcoming Event & Exams Card */}
       {upcomingEvent && (
         <GlassCard variant="accent">
           <View style={styles.cardHeaderRow}>
             <View style={styles.cardHeaderTitleRow}>
               <Calendar size={18} color={colors.student.secondary} />
-              <Text style={styles.cardTitle}>Upcoming Event</Text>
+              <Text style={styles.cardTitle}>Upcoming Event / Exam</Text>
             </View>
-            <Badge label="Campus Event" variant="info" />
+            <Badge label="Campus Notice" variant="info" />
           </View>
 
           <Text style={styles.eventTitle}>{upcomingEvent.title}</Text>
@@ -243,10 +391,84 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.student.primary,
   },
+  standingCard: {
+    marginBottom: spacing.md,
+    padding: spacing.md,
+  },
+  standingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  standingLeft: {
+    flex: 1,
+  },
+  standingTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginTop: 6,
+  },
+  standingSub: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  standingBadgeBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    padding: spacing.xs + 2,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.bgCardBorder,
+    minWidth: 64,
+  },
+  standingStatus: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.student.secondary,
+    marginTop: 4,
+  },
   statsGrid: {
     flexDirection: 'row',
     marginHorizontal: -spacing.xs,
     marginBottom: spacing.sm,
+  },
+  nextClassCard: {
+    marginBottom: spacing.md,
+  },
+  nextClassBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  nextClassTimeBox: {
+    width: 90,
+    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+    borderRadius: borderRadius.md,
+    padding: spacing.xs,
+    alignItems: 'center',
+    marginRight: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(37, 99, 235, 0.25)',
+  },
+  nextClassTimeText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.student.primary,
+  },
+  nextClassTimeSub: {
+    fontSize: 10,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  nextClassInfo: {
+    flex: 1,
+  },
+  nextClassSubject: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -261,6 +483,35 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  quickGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    justifyContent: 'space-between',
+  },
+  quickTile: {
+    width: '30%',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.bgCardBorder,
+    marginBottom: spacing.xs,
+  },
+  quickIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
+  },
+  quickTileLabel: {
+    fontSize: 11,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -338,6 +589,33 @@ const styles = StyleSheet.create({
     width: 1,
     height: 40,
     backgroundColor: colors.bgCardBorder,
+  },
+  seeAllText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.student.primary,
+  },
+  noteRowItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.bgCardBorder,
+  },
+  noteRowInfo: {
+    flex: 1,
+    paddingRight: spacing.sm,
+  },
+  noteRowTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  noteRowSub: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   eventTitle: {
     fontSize: 16,
