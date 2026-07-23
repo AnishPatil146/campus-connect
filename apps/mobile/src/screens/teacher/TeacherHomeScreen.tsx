@@ -10,14 +10,11 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../services/apiClient';
 import {
-  Users,
   CheckSquare,
   BookOpen,
-  Award,
   Clock,
   MapPin,
   Sparkles,
-  ChevronRight,
   Radio,
 } from 'lucide-react-native';
 
@@ -32,43 +29,39 @@ export const TeacherHomeScreen: React.FC<any> = ({ navigation }) => {
         const res = await apiClient.get('/dashboard/teacher');
         if (res.data?.data) return res.data.data;
       } catch (e) {
-        console.log('Using local fallback teacher dashboard');
+        console.log('Failed to fetch teacher dashboard API:', e);
       }
-      return {
-        pendingAttendanceCount: 1,
-        notesUploadedCount: 14,
-        resultsPendingCount: 2,
-        todayClasses: [
-          { id: '1', division: 'Div A - Sem VI', subject: 'DBMS', time: '09:00 AM - 10:00 AM', room: 'Lab 402', status: 'PENDING' },
-          { id: '2', division: 'Div B - Sem VI', subject: 'System Design', time: '01:30 PM - 02:30 PM', room: 'Seminar Room 1', status: 'COMPLETED' },
-        ],
-      };
+      return null;
     },
   });
 
   const tenantDisplayName = tenantId === 'college-b' ? 'Balasaheb College' : 'Pushpalata College';
+  const firstName = user?.name ? user.name.split(' ')[0] : 'Teacher';
+  const pendingAttendanceCount = teacherData?.pendingAttendanceCount ?? 0;
+  const notesUploadedCount = teacherData?.notesUploadedCount ?? 0;
+  const classesList = teacherData?.todayClasses || [];
 
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.scrollContent}
-      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.teacher.primary} />}
     >
       {/* Top Header & Greeting */}
       <View style={styles.headerRow}>
         <View>
           <View style={styles.liveBadgeRow}>
-            <Radio size={12} color={colors.success} />
-            <Text style={styles.liveText}>REALTIME TEACHER SUITE</Text>
+            <Radio size={12} color={colors.teacher.secondary} />
+            <Text style={styles.liveText}>FACULTY WORKSPACE</Text>
           </View>
           <Text style={styles.welcomeTitle}>
-            Welcome, {user?.name?.split(' ')[0] || 'Prof. Anish'}
+            Welcome, {firstName}
           </Text>
           <Text style={styles.tenantSubtitle}>{tenantDisplayName}</Text>
         </View>
 
         <TouchableOpacity activeOpacity={0.8} style={styles.profileAvatar}>
-          <Text style={styles.avatarText}>{user?.name?.charAt(0) || 'P'}</Text>
+          <Text style={styles.avatarText}>{firstName.charAt(0)}</Text>
         </TouchableOpacity>
       </View>
 
@@ -76,32 +69,34 @@ export const TeacherHomeScreen: React.FC<any> = ({ navigation }) => {
       <View style={styles.statsGrid}>
         <StatCard
           title="ATTENDANCE PENDING"
-          value={teacherData?.pendingAttendanceCount || 1}
-          subtitle="Requires marking"
+          value={pendingAttendanceCount}
+          subtitle="Class Roll Calls"
           variant="glow"
           valueColor={colors.warning}
           icon={<CheckSquare size={18} color={colors.warning} />}
         />
         <StatCard
           title="NOTES UPLOADED"
-          value={teacherData?.notesUploadedCount || 14}
-          subtitle="Course materials"
+          value={notesUploadedCount}
+          subtitle="Course Materials"
           variant="accent"
-          valueColor={colors.secondary}
-          icon={<BookOpen size={18} color={colors.secondary} />}
+          valueColor={colors.teacher.secondary}
+          icon={<BookOpen size={18} color={colors.teacher.secondary} />}
         />
       </View>
 
       {/* Quick Action Shortcuts */}
       <GlassCard variant="glow" style={styles.actionCard}>
         <View style={styles.cardHeaderRow}>
-          <Sparkles size={18} color={colors.primary} />
-          <Text style={styles.cardTitle}>Quick Classroom Actions</Text>
+          <View style={styles.titleWithIcon}>
+            <Sparkles size={18} color={colors.teacher.primary} />
+            <Text style={styles.cardTitle}>Classroom Quick Actions</Text>
+          </View>
         </View>
 
         <View style={styles.actionButtonsRow}>
           <Button
-            title="Mark Attendance (30s)"
+            title="Mark Attendance"
             onPress={() => navigation.navigate('Attendance')}
             variant="primary"
             icon={<CheckSquare size={16} color={colors.textWhite} />}
@@ -109,7 +104,7 @@ export const TeacherHomeScreen: React.FC<any> = ({ navigation }) => {
           />
 
           <Button
-            title="Upload Note"
+            title="Upload Study Note"
             onPress={() => navigation.navigate('Notes')}
             variant="secondary"
             icon={<BookOpen size={16} color={colors.textPrimary} />}
@@ -122,39 +117,49 @@ export const TeacherHomeScreen: React.FC<any> = ({ navigation }) => {
       <GlassCard variant="default">
         <View style={styles.cardHeaderRow}>
           <View style={styles.titleWithIcon}>
-            <Clock size={18} color={colors.primary} />
+            <Clock size={18} color={colors.teacher.primary} />
             <Text style={styles.cardTitle}>Today's Lectures</Text>
           </View>
-          <Badge label={`${teacherData?.todayClasses?.length || 2} Sessions`} variant="primary" />
+          <Badge label={`${classesList.length} Sessions`} variant="primary" />
         </View>
 
-        {teacherData?.todayClasses?.map((item: any, idx: number) => (
-          <TouchableOpacity
-            key={item.id || idx}
-            activeOpacity={0.8}
-            onPress={() => navigation.navigate('Attendance')}
-            style={[styles.classItem, idx === teacherData.todayClasses.length - 1 && styles.noBorder]}
-          >
-            <View style={styles.classTimeBox}>
-              <Text style={styles.classTimeText}>{item.time.split(' - ')[0]}</Text>
-              <Text style={styles.classTimeSub}>{item.time.split(' - ')[1]}</Text>
-            </View>
-
-            <View style={styles.classInfo}>
-              <Text style={styles.classSubject}>{item.subject}</Text>
-              <Text style={styles.classDiv}>{item.division}</Text>
-              <View style={styles.classDetailsRow}>
-                <MapPin size={12} color={colors.textMuted} />
-                <Text style={styles.classDetailText}>{item.room}</Text>
+        {classesList.length > 0 ? (
+          classesList.map((item: any, idx: number) => (
+            <TouchableOpacity
+              key={item.id || idx}
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('Attendance')}
+              style={[styles.classItem, idx === classesList.length - 1 && styles.noBorder]}
+            >
+              <View style={styles.classTimeBox}>
+                <Text style={styles.classTimeText}>{item.time?.split(' - ')[0] || '--:--'}</Text>
+                <Text style={styles.classTimeSub}>{item.time?.split(' - ')[1] || ''}</Text>
               </View>
-            </View>
 
-            <Badge
-              label={item.status}
-              variant={item.status === 'COMPLETED' ? 'success' : 'warning'}
-            />
-          </TouchableOpacity>
-        ))}
+              <View style={styles.classInfo}>
+                <Text style={styles.classSubject}>{item.subject || 'Lecture'}</Text>
+                {item.division && <Text style={styles.classDiv}>{item.division}</Text>}
+                {item.room && (
+                  <View style={styles.classDetailsRow}>
+                    <MapPin size={12} color={colors.textMuted} />
+                    <Text style={styles.classDetailText}>{item.room}</Text>
+                  </View>
+                )}
+              </View>
+
+              {item.status && (
+                <Badge
+                  label={item.status}
+                  variant={item.status === 'COMPLETED' ? 'success' : 'warning'}
+                />
+              )}
+            </TouchableOpacity>
+          ))
+        ) : (
+          <View style={styles.emptyBox}>
+            <Text style={styles.emptyText}>No lecture sessions scheduled for today.</Text>
+          </View>
+        )}
       </GlassCard>
     </ScrollView>
   );
@@ -185,7 +190,7 @@ const styles = StyleSheet.create({
   liveText: {
     fontSize: 10,
     fontWeight: '800',
-    color: colors.success,
+    color: colors.teacher.secondary,
     letterSpacing: 0.5,
   },
   welcomeTitle: {
@@ -203,16 +208,16 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.primaryGlow,
+    backgroundColor: colors.teacher.glow,
     borderWidth: 1.5,
-    borderColor: colors.primary,
+    borderColor: colors.teacher.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
     fontSize: 18,
     fontWeight: '800',
-    color: colors.primary,
+    color: colors.teacher.primary,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -267,7 +272,7 @@ const styles = StyleSheet.create({
   classTimeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.primary,
+    color: colors.teacher.primary,
   },
   classTimeSub: {
     fontSize: 10,
@@ -284,7 +289,7 @@ const styles = StyleSheet.create({
   },
   classDiv: {
     fontSize: 12,
-    color: colors.secondary,
+    color: colors.teacher.secondary,
     fontWeight: '600',
     marginTop: 2,
   },
@@ -297,5 +302,13 @@ const styles = StyleSheet.create({
   classDetailText: {
     fontSize: 12,
     color: colors.textSecondary,
+  },
+  emptyBox: {
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 13,
+    color: colors.textMuted,
   },
 });

@@ -8,7 +8,7 @@ import { Badge } from '../../components/ui/Badge';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../services/apiClient';
-import { Activity, Users, Building2, Server, ShieldCheck, Radio } from 'lucide-react-native';
+import { Users, Server, ShieldCheck, Radio } from 'lucide-react-native';
 
 export const AdminHomeScreen: React.FC = () => {
   const user = useAuthStore((state) => state.user);
@@ -21,19 +21,15 @@ export const AdminHomeScreen: React.FC = () => {
         const res = await apiClient.get('/dashboard/admin');
         if (res.data?.data) return res.data.data;
       } catch (e) {
-        console.log('Using admin mobile dashboard fallback data');
+        console.log('Failed to fetch admin dashboard API:', e);
       }
-      return {
-        totalStudents: 1240,
-        totalTeachers: 86,
-        managedDepartments: 8,
-        activeSessions: 34,
-        systemHealth: { status: 'OPTIMAL', db: 'ONLINE', redis: 'ONLINE', socket: 'CONNECTED' },
-      };
+      return null;
     },
   });
 
   const tenantDisplayName = tenantId === 'college-b' ? 'Balasaheb College' : 'Pushpalata College';
+  const totalStudents = adminData?.totalStudents ?? 0;
+  const totalTeachers = adminData?.totalTeachers ?? 0;
 
   return (
     <ScrollView
@@ -52,23 +48,23 @@ export const AdminHomeScreen: React.FC = () => {
         </View>
 
         <View style={styles.profileAvatar}>
-          <Text style={styles.avatarText}>{user?.name?.charAt(0) || 'A'}</Text>
+          <Text style={styles.avatarText}>{user?.name ? user.name.charAt(0) : 'A'}</Text>
         </View>
       </View>
 
       <View style={styles.statsGrid}>
         <StatCard
           title="TOTAL STUDENTS"
-          value={adminData?.totalStudents || 1240}
-          subtitle="Enrolled across depts"
+          value={totalStudents}
+          subtitle="Enrolled Roster"
           variant="glow"
           valueColor={colors.admin.tertiary}
           icon={<Users size={18} color={colors.admin.tertiary} />}
         />
         <StatCard
           title="TOTAL FACULTY"
-          value={adminData?.totalTeachers || 86}
-          subtitle="Active educators"
+          value={totalTeachers}
+          subtitle="Active Educators"
           variant="accent"
           valueColor={colors.admin.secondary}
           icon={<ShieldCheck size={18} color={colors.admin.secondary} />}
