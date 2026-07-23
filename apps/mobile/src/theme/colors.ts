@@ -1,5 +1,5 @@
 export const colors = {
-  // Backgrounds
+  // Base Slate Backgrounds
   bgDark: '#020817',
   bgCard: '#0F172A',
   bgCardBorder: 'rgba(255, 255, 255, 0.08)',
@@ -7,11 +7,31 @@ export const colors = {
   bgSurface: '#1E293B',
   bgInput: 'rgba(30, 41, 59, 0.7)',
 
-  // Accents & Gradients
-  primary: '#6366F1', // Indigo
-  primaryGlow: 'rgba(99, 102, 241, 0.25)',
-  secondary: '#38BDF8', // Sky Blue
-  accent: '#8B5CF6', // Purple
+  // Role Color Palettes (Identical to Web)
+  student: {
+    primary: '#2563EB',
+    secondary: '#3B82F6',
+    tertiary: '#60A5FA',
+    glow: 'rgba(37, 99, 235, 0.25)',
+  },
+  teacher: {
+    primary: '#059669',
+    secondary: '#10B981',
+    tertiary: '#34D399',
+    glow: 'rgba(5, 150, 105, 0.25)',
+  },
+  admin: {
+    primary: '#7C3AED',
+    secondary: '#8B5CF6',
+    tertiary: '#A78BFA',
+    glow: 'rgba(124, 58, 237, 0.25)',
+  },
+
+  // Generic Fallback Accents
+  primary: '#2563EB',
+  primaryGlow: 'rgba(37, 99, 235, 0.25)',
+  secondary: '#3B82F6',
+  accent: '#8B5CF6',
   
   // Status Colors
   success: '#10B981',
@@ -30,7 +50,7 @@ export const colors = {
 
   // Navigation
   tabBarBg: '#0B1120',
-  tabActive: '#6366F1',
+  tabActive: '#3B82F6',
   tabInactive: '#64748B',
 };
 
@@ -43,7 +63,7 @@ export const shadows = {
     elevation: 5,
   },
   glowPrimary: {
-    shadowColor: '#6366F1',
+    shadowColor: '#3B82F6',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
