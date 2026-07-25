@@ -7,7 +7,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Header } from '../../components/ui/Header';
 import { Button } from '../../components/ui/Button';
 import { useAuthStore } from '../../store/useAuthStore';
-import { User, Shield, Building2, LogOut, Check, Layers } from 'lucide-react-native';
+import { Building2, LogOut, Check } from 'lucide-react-native';
 
 export const StudentProfileScreen: React.FC = () => {
   const { user, tenantId, setTenantId, logout } = useAuthStore();
@@ -24,22 +24,24 @@ export const StudentProfileScreen: React.FC = () => {
     ]);
   };
 
+  const roleTitle = user?.role ? `${user.role} ACADEMIC PROFILE` : 'STUDENT ACADEMIC PROFILE';
+
   return (
     <View style={styles.container}>
-      <Header title="Student Profile" subtitle="Account Settings & Tenant Configuration" />
+      <Header title="User Profile" subtitle="Account Settings & Institution Tenant Switcher" />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Profile Card Header */}
         <GlassCard variant="glow" style={styles.profileCard}>
           <View style={styles.avatarLarge}>
-            <Text style={styles.avatarTextLarge}>{user?.name?.charAt(0) || 'A'}</Text>
+            <Text style={styles.avatarTextLarge}>{user?.name ? user.name.charAt(0) : 'U'}</Text>
           </View>
-          <Text style={styles.userName}>{user?.name || 'Anish Patil'}</Text>
-          <Text style={styles.userRole}>STUDENT ACADEMIC PROFILE</Text>
+          <Text style={styles.userName}>{user?.name || 'Academic User'}</Text>
+          <Text style={styles.userRole}>{roleTitle}</Text>
 
           <View style={styles.badgeRow}>
             <Badge label={tenantId === 'college-b' ? 'Balasaheb College' : 'Pushpalata College'} variant="primary" />
-            <Badge label="VERIFIED STUDENT" variant="success" />
+            <Badge label="VERIFIED ACCOUNT" variant="success" />
           </View>
         </GlassCard>
 
@@ -48,30 +50,32 @@ export const StudentProfileScreen: React.FC = () => {
           <Text style={styles.sectionTitle}>Academic Information</Text>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>PRN / Roll Number</Text>
-            <Text style={styles.infoVal}>{user?.prn || 'PRN2026CS101'}</Text>
+            <Text style={styles.infoLabel}>PRN / Employee ID</Text>
+            <Text style={styles.infoVal}>{user?.prn || user?.id || 'Registered'}</Text>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Department</Text>
-            <Text style={styles.infoVal}>{user?.department || 'Computer Science & Eng'}</Text>
+            <Text style={styles.infoVal}>{user?.department || 'General Science & Tech'}</Text>
           </View>
 
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Current Semester</Text>
-            <Text style={styles.infoVal}>{user?.semester || 'Semester VI'}</Text>
-          </View>
+          {user?.semester && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Current Semester</Text>
+              <Text style={styles.infoVal}>{user.semester}</Text>
+            </View>
+          )}
 
           <View style={[styles.infoRow, styles.noBorder]}>
             <Text style={styles.infoLabel}>Campus Email</Text>
-            <Text style={styles.infoVal}>{user?.email || 'anish.student@campusconnect.edu'}</Text>
+            <Text style={styles.infoVal}>{user?.email || 'user@campus.edu'}</Text>
           </View>
         </GlassCard>
 
         {/* Multi-Tenant Switcher Settings */}
         <GlassCard variant="default">
           <View style={styles.tenantHeaderRow}>
-            <Building2 size={18} color={colors.primary} />
+            <Building2 size={18} color={colors.student.primary} />
             <Text style={styles.sectionTitle}>Institution Tenant (Multi-Tenant)</Text>
           </View>
 
@@ -84,7 +88,7 @@ export const StudentProfileScreen: React.FC = () => {
               <Text style={styles.tenantOptionTitle}>Pushpalata College</Text>
               <Text style={styles.tenantOptionSub}>Isolated Tenant DB: college-a</Text>
             </View>
-            {tenantId === 'college-a' && <Check size={18} color={colors.primary} />}
+            {tenantId === 'college-a' && <Check size={18} color={colors.student.primary} />}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -96,7 +100,7 @@ export const StudentProfileScreen: React.FC = () => {
               <Text style={styles.tenantOptionTitle}>Balasaheb College</Text>
               <Text style={styles.tenantOptionSub}>Isolated Tenant DB: college-b</Text>
             </View>
-            {tenantId === 'college-b' && <Check size={18} color={colors.primary} />}
+            {tenantId === 'college-b' && <Check size={18} color={colors.student.primary} />}
           </TouchableOpacity>
         </GlassCard>
 
@@ -130,9 +134,9 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: colors.primaryGlow,
+    backgroundColor: colors.student.glow,
     borderWidth: 2,
-    borderColor: colors.primary,
+    borderColor: colors.student.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
@@ -140,7 +144,7 @@ const styles = StyleSheet.create({
   avatarTextLarge: {
     fontSize: 32,
     fontWeight: '800',
-    color: colors.primary,
+    color: colors.student.primary,
   },
   userName: {
     fontSize: 22,
@@ -202,8 +206,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   tenantOptionActive: {
-    backgroundColor: colors.primaryGlow,
-    borderColor: colors.primary,
+    backgroundColor: colors.student.glow,
+    borderColor: colors.student.primary,
   },
   tenantOptionTitle: {
     fontSize: 14,
