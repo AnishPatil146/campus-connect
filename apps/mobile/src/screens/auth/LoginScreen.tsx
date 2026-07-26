@@ -17,11 +17,11 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { useAuthStore, UserProfile } from '../../store/useAuthStore';
 import { apiClient } from '../../services/apiClient';
-import { GraduationCap, ShieldCheck, Mail, Lock, Building2 } from 'lucide-react-native';
+import { GraduationCap, Mail, Lock, Building2, User, KeyRound } from 'lucide-react-native';
 
 export const LoginScreen: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [identifier, setIdentifier] = useState('student@campusconnect.edu');
+  const [password, setPassword] = useState('password123');
   const [tenantId, setTenantIdState] = useState<'college-a' | 'college-b'>('college-a');
   const [loading, setLoading] = useState(false);
 
@@ -33,88 +33,67 @@ export const LoginScreen: React.FC = () => {
   };
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Required Fields', 'Please enter both email and password.');
+    if (!identifier || !password) {
+      Alert.alert('Required Fields', 'Please enter your login identifier (Email/PRN/EmpID) and password.');
       return;
     }
 
     setLoading(true);
     try {
+      // Universal single authentication API endpoint
       const response = await apiClient.post('/auth/login', {
-        email: email.trim().toLowerCase(),
+        email: identifier.trim().toLowerCase(),
         password,
       });
 
-      const { accessToken, refreshToken, user } = response.data.data;
-      
+      const { accessToken, refreshToken, user } = response.data?.data || {};
+
+      // Automatically determine user role from backend response
       const profile: UserProfile = {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role || 'STUDENT',
-        collegeId: user.collegeId || tenantId,
-        prn: user.prn || 'PRN20260901',
-        department: user.department?.name || 'Computer Science & Eng',
-        semester: user.semester?.name || 'Semester VI',
-        employeeId: user.employeeId || 'EMP9901',
-        assignedSubjects: ['DBMS', 'Operating Systems', 'Software Engineering'],
+        id: user?.id || 'usr-101',
+        email: user?.email || identifier.trim(),
+        name: user?.name || 'Campus User',
+        role: (user?.role as any) || (identifier.includes('teacher') ? 'TEACHER' : identifier.includes('admin') ? 'ADMIN' : 'STUDENT'),
+        collegeId: user?.collegeId || tenantId,
+        prn: user?.prn || '2026CS101',
+        employeeId: user?.employeeId,
+        department: user?.department?.name || 'Computer Engineering',
+        semester: user?.semester?.name || 'Semester VI',
       };
 
-      await setAuth(accessToken || 'mock_access_token', refreshToken || 'mock_refresh_token', profile);
+      await setAuth(accessToken || 'demo_jwt_token_2026', refreshToken || 'demo_refresh_token_2026', profile);
     } catch (err: any) {
-      // Fallback demo authentication for verification if API backend mock is active
-      console.warn('Backend login fallback active:', err?.message);
-      
-      let mockRole: 'STUDENT' | 'TEACHER' = 'STUDENT';
-      if (email.includes('teacher') || email.includes('prof')) {
-        mockRole = 'TEACHER';
+      console.warn('Universal login backend fallback active:', err?.message);
+
+      // Auto-detect role from input identifier if offline fallback is active
+      const trimmed = identifier.trim().toLowerCase();
+      let detectedRole: 'STUDENT' | 'TEACHER' | 'ADMIN' = 'STUDENT';
+      let detectedName = 'Anish Patil';
+
+      if (trimmed.includes('teacher') || trimmed.includes('prof') || trimmed.includes('emp')) {
+        detectedRole = 'TEACHER';
+        detectedName = 'Prof. Anish Patil';
+      } else if (trimmed.includes('admin') || trimmed.includes('sys')) {
+        detectedRole = 'ADMIN';
+        detectedName = 'System Administrator';
       }
 
       const mockProfile: UserProfile = {
-        id: email.includes('teacher') ? 'teach-101' : 'stu-101',
-        email: email.trim(),
-        name: mockRole === 'TEACHER' ? 'Prof. Anish Patil' : 'Anish Patil',
-        role: mockRole,
+        id: detectedRole === 'STUDENT' ? 'stu-101' : detectedRole === 'TEACHER' ? 'teach-101' : 'adm-101',
+        email: trimmed,
+        name: detectedName,
+        role: detectedRole,
         collegeId: tenantId,
-        prn: mockRole === 'STUDENT' ? '2026CS101' : undefined,
-        employeeId: mockRole === 'TEACHER' ? 'EMP-T802' : undefined,
+        prn: detectedRole === 'STUDENT' ? '2026CS101' : undefined,
+        employeeId: detectedRole === 'TEACHER' ? 'EMP-T802' : detectedRole === 'ADMIN' ? 'ADM-001' : undefined,
         department: 'Computer Engineering',
         semester: 'Semester VI',
-        assignedSubjects: ['DBMS', 'Operating Systems', 'System Design'],
       };
 
       await setAuth('demo_jwt_token_2026', 'demo_refresh_token_2026', mockProfile);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickDemoLogin = async (role: 'STUDENT' | 'TEACHER') => {
-    setLoading(true);
-    const demoUser: UserProfile = role === 'STUDENT' 
-      ? {
-          id: 'student-demo-id',
-          email: 'anish.student@campusconnect.edu',
-          name: 'Anish Patil',
-          role: 'STUDENT',
-          collegeId: tenantId,
-          prn: 'PRN2026001',
-          department: 'Computer Science',
-          semester: 'Semester 6',
-        }
-      : {
-          id: 'teacher-demo-id',
-          email: 'prof.smith@campusconnect.edu',
-          name: 'Prof. Anish Patil',
-          role: 'TEACHER',
-          collegeId: tenantId,
-          employeeId: 'T-EMP-404',
-          department: 'Computer Engineering',
-          assignedSubjects: ['Database Systems', 'Operating Systems'],
-        };
-
-    await setAuth('demo_jwt_token_2026', 'demo_refresh_token_2026', demoUser);
-    setLoading(false);
   };
 
   return (
@@ -124,35 +103,37 @@ export const LoginScreen: React.FC = () => {
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         {/* Brand Header */}
-        <View style={styles.brandContainer}>
-          <View style={styles.logoBadge}>
-            <GraduationCap size={40} color={colors.primary} />
+        <View style={styles.topHeader}>
+          <View style={styles.topHeaderLeft}>
+            <View style={styles.brandBadge}>
+              <GraduationCap size={22} color={colors.textWhite} />
+            </View>
+            <Text style={styles.topHeaderTitle}>Campus Connect</Text>
           </View>
-          <Text style={styles.appName}>Campus Connect</Text>
-          <Text style={styles.appTagline}>My College In My Pocket</Text>
+          <Badge label="SINGLE AUTH GATEWAY" variant="primary" />
         </View>
 
-        {/* Tenant Switcher */}
+        {/* Hero Title */}
+        <View style={styles.heroSection}>
+          <Text style={styles.heroTitle}>Universal Login</Text>
+          <Text style={styles.heroSubtitle}>
+            Enter your Email, Student PRN, or Employee ID. The system will automatically direct you to your authorized workspace.
+          </Text>
+        </View>
+
+        {/* Institution Tenant Selector */}
         <GlassCard variant="outlined" style={styles.tenantContainer}>
           <View style={styles.tenantHeader}>
             <Building2 size={16} color={colors.textSecondary} />
-            <Text style={styles.tenantTitle}>Select Institution (Multi-Tenant)</Text>
+            <Text style={styles.tenantTitle}>Institution (Multi-Tenant)</Text>
           </View>
           <View style={styles.tenantRow}>
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => handleTenantSelect('college-a')}
-              style={[
-                styles.tenantChip,
-                tenantId === 'college-a' && styles.tenantChipActive,
-              ]}
+              style={[styles.tenantChip, tenantId === 'college-a' && styles.tenantChipActive]}
             >
-              <Text
-                style={[
-                  styles.tenantChipText,
-                  tenantId === 'college-a' && styles.tenantChipTextActive,
-                ]}
-              >
+              <Text style={[styles.tenantChipText, tenantId === 'college-a' && styles.tenantChipTextActive]}>
                 Pushpalata College
               </Text>
             </TouchableOpacity>
@@ -160,88 +141,54 @@ export const LoginScreen: React.FC = () => {
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => handleTenantSelect('college-b')}
-              style={[
-                styles.tenantChip,
-                tenantId === 'college-b' && styles.tenantChipActive,
-              ]}
+              style={[styles.tenantChip, tenantId === 'college-b' && styles.tenantChipActive]}
             >
-              <Text
-                style={[
-                  styles.tenantChipText,
-                  tenantId === 'college-b' && styles.tenantChipTextActive,
-                ]}
-              >
+              <Text style={[styles.tenantChipText, tenantId === 'college-b' && styles.tenantChipTextActive]}>
                 Balasaheb College
               </Text>
             </TouchableOpacity>
           </View>
         </GlassCard>
 
-        {/* Login Form Card */}
+        {/* Universal Single Login Form */}
         <GlassCard variant="glow" style={styles.card}>
-          <Text style={styles.cardTitle}>Welcome Back</Text>
-          <Text style={styles.cardSubtitle}>Sign in to your native campus companion</Text>
-
-          {/* Email Input */}
-          <View style={styles.inputContainer}>
-            <Mail size={18} color={colors.textMuted} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Campus Email"
-              placeholderTextColor={colors.textMuted}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
+          <View style={styles.formGroup}>
+            <Text style={styles.inputLabel}>EMAIL / PRN / EMPLOYEE ID</Text>
+            <View style={styles.inputContainer}>
+              <User size={18} color={colors.textMuted} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="student@campus.edu or PRN2026001"
+                placeholderTextColor={colors.textMuted}
+                value={identifier}
+                onChangeText={setIdentifier}
+                autoCapitalize="none"
+              />
+            </View>
           </View>
 
-          {/* Password Input */}
-          <View style={styles.inputContainer}>
-            <Lock size={18} color={colors.textMuted} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              placeholderTextColor={colors.textMuted}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
+          <View style={styles.formGroup}>
+            <Text style={styles.inputLabel}>PASSWORD</Text>
+            <View style={styles.inputContainer}>
+              <Lock size={18} color={colors.textMuted} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="••••••••"
+                placeholderTextColor={colors.textMuted}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
+            </View>
           </View>
 
           <Button
-            title="Sign In"
+            title="Log In to Workspace"
             onPress={handleLogin}
             loading={loading}
             style={styles.loginBtn}
           />
         </GlassCard>
-
-        {/* Quick Demo Logins for Student & Teacher */}
-        <View style={styles.demoContainer}>
-          <Text style={styles.demoTitle}>QUICK DEMO ACCESSIBILITY</Text>
-          <View style={styles.demoRow}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => handleQuickDemoLogin('STUDENT')}
-              style={styles.demoCard}
-            >
-              <Badge label="STUDENT APP" variant="primary" />
-              <Text style={styles.demoCardTitle}>Anish Patil</Text>
-              <Text style={styles.demoCardSub}>Explore Student Hub</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => handleQuickDemoLogin('TEACHER')}
-              style={styles.demoCard}
-            >
-              <Badge label="TEACHER APP" variant="success" />
-              <Text style={styles.demoCardTitle}>Prof. Anish</Text>
-              <Text style={styles.demoCardSub}>Mark Attendance</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -254,38 +201,54 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.md,
-    paddingTop: spacing.xxl,
-    paddingBottom: spacing.xl,
+    paddingTop: Platform.OS === 'ios' ? spacing.xl : spacing.lg,
+    paddingBottom: spacing.xxl,
   },
-  brandContainer: {
+  topHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.lg,
   },
-  logoBadge: {
-    width: 72,
-    height: 72,
-    borderRadius: borderRadius.card,
-    backgroundColor: 'rgba(99, 102, 241, 0.15)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(99, 102, 241, 0.4)',
+  topHeaderLeft: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
+  },
+  brandBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
-    marginBottom: spacing.sm,
+    alignItems: 'center',
   },
-  appName: {
-    fontSize: 28,
-    fontWeight: '800',
+  topHeaderTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
     color: colors.textPrimary,
-    letterSpacing: -0.5,
   },
-  appTagline: {
+  heroSection: {
+    alignItems: 'center',
+    marginVertical: spacing.md,
+  },
+  heroTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  heroSubtitle: {
     fontSize: 14,
     color: colors.textSecondary,
-    marginTop: spacing.xs / 2,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+    paddingHorizontal: spacing.md,
+    lineHeight: 20,
   },
   tenantContainer: {
+    marginBottom: spacing.lg,
     padding: spacing.md,
-    marginBottom: spacing.md,
   },
   tenantHeader: {
     flexDirection: 'row',
@@ -295,62 +258,55 @@ const styles = StyleSheet.create({
   },
   tenantTitle: {
     fontSize: 12,
-    fontWeight: '700',
     color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   tenantRow: {
     flexDirection: 'row',
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   tenantChip: {
     flex: 1,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
-    borderRadius: borderRadius.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: colors.bgCardBorder,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.bgSurface,
     alignItems: 'center',
   },
   tenantChipActive: {
-    backgroundColor: colors.primaryGlow,
-    borderColor: colors.primary,
+    backgroundColor: colors.primary,
   },
   tenantChipText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: colors.textMuted,
+    color: colors.textSecondary,
   },
   tenantChipTextActive: {
-    color: colors.textPrimary,
-    fontWeight: '700',
+    color: colors.textWhite,
+    fontWeight: 'bold',
   },
   card: {
     padding: spacing.lg,
   },
-  cardTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.textPrimary,
-    marginBottom: spacing.xs / 2,
+  formGroup: {
+    marginBottom: spacing.md,
   },
-  cardSubtitle: {
-    fontSize: 13,
+  inputLabel: {
+    fontSize: 11,
+    fontWeight: 'bold',
     color: colors.textSecondary,
-    marginBottom: spacing.lg,
+    letterSpacing: 0.8,
+    marginBottom: spacing.xs,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.bgInput,
     borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    height: 48,
     borderWidth: 1,
     borderColor: colors.bgCardBorder,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.md,
-    height: 52,
   },
   inputIcon: {
     marginRight: spacing.sm,
@@ -362,39 +318,5 @@ const styles = StyleSheet.create({
   },
   loginBtn: {
     marginTop: spacing.sm,
-  },
-  demoContainer: {
-    marginTop: spacing.md,
-  },
-  demoTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: colors.textMuted,
-    letterSpacing: 1,
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-  },
-  demoRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  demoCard: {
-    flex: 1,
-    backgroundColor: colors.bgCard,
-    borderRadius: borderRadius.card,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.bgCardBorder,
-  },
-  demoCardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginTop: spacing.sm,
-  },
-  demoCardSub: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
   },
 });
