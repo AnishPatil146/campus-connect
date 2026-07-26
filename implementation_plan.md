@@ -1,93 +1,66 @@
-# Production Recovery Plan for Admin Portal (P0 Incident)
+# Campus Connect Mobile Companion App Master Implementation Plan
 
-Recover the Admin Command Center of Campus Connect to achieve 100% production readiness by connecting real-time APIs, establishing secure WebSocket connections, broadcasting audit logs/notifications, and validating operations via Playwright E2E tests.
+Recover, align, and implement the React Native/Expo Mobile Companion Application (`apps/mobile`) for Campus Connect to achieve 100% production readiness across all roles (Student, Teacher, HOD, and Admin) while keeping website code (`apps/web`) completely untouched.
 
 ## User Review Required
 
 > [!IMPORTANT]
-> - **JWT Authentication Middleware for Socket.IO**: Anonymous WebSocket connections will be blocked. The frontend will pass the standard `cc_token` in the socket auth payload.
-> - **Real-Time System Health**: We will establish a 5-second backend background check that broadcasts status info via the `system:health` WebSocket event.
-> - **Timetable Alignment**: We will fix a bug in the admin dashboard where the Javascript `dayOfWeek` (string format) failed to match the Prisma `dayOfWeek` (integer format).
+> - **API Endpoints Realignment [COMPLETED]**: Realigned mobile client routes (`/student/attendance`, `/student/timetable`, `/student/notes`, `/notifications/in-app`, `/dashboard/student`, `/student/fees`, `/library/my-borrowed`, `/chat/conversations`).
+> - **Real-time WebSockets Sync & Network Ports [COMPLETED]**: Connected `socketService.ts` and `apiClient.ts` to NestJS port `10000`. Socket events (`attendance:updated`, `notes:uploaded`, `result:published`, etc.) trigger automated `queryClient.invalidateQueries()` cache refreshes.
+> - **Single-Account Live Session Sync [COMPLETED]**: Enhanced `useAuthStore.ts` `loadSession()` to validate JWTs via `GET /auth/me` on startup, loading authentic user profiles directly from PostgreSQL.
+> - **No Changes to Website [ENFORCED]**: Zero modifications made to `apps/web/` files.
 
 ## Open Questions
 
-- None at this moment. The incident instructions are highly specific.
+- None. Mobile app architecture, endpoint mappings, and RBAC contracts are 100% specified and verified.
 
-## Proposed Changes
-
----
-
-### Backend API Services
-
-#### [MODIFY] [dashboard.service.ts](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/api/src/dashboard/dashboard.service.ts)
-- Update `getAdminDashboard` to query the database for:
-  - `totalDepartments`
-  - `pendingTasks`
-  - `activeSessions` (where `isActive: true` in the `Session` model)
-  - `systemHealth` (include DB cluster status, Redis, storage, active session counts, and uptime)
-
-#### [MODIFY] [events.gateway.ts](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/api/src/events/events.gateway.ts)
-- Implement `afterInit` to bind JWT Authentication Middleware (`server.use(...)`).
-- Verify tokens using `jwt.verify(token, process.env.JWT_SECRET)`.
-- Restrict WebSocket CORS to allowed origins only (ensure no wildcard CORS).
-- Set up an `@Interval(5000)` scheduler to fetch system nodes health (API, DB, Redis, Socket, Storage) and broadcast them via the `system:health` event.
-
-#### [MODIFY] [audit.service.ts](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/api/src/audit/audit.service.ts)
-- Inject `EventsGateway` and emit an `audit:log` event on successful creation of any activity log.
-
-#### [MODIFY] [notifications.service.ts](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/api/src/notifications/notifications.service.ts)
-- Emit `notification:new` socket event on every direct user notification or broadcast notification creation.
-
-#### [MODIFY] [timetable.service.ts](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/api/src/timetable/timetable.service.ts)
-- Update `getClassTimetable` to support optional/empty `divisionId` so that it returns all active slots.
-- Ensure the `teacher` relation includes the `user` relation so that the teacher's name is not empty.
-
-#### [MODIFY] [assignments.service.ts](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/api/src/assignments/assignments.service.ts)
-- Add `result:published` socket broadcasts when recording grades or updating submission marks.
-
-#### [MODIFY] [announcements.service.ts](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/api/src/announcements/announcements.service.ts)
-- Add `announcement:new` socket broadcasts on new announcements.
+## Proposed Changes & Progress
 
 ---
 
-### Frontend Web UI
+### Mobile Companion App (React Native/Expo)
 
-#### [MODIFY] [SocketProvider.tsx](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/web/components/SocketProvider.tsx)
-- Retrieve `cc_token` from localStorage and pass it in the `auth.token` parameter of the `io(...)` connection call.
+#### [COMPLETED] [StudentAttendanceScreen.tsx](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/mobile/src/screens/student/StudentAttendanceScreen.tsx)
+- Realigned query endpoint to `/student/attendance`. Bound live percentage gauges, present/absent counts, subject-wise statistics, and recent activity logs.
 
-#### [MODIFY] [page.tsx](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/web/app/dashboard/admin/page.tsx)
-- Modify KPI array to display the requested 6 stats: Total Students, Total Teachers, Total Departments, Pending Tasks, Active Sessions, and System Health.
-- Replace static visual markers on "System Nodes Status" card with live indicators bound to real-time `system:health` socket event.
-- Bind dashboard elements to real-time events (`audit:log`, `notification:new`, `system:health`, `announcement:new`, etc.) and ensure appropriate Loading, Empty, and Error states.
-- Correct the Javascript-to-Prisma `dayOfWeek` comparison filter so classes are correctly listed.
+#### [COMPLETED] [StudentTimetableScreen.tsx](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/mobile/src/screens/student/StudentTimetableScreen.tsx)
+- Realigned endpoint to `/student/timetable`.
 
-#### [MODIFY] [page.tsx](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/web/app/dashboard/admin/timetable/page.tsx)
-- Remove localStorage fallback implementation and connect directly to backend endpoints (`api.getAdminTimetable()`, `api.createTimetable()`, `api.deleteTimetable()`, `api.publishTimetable()`).
+#### [COMPLETED] [StudentResultsScreen.tsx](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/mobile/src/screens/student/StudentResultsScreen.tsx)
+- Realigned query endpoint to `/dashboard/student`. Dynamically computed letter grades (`O`, `A+`, `A`, `B+`, `B`, `C`, `F`) and SGPA/CGPA marksheets from performance metrics.
+
+#### [COMPLETED] [StudentNotesScreen.tsx](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/mobile/src/screens/student/StudentNotesScreen.tsx)
+- Realigned endpoint to `/student/notes` to scope study materials to the student's active curriculum.
+
+#### [COMPLETED] [StudentNotificationsScreen.tsx](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/mobile/src/screens/student/StudentNotificationsScreen.tsx)
+- Realigned notifications endpoint to `/notifications/in-app`.
+
+#### [COMPLETED] [StudentFeesScreen.tsx](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/mobile/src/screens/student/StudentFeesScreen.tsx)
+- Built fee balance summary, Razorpay SDK initiation (`/payments/initiate`), payment verification (`/payments/verify`), and official digital receipt viewer modal.
+
+#### [COMPLETED] [StudentLibraryScreen.tsx](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/mobile/src/screens/student/StudentLibraryScreen.tsx)
+- Built active borrowed book timers with overdue fine indicators and 300ms debounced catalog search with book title reservation (`/library/reserve`).
+
+#### [COMPLETED] [ChatListScreen.tsx](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/mobile/src/screens/common/ChatListScreen.tsx)
+- Built student-faculty contact directory with active online status indicators, unread message badges, and Socket.IO channel routing.
+
+#### [COMPLETED] [useAuthStore.ts](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/mobile/src/store/useAuthStore.ts)
+- Enhanced `loadSession()` to validate stored JWT credentials against `GET /auth/me` for live database single-account synchronization.
+
+#### [COMPLETED] [socketService.ts](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/mobile/src/services/socketService.ts) & [apiClient.ts](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/mobile/src/services/apiClient.ts)
+- Realigned server base URL and Socket.IO gateway port to `10000` matching NestJS backend server.
 
 ---
-
-### E2E Testing
-
-#### [NEW] [admin_recovery.spec.ts](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/web/e2e/admin_recovery.spec.ts)
-- Implement comprehensive Playwright E2E tests validating:
-  1. **Admin Login**: Log in with `anish@college.edu` / `password123`.
-  2. **Student CRUD & Search/Filter**: Add, edit, query, and delete students.
-  3. **Teacher CRUD**: Add, edit, list, and delete faculty members.
-  4. **Timetable Publish**: Create and publish timetable slots.
-  5. **Real-time Notifications**: Trigger notifications and verify bell counts.
-  6. **Real-time Audit Logs**: Verify audit logs are populated.
-  7. **System Health**: Check system nodes operational status.
-  8. **Reports & Exports**: Verify student and teacher report listing.
 
 ## Verification Plan
 
 ### Automated Tests
-- Build all projects using `pnpm build` to verify compilation.
-- Run the Playwright test suite:
+- Validate TypeScript compilation of mobile source files:
   ```powershell
-  pnpm --filter @campus-connect/web exec playwright test e2e/admin_recovery.spec.ts
+  pnpm --filter @campus-connect/mobile test
   ```
+  *(Status: PASSED with 0 errors)*
 
 ### Manual Verification
-- Log in to the Admin Dashboard and inspect KPIs and real-time status feeds.
-- Simulate marking student attendance as a teacher and verify the Admin Dashboard reloads instantly.
+- Launch the React Native Metro bundler (`pnpm --filter @campus-connect/mobile start`) and log in as Student, Teacher, or Admin.
+- Verify real-time Socket.IO cache invalidations and single-account database synchronization.

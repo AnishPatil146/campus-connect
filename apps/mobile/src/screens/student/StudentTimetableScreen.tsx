@@ -21,13 +21,13 @@ export const StudentTimetableScreen: React.FC = () => {
     queryKey: ['timetable', 'student', tenantId, selectedDay],
     queryFn: async () => {
       try {
-        const res = await apiClient.get(`/timetable/student?day=${selectedDay}`);
+        const res = await apiClient.get(`/student/timetable?day=${selectedDay}`);
         if (res.data?.data) {
           await saveOfflineData(OFFLINE_KEYS.TIMETABLE, res.data.data);
           return res.data.data;
         }
       } catch (e) {
-        console.log('Using local fallback timetable data');
+        console.warn('Backend student timetable route fallback active:', e);
       }
       return {
         day: selectedDay,

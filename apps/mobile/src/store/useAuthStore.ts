@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiClient } from '../services/apiClient';
 
 export interface UserProfile {
   id: string;
@@ -62,14 +63,39 @@ export const useAuthStore = create<AuthState>((set) => ({
       ]);
 
       if (token && userJson) {
-        const user = JSON.parse(userJson);
+        const storedUser = JSON.parse(userJson);
         set({
           token,
           refreshToken,
-          user,
-          tenantId: tenantId || user.collegeId || 'college-a',
+          user: storedUser,
+          tenantId: tenantId || storedUser.collegeId || 'college-a',
           isLoading: false,
         });
+
+        // Background session revalidation against backend database
+        try {
+          const res = await apiClient.get('/auth/me');
+          if (res.data?.data) {
+            const liveUser = res.data.data;
+            const updatedProfile: UserProfile = {
+              id: liveUser.id,
+              email: liveUser.email,
+              name: liveUser.name,
+              role: liveUser.role,
+              collegeId: liveUser.collegeId || tenantId || 'college-a',
+              prn: liveUser.prn || storedUser.prn,
+              department: liveUser.department?.name || storedUser.department,
+              semester: liveUser.semester?.name || storedUser.semester,
+              employeeId: liveUser.employeeId || storedUser.employeeId,
+              avatarUrl: liveUser.avatarUrl || storedUser.avatarUrl,
+            };
+            await AsyncStorage.setItem('cc_user', JSON.stringify(updatedProfile));
+            set({ user: updatedProfile });
+          }
+        } catch (authErr) {
+          // Token expired or invalid
+          console.warn('Live session revalidation failed, maintaining local session');
+        }
       } else {
         set({ isLoading: false });
       }

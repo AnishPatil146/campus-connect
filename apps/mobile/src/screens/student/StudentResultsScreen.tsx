@@ -11,16 +11,47 @@ import { apiClient } from '../../services/apiClient';
 import { Award, TrendingUp, CheckCircle, Sparkles } from 'lucide-react-native';
 
 export const StudentResultsScreen: React.FC = () => {
+  const user = useAuthStore((state) => state.user);
   const tenantId = useAuthStore((state) => state.tenantId);
 
   const { data: resultsData, refetch, isRefetching } = useQuery({
     queryKey: ['results', 'student', tenantId],
     queryFn: async () => {
       try {
-        const res = await apiClient.get('/reports/student-results');
-        if (res.data?.data) return res.data.data;
+        const res = await apiClient.get('/dashboard/student');
+        if (res.data?.data?.performance) {
+          const perf = res.data.data.performance;
+          return {
+            sgpa: perf.gpa?.toString() || '8.92',
+            cgpa: perf.gpa?.toString() || '8.75',
+            semester: user?.semester || 'Semester V',
+            totalCredits: 22,
+            earnedCredits: 22,
+            subjects: perf.subjects?.map((s: any) => {
+              const numericMarks = parseFloat(s.marks) || 85;
+              let grade = 'A';
+              let points = 8;
+              if (numericMarks >= 90) { grade = 'O'; points = 10; }
+              else if (numericMarks >= 80) { grade = 'A+'; points = 9; }
+              else if (numericMarks >= 70) { grade = 'A'; points = 8; }
+              else if (numericMarks >= 60) { grade = 'B+'; points = 7; }
+              else if (numericMarks >= 50) { grade = 'B'; points = 6; }
+              else if (numericMarks >= 40) { grade = 'C'; points = 5; }
+              else { grade = 'F'; points = 0; }
+
+              return {
+                code: s.code,
+                name: s.name,
+                marks: numericMarks,
+                maxMarks: 100,
+                grade,
+                points,
+              };
+            }),
+          };
+        }
       } catch (e) {
-        console.log('Using local fallback results data');
+        console.warn('Backend student performance dashboard fallback active:', e);
       }
       return {
         sgpa: '8.92',

@@ -29,10 +29,10 @@ export const StudentNotesScreen: React.FC = () => {
     queryKey: ['notes', 'student', tenantId],
     queryFn: async () => {
       try {
-        const res = await apiClient.get('/notes');
+        const res = await apiClient.get('/student/notes');
         if (res.data?.data) return res.data.data;
       } catch (e) {
-        console.log('Using local fallback notes data');
+        console.warn('Backend student notes route fallback active:', e);
       }
       return [
         {

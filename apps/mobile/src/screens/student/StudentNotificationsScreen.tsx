@@ -17,10 +17,10 @@ export const StudentNotificationsScreen: React.FC = () => {
     queryKey: ['notifications', 'student', tenantId],
     queryFn: async () => {
       try {
-        const res = await apiClient.get('/notifications');
+        const res = await apiClient.get('/notifications/in-app');
         if (res.data?.data) return res.data.data;
       } catch (e) {
-        console.log('Using local fallback notifications');
+        console.warn('Backend in-app notifications endpoint fallback active:', e);
       }
       return [
         {

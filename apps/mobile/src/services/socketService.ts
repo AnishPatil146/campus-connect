@@ -5,9 +5,9 @@ import { Platform } from 'react-native';
 
 const getSocketUrl = () => {
   if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:4000/events';
+    return 'http://10.0.2.2:10000/events';
   }
-  return 'http://localhost:4000/events';
+  return 'http://localhost:10000/events';
 };
 
 class SocketService {

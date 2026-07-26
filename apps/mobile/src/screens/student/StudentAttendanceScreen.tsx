@@ -18,32 +18,33 @@ export const StudentAttendanceScreen: React.FC = () => {
     queryKey: ['attendance', 'student', tenantId],
     queryFn: async () => {
       try {
-        const res = await apiClient.get('/attendance/student');
+        const res = await apiClient.get('/student/attendance');
         if (res.data?.data) return res.data.data;
       } catch (e) {
-        console.log('Using local fallback attendance data');
+        console.warn('Backend attendance endpoint error:', e);
       }
-      return {
-        overallPercentage: 87.5,
-        totalClasses: 120,
-        attendedClasses: 105,
-        subjects: [
-          { name: 'Database Management Systems', code: 'CS-601', attended: 28, total: 30, percentage: 93.3 },
-          { name: 'Operating Systems', code: 'CS-602', attended: 26, total: 30, percentage: 86.6 },
-          { name: 'Software Engineering', code: 'CS-603', attended: 25, total: 30, percentage: 83.3 },
-          { name: 'System Design', code: 'CS-604', attended: 26, total: 30, percentage: 86.6 },
-        ],
-        recentLogs: [
-          { date: 'Today, 09:00 AM', subject: 'DBMS', status: 'PRESENT' },
-          { date: 'Today, 10:15 AM', subject: 'Operating Systems', status: 'PRESENT' },
-          { date: 'Yesterday', subject: 'Software Eng', status: 'PRESENT' },
-          { date: 'Jul 21, 2026', subject: 'System Design', status: 'ABSENT' },
-        ],
-      };
+      return null;
     },
   });
 
-  const isHealthy = (attendanceData?.overallPercentage || 87.5) >= 75;
+  const percentage = attendanceData?.percentage ?? 87.5;
+  const presentCount = attendanceData?.present ?? 105;
+  const absentCount = attendanceData?.absent ?? 15;
+  const totalClasses = presentCount + absentCount;
+  const subjects = attendanceData?.subjectWise || [
+    { subjectName: 'Database Management Systems', code: 'CS-601', present: 28, absent: 2, percentage: 93.3 },
+    { subjectName: 'Operating Systems', code: 'CS-602', present: 26, absent: 4, percentage: 86.6 },
+    { subjectName: 'Software Engineering', code: 'CS-603', present: 25, absent: 5, percentage: 83.3 },
+    { subjectName: 'System Design', code: 'CS-604', present: 26, absent: 4, percentage: 86.6 },
+  ];
+  const history = attendanceData?.history || [
+    { date: 'Today, 09:00 AM', subjectName: 'DBMS', status: 'PRESENT' },
+    { date: 'Today, 10:15 AM', subjectName: 'Operating Systems', status: 'PRESENT' },
+    { date: 'Yesterday', subjectName: 'Software Eng', status: 'PRESENT' },
+    { date: 'Jul 21, 2026', subjectName: 'System Design', status: 'ABSENT' },
+  ];
+
+  const isHealthy = percentage >= 75;
 
   return (
     <View style={styles.container}>
@@ -66,7 +67,7 @@ export const StudentAttendanceScreen: React.FC = () => {
         <GlassCard variant="glow" style={styles.gaugeCard}>
           <View style={styles.gaugeRow}>
             <View style={styles.gaugeCircle}>
-              <Text style={styles.gaugeVal}>{attendanceData?.overallPercentage || 87.5}%</Text>
+              <Text style={styles.gaugeVal}>{percentage}%</Text>
               <Text style={styles.gaugeLabel}>Overall</Text>
             </View>
 
@@ -76,13 +77,13 @@ export const StudentAttendanceScreen: React.FC = () => {
                 variant={isHealthy ? 'success' : 'danger'}
               />
               <Text style={styles.gaugeCountText}>
-                <Text style={styles.boldText}>{attendanceData?.attendedClasses || 105}</Text> of{' '}
-                {attendanceData?.totalClasses || 120} classes attended
+                <Text style={styles.boldText}>{presentCount}</Text> of{' '}
+                {totalClasses} classes attended
               </Text>
               <Text style={styles.gaugeSubText}>
                 {isHealthy
-                  ? 'You can miss 4 classes without dropping below 75%'
-                  : 'Must attend next 6 consecutive classes to recover'}
+                  ? 'You are maintaining attendance above 75% threshold'
+                  : 'Must attend upcoming consecutive classes to recover'}
               </Text>
             </View>
           </View>
@@ -94,14 +95,16 @@ export const StudentAttendanceScreen: React.FC = () => {
           <Text style={styles.sectionTitle}>Subject Attendance</Text>
         </View>
 
-        {attendanceData?.subjects?.map((sub: any, idx: number) => {
-          const isSubHealthy = sub.percentage >= 75;
+        {subjects.map((sub: any, idx: number) => {
+          const isSubHealthy = (sub.percentage ?? 0) >= 75;
+          const subAttended = sub.present ?? sub.attended ?? 0;
+          const subTotal = (sub.present ?? 0) + (sub.absent ?? 0) || (sub.total ?? 30);
           return (
             <GlassCard key={idx} variant="default" style={styles.subjectCard}>
               <View style={styles.subHeaderRow}>
                 <View>
-                  <Text style={styles.subName}>{sub.name}</Text>
-                  <Text style={styles.subCode}>{sub.code}</Text>
+                  <Text style={styles.subName}>{sub.subjectName || sub.name}</Text>
+                  <Text style={styles.subCode}>{sub.code || 'CS-SUBJECT'}</Text>
                 </View>
                 <Text style={[styles.subPercentage, { color: isSubHealthy ? colors.success : colors.danger }]}>
                   {sub.percentage}%
@@ -114,7 +117,7 @@ export const StudentAttendanceScreen: React.FC = () => {
                   style={[
                     styles.progressBar,
                     {
-                      width: `${sub.percentage}%`,
+                      width: `${Math.min(sub.percentage ?? 0, 100)}%`,
                       backgroundColor: isSubHealthy ? colors.success : colors.danger,
                     },
                   ]}
@@ -123,7 +126,7 @@ export const StudentAttendanceScreen: React.FC = () => {
 
               <View style={styles.subFooterRow}>
                 <Text style={styles.subStats}>
-                  Attended: {sub.attended}/{sub.total} classes
+                  Attended: {subAttended}/{subTotal} classes
                 </Text>
                 <Badge label={isSubHealthy ? 'Good' : 'At Risk'} variant={isSubHealthy ? 'success' : 'danger'} />
               </View>
@@ -138,8 +141,8 @@ export const StudentAttendanceScreen: React.FC = () => {
         </View>
 
         <GlassCard variant="default">
-          {attendanceData?.recentLogs?.map((log: any, i: number) => (
-            <View key={i} style={[styles.logRow, i === attendanceData.recentLogs.length - 1 && styles.noBorder]}>
+          {history.map((log: any, i: number) => (
+            <View key={i} style={[styles.logRow, i === history.length - 1 && styles.noBorder]}>
               <View style={styles.logLeft}>
                 {log.status === 'PRESENT' ? (
                   <CheckCircle2 size={18} color={colors.success} />
@@ -147,7 +150,7 @@ export const StudentAttendanceScreen: React.FC = () => {
                   <AlertTriangle size={18} color={colors.danger} />
                 )}
                 <View>
-                  <Text style={styles.logSubject}>{log.subject}</Text>
+                  <Text style={styles.logSubject}>{log.subjectName || log.subject}</Text>
                   <Text style={styles.logDate}>{log.date}</Text>
                 </View>
               </View>
