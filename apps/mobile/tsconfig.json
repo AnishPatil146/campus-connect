@@ -23,6 +23,7 @@
     }
   },
   "include": [
+    "app/**/*",
     "src/**/*",
     "App.tsx"
   ],
