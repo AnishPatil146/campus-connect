@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, Badge } from '@campus-connect
 import { useAuth } from '../../../../components/AuthProvider';
 import { useSocket } from '../../../../components/SocketProvider';
 import { api } from '../../../../utils/api';
-import { Activity, Clock, ShieldAlert, CheckCircle2, User } from 'lucide-react';
+import { Activity, CheckCircle2 } from 'lucide-react';
 
 export default function TeacherActivityPage() {
   const { user } = useAuth();
@@ -35,15 +35,14 @@ export default function TeacherActivityPage() {
   }, [user]);
 
   useEffect(() => {
-    if (socket) {
-      const handleAuditLog = (data: any) => {
-        setActivities((prev) => [data, ...prev]);
-      };
-      socket.on('audit:log', handleAuditLog);
-      return () => {
-        socket.off('audit:log', handleAuditLog);
-      };
-    }
+    if (!socket) return;
+    const handleAuditLog = (data: any) => {
+      setActivities((prev) => [data, ...prev]);
+    };
+    socket.on('audit:log', handleAuditLog);
+    return () => {
+      socket.off('audit:log', handleAuditLog);
+    };
   }, [socket]);
 
   return (

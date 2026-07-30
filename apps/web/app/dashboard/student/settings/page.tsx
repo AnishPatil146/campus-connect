@@ -29,7 +29,7 @@ export default function SettingsPage() {
         setEmailAlerts(res.data.allowEmail);
         setSmsAlerts(res.data.allowSMS);
       } else {
-        setError(res.message || 'Failed to retrieve notification preferences.');
+        setError((res as any).message || 'Failed to retrieve notification preferences.');
       }
     } catch (e) {
       setError('Network connection error while retrieving preferences.');
@@ -58,7 +58,7 @@ export default function SettingsPage() {
         setToastMsg('Settings saved successfully!');
         setToastType('success');
       } else {
-        setToastMsg(res.message || 'Failed to save settings.');
+        setToastMsg((res as any).message || 'Failed to save settings.');
         setToastType('error');
       }
       setToastOpen(true);

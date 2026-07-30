@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, Badge } from '@campus-connect
 import { useAuth } from '../../../../components/AuthProvider';
 import { useSocket } from '../../../../components/SocketProvider';
 import { api } from '../../../../utils/api';
-import { Activity, Clock, CheckCircle2 } from 'lucide-react';
+import { Activity, CheckCircle2 } from 'lucide-react';
 
 export default function StudentActivityPage() {
   const { user } = useAuth();
@@ -35,15 +35,14 @@ export default function StudentActivityPage() {
   }, [user]);
 
   useEffect(() => {
-    if (socket) {
-      const handleAudit = (data: any) => {
-        setActivities((prev) => [data, ...prev]);
-      };
-      socket.on('audit:log', handleAudit);
-      return () => {
-        socket.off('audit:log', handleAudit);
-      };
-    }
+    if (!socket) return;
+    const handleAudit = (data: any) => {
+      setActivities((prev) => [data, ...prev]);
+    };
+    socket.on('audit:log', handleAudit);
+    return () => {
+      socket.off('audit:log', handleAudit);
+    };
   }, [socket]);
 
   return (

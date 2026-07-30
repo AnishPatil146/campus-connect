@@ -1,14 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle, Badge } from '@campus-connect/ui';
+import { Card, CardContent, Badge } from '@campus-connect/ui';
 import { useAuth } from '../../../../components/AuthProvider';
-import { User as UserIcon, Mail, Building2, BookOpen, Shield, Phone, Calendar } from 'lucide-react';
+import { User as UserIcon, Mail, Building2, Shield } from 'lucide-react';
 
 export default function TeacherProfilePage() {
   const { user } = useAuth();
-  const profile = user?.teacherProfile;
+  const profile = user?.teacherProfile as any;
 
   return (
     <DashboardLayout title="Faculty Member Profile" icon={<UserIcon className="h-6 w-6 text-role-primary" />}>

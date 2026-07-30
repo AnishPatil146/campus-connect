@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle, Badge } from '@campus-connect/ui';
+import { Card, CardContent, Badge } from '@campus-connect/ui';
 import { useAuth } from '../../../../components/AuthProvider';
 import { getCollegeName } from '@campus-connect/utils';
 import { User as UserIcon, Mail, Shield, Building2 } from 'lucide-react';
