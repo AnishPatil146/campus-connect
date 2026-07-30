@@ -30,10 +30,7 @@ class MainActivity : ComponentActivity() {
                             WebView(context).apply {
                                 webViewClient = object : WebViewClient() {
                                     override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
-                                        if (url != null) {
-                                            view?.loadUrl(url)
-                                        }
-                                        return true
+                                        return false
                                     }
                                 }
                                 settings.javaScriptEnabled = true
