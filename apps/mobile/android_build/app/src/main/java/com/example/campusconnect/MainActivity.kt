@@ -28,6 +28,7 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize(),
                         factory = { context ->
                             WebView(context).apply {
+                                webChromeClient = android.webkit.WebChromeClient()
                                 webViewClient = object : WebViewClient() {
                                     override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
                                         return false
@@ -38,6 +39,8 @@ class MainActivity : ComponentActivity() {
                                 settings.databaseEnabled = true
                                 settings.allowFileAccess = true
                                 settings.allowContentAccess = true
+                                settings.allowFileAccessFromFileURLs = true
+                                settings.allowUniversalAccessFromFileURLs = true
                                 settings.loadWithOverviewMode = true
                                 settings.useWideViewPort = true
                                 settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
