@@ -471,6 +471,29 @@ export class TeachersService {
       throw new NotFoundException(`Leave application with ID "${leaveId}" not found`);
     }
 
+    // Hard Constraint: No more than 2 teachers may be approved for leave on the same calendar day
+    const startDate = new Date(leave.startDate);
+    const endDate = new Date(leave.endDate);
+
+    const existingApprovedLeaves = await this.prisma.teacherLeave.findMany({
+      where: {
+        status: 'APPROVED',
+        id: { not: leaveId },
+        OR: [
+          {
+            startDate: { lte: endDate },
+            endDate: { gte: startDate },
+          },
+        ],
+      },
+    });
+
+    if (existingApprovedLeaves.length >= 2) {
+      throw new BadRequestException(
+        'Teacher leave limit reached: Maximum 2 teachers may be approved for leave on the same calendar day.',
+      );
+    }
+
     const updatedLeave = await this.prisma.$transaction(async (tx) => {
       // 1. Update leave status
       const updated = await tx.teacherLeave.update({

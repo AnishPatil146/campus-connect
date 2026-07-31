@@ -128,11 +128,11 @@ export default function ProfilePage() {
     );
   }
 
-  const divisionName = profile?.division?.name || 'Division A';
-  const semesterName = profile?.division?.semester?.name || 'Semester 1';
-  const courseName = profile?.division?.semester?.academicSession?.course?.name || 'Undergraduate';
-  const departmentName = profile?.division?.semester?.academicSession?.course?.department?.name || 'Science & IT';
-  const collegeName = profile?.division?.semester?.academicSession?.course?.department?.college?.name || "Pushpalata Mhatre Women's College";
+  const divisionName = profile?.division?.name || profile?.student?.division?.name || 'N/A';
+  const semesterName = profile?.division?.semester?.name || profile?.semester?.name || 'N/A';
+  const courseName = profile?.course?.name || profile?.division?.semester?.academicSession?.course?.name || 'N/A';
+  const departmentName = profile?.department?.name || profile?.division?.semester?.academicSession?.course?.department?.name || 'N/A';
+  const collegeName = user?.college?.name || profile?.college?.name || profile?.division?.semester?.academicSession?.course?.department?.college?.name || 'Campus Connect Institution';
 
   return (
     <DashboardLayout title="Student Profile" icon={<User className="h-6 w-6" />}>

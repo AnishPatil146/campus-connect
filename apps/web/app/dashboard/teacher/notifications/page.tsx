@@ -20,7 +20,25 @@ export default function TeacherNotificationsPage() {
     try {
       const res = await api.getNotifications();
       if (res.success && res.data) {
-        setNotifications(res.data);
+        // Restrict to two types only: lecture/class reminders and announcements
+        const filtered = res.data.filter((n: any) => {
+          const type = (n.type || '').toUpperCase();
+          const title = (n.title || '').toLowerCase();
+          const body = (n.body || n.content || '').toLowerCase();
+          return (
+            type === 'ANNOUNCEMENT' ||
+            type === 'REMINDER' ||
+            type === 'CLASS' ||
+            title.includes('lecture') ||
+            title.includes('class') ||
+            title.includes('announcement') ||
+            title.includes('reminder') ||
+            body.includes('lecture') ||
+            body.includes('class') ||
+            body.includes('announcement')
+          );
+        });
+        setNotifications(filtered);
       }
     } catch (e) {
       console.error(e);

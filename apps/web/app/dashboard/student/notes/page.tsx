@@ -85,14 +85,25 @@ export default function NotesPage() {
     }
   }, [user, subjectsTaught]);
 
+  // Education Level Branching: College -> Semester-wise; 11th/12th -> Subject-wise
+  const courseName = (user?.studentProfile as any)?.course?.name || '';
+  const isHigherSecondary = /11|12|hsc|junior college|higher secondary/i.test(courseName);
+
   // Folders organization
   const semesters = [1, 2, 3, 4];
+  const higherSecondarySubjects = ['Physics', 'Chemistry', 'Mathematics', 'Biology', 'English', 'Computer Science'];
   const subjectsBySem: Record<number, string[]> = {
     1: ['Database Management Systems', 'Operating Systems', 'Python Web Lab', 'Discrete Mathematics'],
     2: ['Data Structures', 'Web Technologies', 'Software Engineering', 'Microprocessors'],
     3: ['Computer Networks', 'Design Analysis Algorithms', 'Cloud Computing', 'Embedded Systems'],
     4: ['Artificial Intelligence', 'Cyber Security', 'DevOps Systems', 'Machine Learning']
   };
+
+  useEffect(() => {
+    if (isHigherSecondary) {
+      setCurrentFolderView('subjects');
+    }
+  }, [isHigherSecondary]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

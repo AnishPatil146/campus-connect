@@ -12,6 +12,7 @@ interface AttendanceLog {
   date: string;
   status: 'PRESENT' | 'ABSENT' | 'LEAVE' | 'LATE';
   subjectName: string;
+  recordedBy?: string;
   remarks?: string;
 }
 
@@ -98,6 +99,7 @@ export default function StudentAttendancePage() {
               date: label,
               status: h.status,
               subjectName: h.subjectName,
+              recordedBy: h.recordedBy || 'Assigned Faculty',
               remarks: h.remarks || '',
             };
           });
@@ -500,7 +502,7 @@ export default function StudentAttendancePage() {
                           {log.subjectName}
                         </span>
                         <span className="text-[9px] text-slate-400 block mt-0.5">
-                          {log.date} • {log.remarks || 'Recorded session'}
+                          {log.date} • Recorded by <strong className="text-slate-600 dark:text-slate-300">{log.recordedBy || 'Assigned Faculty'}</strong> {log.remarks ? `• ${log.remarks}` : ''}
                         </span>
                       </div>
                     </div>
@@ -530,6 +532,15 @@ export default function StudentAttendancePage() {
           }
         >
           <form onSubmit={handleLeaveSubmit} className="space-y-4">
+            
+            {/* AI Extraction Banner */}
+            <div className="p-3 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/50 rounded-xl flex items-center gap-2.5">
+              <span className="text-xs">🤖</span>
+              <p className="text-[10px] text-blue-700 dark:text-blue-300 font-semibold">
+                <strong>AI-Assisted Processing:</strong> Your leave application will be parsed for dates & reason before routing to Admin for verification.
+              </p>
+            </div>
+
             <div className="flex flex-col gap-1">
               <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
                 Leave Type
@@ -577,11 +588,11 @@ export default function StudentAttendancePage() {
 
             <div className="flex flex-col gap-1">
               <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                Reason for Leave
+                Reason for Leave / Written Application Image
               </label>
               <textarea
                 required
-                placeholder="Explain the reason for absence..."
+                placeholder="Explain the reason for absence or paste application details..."
                 value={leaveReason}
                 onChange={(e) => setLeaveReason(e.target.value)}
                 className="w-full p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 focus:outline-none"
@@ -592,9 +603,9 @@ export default function StudentAttendancePage() {
             <button
               type="submit"
               disabled={leaveSubmitting}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-350 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/10"
+              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-350 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/10 cursor-pointer"
             >
-              {leaveSubmitting ? 'Submitting Application...' : 'Submit Leave Application'}
+              {leaveSubmitting ? 'Submitting & Extracting with AI...' : 'Submit to Admin for Approval'}
             </button>
           </form>
         </Modal>

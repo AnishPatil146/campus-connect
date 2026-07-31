@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Settings } from 'lucide-react';
 
 interface LoadingContextType {
   startLoading: (message: string) => void;
@@ -36,18 +36,9 @@ export const LoadingProvider: React.FC<{ children: React.ReactNode }> = ({ child
             <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.15),transparent_60%)] pointer-events-none -z-10 animate-pulse" />
             <div className="absolute bottom-[-20%] right-[-20%] w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none -z-10" />
 
-            {/* Glowing dual orbital spinner & centered logo */}
-            <div className="relative flex items-center justify-center h-28 w-28 my-2">
-              {/* Outer glowing orbital gradient ring */}
-              <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-blue-500 border-r-indigo-500 animate-[spin_1.4s_cubic-bezier(0.5,0.1,0.5,0.9)_infinite] shadow-[0_0_15px_rgba(59,130,246,0.3)]" />
-              
-              {/* Inner counter-rotating ring */}
-              <div className="absolute inset-2 rounded-full border-2 border-transparent border-b-emerald-400 border-l-teal-400 animate-[spin_1s_linear_infinite_reverse] opacity-80" />
-              
-              {/* Centered vibrant logo badge */}
-              <div className="h-16 w-16 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-emerald-500 flex items-center justify-center font-display font-black text-white text-3xl shadow-[0_0_25px_rgba(59,130,246,0.5)] border border-white/20 relative z-10 transition-transform duration-300 hover:scale-105">
-                C
-              </div>
+            {/* Simple Spinning Gear Loading */}
+            <div className="relative flex items-center justify-center h-20 w-20 my-2">
+              <Settings className="h-14 w-14 text-emerald-500 animate-spin" />
             </div>
 
             {/* Dynamic Message & Pulsing Status Badge */}

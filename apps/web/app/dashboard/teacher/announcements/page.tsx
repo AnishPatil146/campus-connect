@@ -180,6 +180,34 @@ export default function TeacherAnnouncementsPage() {
               </div>
 
               <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                {/* Quick Use Case Templates */}
+                <div className="flex gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTitle('⚡ Surprise Test Alert: Upcoming Class Quiz');
+                      setContent('Attention Students: A surprise class evaluation quiz will take place during the next scheduled lecture slot. Please review Unit 2 & 3 topics.');
+                      setCategory('SURPRISE_TEST');
+                      setPriority('HIGH');
+                    }}
+                    className="px-3 py-1.5 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900 rounded-lg text-[10px] font-bold"
+                  >
+                    ⚡ Surprise Test Alert
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTitle('⏰ Submission Deadline Reminder');
+                      setContent('Reminder: The submission portal for your assignment closes tonight at 11:59 PM. Make sure to upload your final PDF document before the cutoff.');
+                      setCategory('DEADLINE_REMINDER');
+                      setPriority('HIGH');
+                    }}
+                    className="px-3 py-1.5 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900 rounded-lg text-[10px] font-bold"
+                  >
+                    ⏰ Deadline Reminder
+                  </button>
+                </div>
+
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                     Notice Title
@@ -210,7 +238,7 @@ export default function TeacherAnnouncementsPage() {
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                      Category
+                      Type
                     </label>
                     <select
                       value={category}
@@ -218,8 +246,25 @@ export default function TeacherAnnouncementsPage() {
                       className="w-full h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-850 dark:text-white"
                     >
                       <option value="ACADEMIC">Academic</option>
-                      <option value="EVENT">Event</option>
-                      <option value="GENERAL">General</option>
+                      <option value="SURPRISE_TEST">Surprise Test Alert</option>
+                      <option value="DEADLINE_REMINDER">Submission Deadline</option>
+                      <option value="GENERAL">General Notice</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      Target Class & Division
+                    </label>
+                    <select
+                      value={target}
+                      onChange={(e) => setTarget(e.target.value)}
+                      className="w-full h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-850 dark:text-white"
+                    >
+                      <option value="CLASS_A">Division A Students</option>
+                      <option value="CLASS_B">Division B Students</option>
+                      <option value="DEGREE_SEM1">Degree - Semester 1</option>
+                      <option value="DEGREE_SEM2">Degree - Semester 2</option>
                     </select>
                   </div>
 
@@ -232,24 +277,8 @@ export default function TeacherAnnouncementsPage() {
                       onChange={(e) => setPriority(e.target.value)}
                       className="w-full h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-850 dark:text-white"
                     >
-                      <option value="LOW">Low</option>
-                      <option value="MEDIUM">Medium</option>
-                      <option value="HIGH">High</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                      Target Audience
-                    </label>
-                    <select
-                      value={target}
-                      onChange={(e) => setTarget(e.target.value)}
-                      className="w-full h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-850 dark:text-white"
-                    >
-                      <option value="ALL">All College</option>
-                      <option value="STUDENTS">Students Only</option>
-                      <option value="TEACHERS">Teachers Only</option>
+                      <option value="LOW">Normal</option>
+                      <option value="HIGH">Urgent Priority</option>
                     </select>
                   </div>
                 </div>

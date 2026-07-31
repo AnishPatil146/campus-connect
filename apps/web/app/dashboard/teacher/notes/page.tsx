@@ -310,7 +310,7 @@ export default function TeacherNotesPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                      Subject / Lecture Target
+                      Subject / Curriculum Target
                     </label>
                     <select
                       value={selectedSubjectIdx}
@@ -319,7 +319,7 @@ export default function TeacherNotesPage() {
                     >
                       {subjectsTaught.map((item: any, idx: number) => (
                         <option key={idx} value={idx}>
-                          {item.subject?.name} ({item.division?.name})
+                          {item.subject?.name} ({item.division?.name || 'Class Roster'})
                         </option>
                       ))}
                     </select>
@@ -327,16 +327,16 @@ export default function TeacherNotesPage() {
 
                   <div>
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                      Visibility Scope
+                      Education Level Organization
                     </label>
                     <select
                       value={visibility}
                       onChange={(e) => setVisibility(e.target.value as any)}
                       className="w-full h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 text-xs font-semibold text-slate-850 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     >
-                      <option value="SEMESTER">Semester Wide</option>
-                      <option value="CLASS">Class Division Only</option>
-                      <option value="PUBLIC">Entire College</option>
+                      <option value="SEMESTER">College: Semester-Wise & Class-Wise</option>
+                      <option value="CLASS">11th / 12th: Subject-Wise</option>
+                      <option value="PUBLIC">College Wide</option>
                     </select>
                   </div>
                 </div>

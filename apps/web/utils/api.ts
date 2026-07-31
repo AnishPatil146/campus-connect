@@ -862,6 +862,46 @@ export const api = {
     return { success: true, data: [] };
   },
 
+  async getTeacherLeaves(teacherId: string): Promise<{ success: boolean; data: any[] }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/teachers/${teacherId}`, {
+          headers: getHeaders(),
+        });
+        const payload = await res.json();
+        if (payload.success && payload.data?.leaves) {
+          return { success: true, data: payload.data.leaves };
+        }
+      } catch (err) {
+        console.warn('Failed to fetch teacher leaves:', err);
+      }
+    }
+    return { success: true, data: [] };
+  },
+
+  async requestTeacherLeave(
+    teacherId: string,
+    data: { leaveType: string; reason: string; startDate: string; endDate: string }
+  ): Promise<{ success: boolean; data: any; message?: string }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/teachers/${teacherId}/leaves`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify(data),
+        });
+        const payload = await res.json();
+        return { success: payload.success ?? true, data: payload.data, message: payload.message };
+      } catch (err) {
+        console.warn('Failed to request teacher leave:', err);
+        return { success: false, data: null, message: 'Network error' };
+      }
+    }
+    return { success: false, data: null, message: 'API is offline' };
+  },
+
   async createAnnouncement(data: {
     title: string;
     content: string;

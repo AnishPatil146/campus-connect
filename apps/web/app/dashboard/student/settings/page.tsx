@@ -102,67 +102,28 @@ export default function SettingsPage() {
 
   return (
     <DashboardLayout title="Preferences & Settings" icon={<Settings className="h-6 w-6" />}>
-      <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
+      <div className="max-w-xl mx-auto space-y-6 animate-fade-in">
         
-        {/* Notifications Section */}
+        {/* Notifications Section ONLY */}
         <Card className="border-slate-100 bg-white dark:bg-slate-950">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Bell className="h-5 w-5 text-blue-600" /> Notification Settings
+              <Bell className="h-5 w-5 text-blue-600" /> Notifications
             </CardTitle>
-            <p className="text-xs text-slate-500">Configure how and when you receive system announcements</p>
+            <p className="text-xs text-slate-500">Toggle system notifications on or off</p>
           </CardHeader>
           <CardContent className="space-y-4">
             
-            <div className="flex items-center justify-between p-3.5 rounded-xl border border-slate-50 dark:border-slate-900 hover:bg-slate-50/50">
+            <div className="flex items-center justify-between p-4 rounded-xl border border-slate-100 dark:border-slate-900 hover:bg-slate-50/50">
               <div>
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Email Notifications</span>
-                <p className="text-[10px] text-slate-450 mt-0.5">Receive weekly grade reports and announcement digests</p>
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">System Notifications</span>
+                <p className="text-[10px] text-slate-450 mt-0.5">Enable or disable all push, email, and in-app alerts</p>
               </div>
               <input
                 type="checkbox"
                 checked={emailAlerts}
                 onChange={() => setEmailAlerts(!emailAlerts)}
-                className="h-4.5 w-4.5 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
-              />
-            </div>
-
-            <div className="flex items-center justify-between p-3.5 rounded-xl border border-slate-50 dark:border-slate-900 hover:bg-slate-50/50">
-              <div>
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">SMS Alerts</span>
-                <p className="text-[10px] text-slate-450 mt-0.5">Receive urgent warnings and class scheduling changes via SMS</p>
-              </div>
-              <input
-                type="checkbox"
-                checked={smsAlerts}
-                onChange={() => setSmsAlerts(!smsAlerts)}
-                className="h-4.5 w-4.5 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
-              />
-            </div>
-
-          </CardContent>
-        </Card>
-
-        {/* Privacy Section */}
-        <Card className="border-slate-100 bg-white dark:bg-slate-950">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <EyeOff className="h-5 w-5 text-blue-600" /> Privacy & Leaderboard
-            </CardTitle>
-            <p className="text-xs text-slate-500">Manage your visibility across classroom rank sheets</p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            
-            <div className="flex items-center justify-between p-3.5 rounded-xl border border-slate-50 dark:border-slate-900 hover:bg-slate-50/50">
-              <div>
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Leaderboard Anonymity</span>
-                <p className="text-[10px] text-slate-450 mt-0.5">Hide your student name on published rankings (shown as Anonymous)</p>
-              </div>
-              <input
-                type="checkbox"
-                checked={leaderboardPrivacy}
-                onChange={() => setLeaderboardPrivacy(!leaderboardPrivacy)}
-                className="h-4.5 w-4.5 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
+                className="h-5 w-5 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
               />
             </div>
 

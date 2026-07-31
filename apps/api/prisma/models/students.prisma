@@ -48,6 +48,7 @@ model Student {
   logins               StudentLoginHistory[]
   statusHistories      StudentStatusHistory[]
   attendanceRecords    AttendanceRecord[]
+  attendanceRequests   AttendanceRequest[]
   studentSchedules     StudentSchedule[]
   submissions          Submission[]
   assignmentExtensions AssignmentExtension[]

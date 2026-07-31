@@ -78,16 +78,21 @@ model AttendanceHistory {
 }
 
 model AttendanceRequest {
-  id           String             @id @default(uuid())
-  studentId    String             @map("student_id")
-  leaveType    String             @map("leave_type")
-  reason       String?
-  fromDate     DateTime           @map("from_date")
-  toDate       DateTime           @map("to_date")
-  status       LeaveRequestStatus @default(PENDING)
-  approvedById String?            @map("approved_by")
-  createdAt    DateTime           @default(now()) @map("created_at")
-  updatedAt    DateTime           @updatedAt @map("updated_at")
+  id                      String             @id @default(uuid())
+  studentId               String             @map("student_id")
+  student                 Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  leaveType               String             @map("leave_type")
+  reason                  String?
+  fromDate                DateTime           @map("from_date")
+  toDate                  DateTime           @map("to_date")
+  imageUrl                String?            @map("image_url")
+  aiAnalysis              String?            @map("ai_analysis")
+  parentVerified          Boolean            @default(false) @map("parent_verified")
+  parentVerificationNotes String?            @map("parent_verification_notes")
+  status                  LeaveRequestStatus @default(PENDING)
+  approvedById            String?            @map("approved_by")
+  createdAt               DateTime           @default(now()) @map("created_at")
+  updatedAt               DateTime           @updatedAt @map("updated_at")
 
   @@index([studentId])
   @@map("attendance_requests")

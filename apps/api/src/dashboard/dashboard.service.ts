@@ -253,7 +253,25 @@ export class DashboardService {
       take: 5,
     });
 
-    // 6. Recent notifications
+    // 7. Real Connections calculation: department colleagues + students in teacher's divisions
+    const departmentColleagues = await this.prisma.teacher.findMany({
+      where: { collegeId: teacher.collegeId, departmentId: teacher.departmentId, status: 'ACTIVE' },
+      include: { user: true, profile: true },
+      take: 5,
+    });
+
+    const teacherSubjects = await this.prisma.teacherSubject.findMany({
+      where: { teacherId: teacher.id },
+      select: { divisionId: true },
+    });
+    const divisionIds = teacherSubjects.map(ts => ts.divisionId).filter(Boolean) as string[];
+    const totalStudentsInDivisions = await this.prisma.student.count({
+      where: { divisionId: { in: divisionIds.length > 0 ? divisionIds : ['none'] }, status: 'ACTIVE' },
+    });
+
+    const connectionsCount = departmentColleagues.length + totalStudentsInDivisions;
+
+    // 8. Recent notifications
     const notificationsList = await this.prisma.notification.findMany({
       where: { userId, isRead: false },
       orderBy: { createdAt: 'desc' },
@@ -276,6 +294,17 @@ export class DashboardService {
       pendingAttendance,
       pendingAssignments,
       uploadedNotes,
+      connections: {
+        total: connectionsCount,
+        colleaguesCount: departmentColleagues.length,
+        studentsCount: totalStudentsInDivisions,
+        colleaguesList: departmentColleagues.map(t => ({
+          id: t.id,
+          name: t.profile ? `${t.profile.firstName} ${t.profile.lastName}` : t.user?.name || 'Faculty Member',
+          designation: t.designation || 'Lecturer',
+          email: t.user?.email || '',
+        })),
+      },
       upcomingEvents: upcomingEvents.map(e => ({
         id: e.id,
         title: e.title,
@@ -412,52 +441,58 @@ export class DashboardService {
       take: 5,
     });
 
-    const totalStudentsInSemesterCount = await this.prisma.student.count({
-      where: {
-        semesterId: student.semesterId,
-        status: 'ACTIVE',
-      },
+    // 8. Dynamic performance & Scoped Rank Calculations
+    // A. Classroom Rank (Within exact division/classroom)
+    const classroomStudents = await this.prisma.student.findMany({
+      where: { divisionId: student.divisionId, collegeId: student.collegeId, status: 'ACTIVE' },
+      include: { submissions: true, attendanceRecords: true },
     });
 
-    // 8. Dynamic performance: GPA & Rank Calculations
-    // Fetch all students in the same semester to compute their grades and ranks
-    const semesterStudents = await this.prisma.student.findMany({
-      where: { semesterId: student.semesterId, status: 'ACTIVE' },
-      include: { submissions: true },
-    });
-
-    const studentsScores = semesterStudents.map(s => {
-      const graded = s.submissions.filter(sub => sub.status === 'GRADED');
-      if (graded.length === 0) {
-        const code = s.rollNumber || s.id;
-        let hash = 0;
-        for (let i = 0; i < code.length; i++) {
-          hash = code.charCodeAt(i) + ((hash << 5) - hash);
-        }
-        return {
-          studentId: s.id,
-          avgScore: 70 + (Math.abs(hash) % 25),
-        };
+    const getScoreForStudent = (s: any) => {
+      const graded = s.submissions.filter((sub: any) => sub.status === 'GRADED' && sub.marks !== null);
+      let gradeScore = 0;
+      if (graded.length > 0) {
+        const totalMarks = graded.reduce((acc: number, curr: any) => acc + (curr.marks || 0), 0);
+        gradeScore = totalMarks / graded.length;
       }
-      let totalScore = 0;
-      let count = 0;
-      graded.forEach(sub => {
-        if (sub.marks !== null) {
-          totalScore += sub.marks;
-          count++;
-        }
-      });
-      return {
-        studentId: s.id,
-        avgScore: count > 0 ? (totalScore / count) : 70,
-      };
+      const attTotal = s.attendanceRecords.length;
+      const attPresent = s.attendanceRecords.filter((r: any) => r.status === 'PRESENT' || r.status === 'LATE').length;
+      const attScore = attTotal > 0 ? (attPresent / attTotal) * 100 : 85;
+      
+      return graded.length > 0 ? gradeScore * 0.7 + attScore * 0.3 : attScore;
+    };
+
+    const classroomScores = classroomStudents
+      .map(s => ({ studentId: s.id, score: getScoreForStudent(s) }))
+      .sort((a, b) => b.score - a.score);
+
+    const classroomRankIndex = classroomScores.findIndex(s => s.studentId === student.id);
+    const classroomRank = classroomRankIndex !== -1 ? classroomRankIndex + 1 : 1;
+
+    // B. Course / Degree Rank (Within exact course)
+    const courseStudents = await this.prisma.student.findMany({
+      where: { courseId: student.courseId, collegeId: student.collegeId, status: 'ACTIVE' },
+      include: { submissions: true, attendanceRecords: true },
     });
+    const courseScores = courseStudents
+      .map(s => ({ studentId: s.id, score: getScoreForStudent(s) }))
+      .sort((a, b) => b.score - a.score);
+    const courseRankIndex = courseScores.findIndex(s => s.studentId === student.id);
+    const courseRank = courseRankIndex !== -1 ? courseRankIndex + 1 : 1;
 
-    studentsScores.sort((a, b) => b.avgScore - a.avgScore);
+    // C. School-Wide Rank (Within exact college, never pooled)
+    const schoolStudents = await this.prisma.student.findMany({
+      where: { collegeId: student.collegeId, status: 'ACTIVE' },
+      include: { submissions: true, attendanceRecords: true },
+    });
+    const schoolScores = schoolStudents
+      .map(s => ({ studentId: s.id, score: getScoreForStudent(s) }))
+      .sort((a, b) => b.score - a.score);
+    const schoolRankIndex = schoolScores.findIndex(s => s.studentId === student.id);
+    const schoolWideRank = schoolRankIndex !== -1 ? schoolRankIndex + 1 : 1;
 
-    const rankIndex = studentsScores.findIndex(s => s.studentId === student.id);
-    const currentRank = rankIndex !== -1 ? rankIndex + 1 : 3;
-    const currentScore = rankIndex !== -1 ? studentsScores[rankIndex].avgScore : 88.0;
+    // Current score for student
+    const currentScore = classroomRankIndex !== -1 ? Math.round(classroomScores[classroomRankIndex].score) : 85;
 
     // Fetch semester subjects to compute subject-wise marks
     const semesterSubjects = await this.prisma.subject.findMany({
@@ -517,20 +552,20 @@ export class DashboardService {
     );
 
     const leaderboardList = await Promise.all(
-      studentsScores.slice(0, 5).map(async (scoreObj, index) => {
+      classroomScores.slice(0, 5).map(async (scoreObj, index) => {
         const stud = await this.prisma.student.findUnique({
           where: { id: scoreObj.studentId },
           include: { profile: true },
         });
 
-        let nameLabel = stud?.id === student.id
+        const nameLabel = stud?.id === student.id
           ? `${stud.profile?.firstName} ${stud.profile?.lastName} (You)`
           : `${stud?.profile?.firstName || 'Student'} ${stud?.profile?.lastName || ''}`;
 
         return {
           rank: index === 0 ? '🥇 1' : index === 1 ? '🥈 2' : index === 2 ? '🥉 3' : `${index + 1}`,
           name: nameLabel,
-          score: `${scoreObj.avgScore.toFixed(1)}%`,
+          score: `${scoreObj.score.toFixed(1)}%`,
           isCurrentUser: stud?.id === student.id,
         };
       })
@@ -584,12 +619,15 @@ export class DashboardService {
       })),
       performance: {
         gpa: parseFloat((currentScore / 10).toFixed(2)),
-        rank: currentRank,
-        totalStudents: totalStudentsInSemesterCount || 120,
+        rank: classroomRank,
+        classroomRank,
+        courseRank,
+        schoolWideRank,
+        totalStudents: classroomStudents.length,
         subjects: subjectWisePerformance,
       },
       leaderboard: {
-        position: currentRank,
+        position: classroomRank,
         score: parseFloat(currentScore.toFixed(1)),
         list: leaderboardList,
       },
