@@ -6,43 +6,44 @@ import { GlassCard } from '../../components/ui/GlassCard';
 import { Badge } from '../../components/ui/Badge';
 import { Header } from '../../components/ui/Header';
 import { useAuthStore } from '../../store/useAuthStore';
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../services/apiClient';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/ui/ErrorState';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useApiData } from '../../hooks/useApiData';
 import { CheckCircle2, AlertTriangle, Calendar, TrendingUp, Zap } from 'lucide-react-native';
 
 export const StudentAttendanceScreen: React.FC = () => {
-  const user = useAuthStore((state) => state.user);
-  const tenantId = useAuthStore((state) => state.tenantId);
-
-  const { data: attendanceData, refetch, isRefetching } = useQuery({
-    queryKey: ['attendance', 'student', tenantId],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get('/student/attendance');
-        if (res.data?.data) return res.data.data;
-      } catch (e) {
-        console.warn('Backend attendance endpoint error:', e);
-      }
-      return null;
-    },
+  const {
+    data: attendanceData,
+    isLoading,
+    isError,
+    isEmpty,
+    refetch,
+    isRefetching,
+  } = useApiData({
+    queryKey: ['student', 'attendance'],
+    endpoint: '/student/attendance',
   });
 
-  const percentage = attendanceData?.percentage ?? 87.5;
-  const presentCount = attendanceData?.present ?? 105;
-  const absentCount = attendanceData?.absent ?? 15;
+  if (isLoading) {
+    return <LoadingSpinner fullScreen message="Loading Attendance Records..." />;
+  }
+
+  if (isError) {
+    return (
+      <View style={styles.container}>
+        <Header title="Attendance Tracker" subtitle="Real-Time Attendance" />
+        <ErrorState message="Failed to load attendance records from database." onRetry={refetch} />
+      </View>
+    );
+  }
+
+  const percentage = attendanceData?.overallPercentage !== undefined ? Number(attendanceData.overallPercentage) : (attendanceData?.percentage !== undefined ? Number(attendanceData.percentage) : 0);
+  const presentCount = attendanceData?.presentCount !== undefined ? Number(attendanceData.presentCount) : (attendanceData?.present !== undefined ? Number(attendanceData.present) : 0);
+  const absentCount = attendanceData?.absentCount !== undefined ? Number(attendanceData.absentCount) : (attendanceData?.absent !== undefined ? Number(attendanceData.absent) : 0);
   const totalClasses = presentCount + absentCount;
-  const subjects = attendanceData?.subjectWise || [
-    { subjectName: 'Database Management Systems', code: 'CS-601', present: 28, absent: 2, percentage: 93.3 },
-    { subjectName: 'Operating Systems', code: 'CS-602', present: 26, absent: 4, percentage: 86.6 },
-    { subjectName: 'Software Engineering', code: 'CS-603', present: 25, absent: 5, percentage: 83.3 },
-    { subjectName: 'System Design', code: 'CS-604', present: 26, absent: 4, percentage: 86.6 },
-  ];
-  const history = attendanceData?.history || [
-    { date: 'Today, 09:00 AM', subjectName: 'DBMS', status: 'PRESENT' },
-    { date: 'Today, 10:15 AM', subjectName: 'Operating Systems', status: 'PRESENT' },
-    { date: 'Yesterday', subjectName: 'Software Eng', status: 'PRESENT' },
-    { date: 'Jul 21, 2026', subjectName: 'System Design', status: 'ABSENT' },
-  ];
+  const subjects = attendanceData?.subjectWise || attendanceData?.subjects || [];
+  const history = attendanceData?.history || attendanceData?.records || [];
 
   const isHealthy = percentage >= 75;
 
@@ -95,44 +96,50 @@ export const StudentAttendanceScreen: React.FC = () => {
           <Text style={styles.sectionTitle}>Subject Attendance</Text>
         </View>
 
-        {subjects.map((sub: any, idx: number) => {
-          const isSubHealthy = (sub.percentage ?? 0) >= 75;
-          const subAttended = sub.present ?? sub.attended ?? 0;
-          const subTotal = (sub.present ?? 0) + (sub.absent ?? 0) || (sub.total ?? 30);
-          return (
-            <GlassCard key={idx} variant="default" style={styles.subjectCard}>
-              <View style={styles.subHeaderRow}>
-                <View>
-                  <Text style={styles.subName}>{sub.subjectName || sub.name}</Text>
-                  <Text style={styles.subCode}>{sub.code || 'CS-SUBJECT'}</Text>
+        {subjects.length > 0 ? (
+          subjects.map((sub: any, idx: number) => {
+            const isSubHealthy = (sub.percentage ?? 0) >= 75;
+            const subAttended = sub.present ?? sub.attended ?? 0;
+            const subTotal = (sub.present ?? 0) + (sub.absent ?? 0) || (sub.total ?? 0);
+            return (
+              <GlassCard key={idx} variant="default" style={styles.subjectCard}>
+                <View style={styles.subHeaderRow}>
+                  <View>
+                    <Text style={styles.subName}>{sub.subjectName || sub.name}</Text>
+                    <Text style={styles.subCode}>{sub.code || ''}</Text>
+                  </View>
+                  <Text style={[styles.subPercentage, { color: isSubHealthy ? colors.success : colors.danger }]}>
+                    {sub.percentage}%
+                  </Text>
                 </View>
-                <Text style={[styles.subPercentage, { color: isSubHealthy ? colors.success : colors.danger }]}>
-                  {sub.percentage}%
-                </Text>
-              </View>
 
-              {/* Progress Bar */}
-              <View style={styles.progressTrack}>
-                <View
-                  style={[
-                    styles.progressBar,
-                    {
-                      width: `${Math.min(sub.percentage ?? 0, 100)}%`,
-                      backgroundColor: isSubHealthy ? colors.success : colors.danger,
-                    },
-                  ]}
-                />
-              </View>
+                {/* Progress Bar */}
+                <View style={styles.progressTrack}>
+                  <View
+                    style={[
+                      styles.progressBar,
+                      {
+                        width: `${Math.min(sub.percentage ?? 0, 100)}%`,
+                        backgroundColor: isSubHealthy ? colors.success : colors.danger,
+                      },
+                    ]}
+                  />
+                </View>
 
-              <View style={styles.subFooterRow}>
-                <Text style={styles.subStats}>
-                  Attended: {subAttended}/{subTotal} classes
-                </Text>
-                <Badge label={isSubHealthy ? 'Good' : 'At Risk'} variant={isSubHealthy ? 'success' : 'danger'} />
-              </View>
-            </GlassCard>
-          );
-        })}
+                <View style={styles.subFooterRow}>
+                  <Text style={styles.subStats}>
+                    Attended: {subAttended}/{subTotal} classes
+                  </Text>
+                  <Badge label={isSubHealthy ? 'Good' : 'At Risk'} variant={isSubHealthy ? 'success' : 'danger'} />
+                </View>
+              </GlassCard>
+            );
+          })
+        ) : (
+          <GlassCard variant="default" style={styles.subjectCard}>
+            <Text style={{ color: colors.textMuted, textAlign: 'center', padding: spacing.md }}>No Data Available</Text>
+          </GlassCard>
+        )}
 
         {/* Recent Attendance Logs */}
         <View style={styles.sectionHeader}>
@@ -141,22 +148,26 @@ export const StudentAttendanceScreen: React.FC = () => {
         </View>
 
         <GlassCard variant="default">
-          {history.map((log: any, i: number) => (
-            <View key={i} style={[styles.logRow, i === history.length - 1 && styles.noBorder]}>
-              <View style={styles.logLeft}>
-                {log.status === 'PRESENT' ? (
-                  <CheckCircle2 size={18} color={colors.success} />
-                ) : (
-                  <AlertTriangle size={18} color={colors.danger} />
-                )}
-                <View>
-                  <Text style={styles.logSubject}>{log.subjectName || log.subject}</Text>
-                  <Text style={styles.logDate}>{log.date}</Text>
+          {history.length > 0 ? (
+            history.map((log: any, i: number) => (
+              <View key={i} style={[styles.logRow, i === history.length - 1 && styles.noBorder]}>
+                <View style={styles.logLeft}>
+                  {log.status === 'PRESENT' ? (
+                    <CheckCircle2 size={18} color={colors.success} />
+                  ) : (
+                    <AlertTriangle size={18} color={colors.danger} />
+                  )}
+                  <View>
+                    <Text style={styles.logSubject}>{log.subjectName || log.subject}</Text>
+                    <Text style={styles.logDate}>{log.date}</Text>
+                  </View>
                 </View>
+                <Badge label={log.status} variant={log.status === 'PRESENT' ? 'success' : 'danger'} />
               </View>
-              <Badge label={log.status} variant={log.status === 'PRESENT' ? 'success' : 'danger'} />
-            </View>
-          ))}
+            ))
+          ) : (
+            <Text style={{ color: colors.textMuted, textAlign: 'center', padding: spacing.md }}>No Data Available</Text>
+          )}
         </GlassCard>
       </ScrollView>
     </View>

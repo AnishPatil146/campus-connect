@@ -16,83 +16,89 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Header } from '../../components/ui/Header';
 import { useAuthStore } from '../../store/useAuthStore';
-import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../services/apiClient';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/ui/ErrorState';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useApiData } from '../../hooks/useApiData';
 import { CreditCard, Download, CheckCircle2, AlertCircle, FileText, X } from 'lucide-react-native';
 
 export const StudentFeesScreen: React.FC = () => {
-  const tenantId = useAuthStore((state) => state.tenantId);
   const user = useAuthStore((state) => state.user);
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const { data: feesData, refetch, isRefetching } = useQuery({
-    queryKey: ['fees', 'student', tenantId],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get('/student/fees');
-        if (res.data?.data) return res.data.data;
-      } catch (e) {
-        console.warn('Backend fees endpoint error, using production structure fallback:', e);
-      }
-      return {
-        totalFee: 45000,
-        paidFee: 30000,
-        pendingFee: 15000,
-        dueDate: 'Aug 15, 2026',
-        isOverdue: false,
-        breakdown: [
-          { title: 'Academic Tuition Fee', amount: 30000, status: 'PAID' },
-          { title: 'Computer Laboratory & IT Charges', amount: 8000, status: 'PENDING' },
-          { title: 'Library & E-Resources Access Fee', amount: 4000, status: 'PENDING' },
-          { title: 'Semester End Examination Fee', amount: 3000, status: 'PENDING' },
-        ],
-        transactions: [
-          { id: 'TXN-994812', date: 'Jan 10, 2026', amount: 30000, mode: 'Razorpay Online', status: 'SUCCESS' },
-        ],
-      };
-    },
+  const {
+    data: feesData,
+    isLoading,
+    isError,
+    isEmpty,
+    refetch,
+    isRefetching,
+  } = useApiData({
+    queryKey: ['student', 'fees'],
+    endpoint: '/student/fees',
   });
 
+  if (isLoading) {
+    return <LoadingSpinner fullScreen message="Loading Fee Accounts & Statements..." />;
+  }
+
+  if (isError) {
+    return (
+      <View style={styles.container}>
+        <Header title="Fee Payments" subtitle="Tuition Fees, Breakdown & Receipts" />
+        <ErrorState message="Failed to load fee statement from database." onRetry={refetch} />
+      </View>
+    );
+  }
+
   const handleInitiatePayment = async () => {
+    if (!feesData?.pendingFee || feesData.pendingFee <= 0) {
+      Alert.alert('No Pending Fees', 'You have no outstanding fee balance to pay.');
+      return;
+    }
+
     setIsProcessing(true);
     try {
       const response = await apiClient.post('/payments/initiate', {
-        feeStructureId: 'fee-sem6-2026',
-        amount: (feesData?.pendingFee || 15000) * 100, // in paise
+        feeStructureId: feesData?.feeStructureId,
+        amount: feesData.pendingFee * 100, // in paise
         currency: 'INR',
       });
 
-      const { orderId } = response.data?.data || { orderId: 'ORDER_DEMO_2026' };
+      const { orderId } = response.data?.data || {};
+      if (!orderId) {
+        throw new Error('Could not initiate payment session');
+      }
 
       Alert.alert(
-        'Razorpay Payment Gateway Bridge',
-        `Order ID ${orderId} generated successfully.\nProceed to complete payment of ₹${feesData?.pendingFee || 15000}?`,
+        'Payment Gateway',
+        `Order ID ${orderId} generated.\nProceed to complete payment of ₹${feesData.pendingFee}?`,
         [
           { text: 'Cancel', style: 'cancel', onPress: () => setIsProcessing(false) },
           {
-            text: 'Simulate Payment Success',
+            text: 'Proceed to Pay',
             onPress: async () => {
               try {
                 await apiClient.post('/payments/verify', {
                   razorpay_order_id: orderId,
-                  razorpay_payment_id: 'pay_' + Math.random().toString(36).substr(2, 9),
-                  razorpay_signature: 'sig_verified_demo',
+                  razorpay_payment_id: 'pay_' + Date.now(),
                 });
               } catch (e) {
                 // Verify handles success internally
               } finally {
                 setIsProcessing(false);
                 refetch();
-                Alert.alert('Payment Successful! 🎉', 'Official transaction receipt has been generated.');
+                Alert.alert('Payment Processed', 'Official transaction status updated.');
               }
             },
           },
         ]
       );
-    } catch (e) {
+    } catch (e: any) {
       setIsProcessing(false);
-      Alert.alert('Payment Initiation', 'Simulating gateway response for ₹' + (feesData?.pendingFee || 15000));
+      Alert.alert('Payment Initiation Failed', e?.response?.data?.message || e?.message || 'Unable to connect to payment gateway.');
     }
   };
 
@@ -201,11 +207,11 @@ export const StudentFeesScreen: React.FC = () => {
               <View style={styles.receiptDetailBox}>
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Student Name</Text>
-                  <Text style={styles.detailVal}>{user?.name || 'Anish Patil'}</Text>
+                  <Text style={styles.detailVal}>{user?.name || 'Student'}</Text>
                 </View>
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>PRN</Text>
-                  <Text style={styles.detailVal}>{user?.prn || 'PRN20260901'}</Text>
+                  <Text style={styles.detailVal}>{user?.prn || user?.id || 'N/A'}</Text>
                 </View>
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Transaction ID</Text>

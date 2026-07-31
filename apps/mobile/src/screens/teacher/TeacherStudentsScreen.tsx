@@ -5,39 +5,46 @@ import { borderRadius, spacing } from '../../theme/spacing';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { Badge } from '../../components/ui/Badge';
 import { Header } from '../../components/ui/Header';
-import { useAuthStore } from '../../store/useAuthStore';
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../services/apiClient';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/ui/ErrorState';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useApiData } from '../../hooks/useApiData';
 import { Search, UserCheck, TrendingUp } from 'lucide-react-native';
 
 export const TeacherStudentsScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const tenantId = useAuthStore((state) => state.tenantId);
 
-  const { data: students, refetch, isRefetching } = useQuery({
-    queryKey: ['students', 'teacher', tenantId],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get('/students');
-        if (res.data?.data) return res.data.data;
-      } catch (e) {
-        console.log('Using local fallback student list');
-      }
-      return [
-        { id: '1', name: 'Anish Patil', prn: 'PRN2026001', division: 'Div A', attendance: '87.5%', sgpa: '8.92' },
-        { id: '2', name: 'Rohan Sharma', prn: 'PRN2026002', division: 'Div A', attendance: '92.0%', sgpa: '9.15' },
-        { id: '3', name: 'Priya Verma', prn: 'PRN2026003', division: 'Div B', attendance: '71.4%', sgpa: '7.80' },
-        { id: '4', name: 'Aditya Kulkarni', prn: 'PRN2026004', division: 'Div A', attendance: '85.0%', sgpa: '8.45' },
-        { id: '5', name: 'Sneha Deshmukh', prn: 'PRN2026005', division: 'Div B', attendance: '89.2%', sgpa: '8.90' },
-      ];
-    },
+  const {
+    data: studentsData,
+    isLoading,
+    isError,
+    isEmpty,
+    refetch,
+    isRefetching,
+  } = useApiData({
+    queryKey: ['teacher', 'students', 'directory'],
+    endpoint: '/students',
   });
 
-  const filteredStudents = (students || []).filter(
-    (s: any) =>
-      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.prn.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  if (isLoading) {
+    return <LoadingSpinner fullScreen message="Loading Student Directory..." />;
+  }
+
+  if (isError) {
+    return (
+      <View style={styles.container}>
+        <Header title="Class Roster" subtitle="Student Directory & Academic Tracking" />
+        <ErrorState message="Failed to load student directory from database." onRetry={refetch} />
+      </View>
+    );
+  }
+
+  const studentsList = Array.isArray(studentsData) ? studentsData : [];
+  const filteredStudents = (studentsList || []).filter((s: any) => {
+    const sName = s.name || `${s.profile?.firstName || ''} ${s.profile?.lastName || ''}`.trim() || s.email || '';
+    const sPrn = s.prn || s.rollNumber || '';
+    return sName.toLowerCase().includes(searchQuery.toLowerCase()) || sPrn.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   return (
     <View style={styles.container}>
@@ -60,44 +67,48 @@ export const TeacherStudentsScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
       >
-        {filteredStudents.map((student: any) => {
-          const attVal = parseFloat(student.attendance);
-          const isAtRisk = attVal < 75;
+        {filteredStudents.length > 0 ? (
+          filteredStudents.map((student: any) => {
+            const attVal = parseFloat(student.attendance) || 0;
+            const isAtRisk = attVal < 75;
 
-          return (
-            <GlassCard key={student.id} variant="default" style={styles.studentCard}>
-              <View style={styles.studentHeader}>
-                <View style={styles.avatarCircle}>
-                  <Text style={styles.avatarText}>{student.name.charAt(0)}</Text>
-                </View>
-                <View style={styles.studentMain}>
-                  <Text style={styles.studentName}>{student.name}</Text>
-                  <Text style={styles.studentPrn}>{student.prn} • {student.division}</Text>
-                </View>
-                <Badge
-                  label={isAtRisk ? 'AT RISK (<75%)' : 'REGULAR'}
-                  variant={isAtRisk ? 'danger' : 'success'}
-                />
-              </View>
-
-              <View style={styles.metricsRow}>
-                <View style={styles.metricItem}>
-                  <Text style={styles.metricLabel}>Attendance</Text>
-                  <Text style={[styles.metricVal, { color: isAtRisk ? colors.danger : colors.success }]}>
-                    {student.attendance}
-                  </Text>
+            return (
+              <GlassCard key={student.id} variant="default" style={styles.studentCard}>
+                <View style={styles.studentHeader}>
+                  <View style={styles.avatarCircle}>
+                    <Text style={styles.avatarText}>{student.name ? student.name.charAt(0) : 'S'}</Text>
+                  </View>
+                  <View style={styles.studentMain}>
+                    <Text style={styles.studentName}>{student.name}</Text>
+                    <Text style={styles.studentPrn}>{student.prn} • {student.division || 'General'}</Text>
+                  </View>
+                  <Badge
+                    label={isAtRisk ? 'AT RISK (<75%)' : 'REGULAR'}
+                    variant={isAtRisk ? 'danger' : 'success'}
+                  />
                 </View>
 
-                <View style={styles.metricDivider} />
+                <View style={styles.metricsRow}>
+                  <View style={styles.metricItem}>
+                    <Text style={styles.metricLabel}>Attendance</Text>
+                    <Text style={[styles.metricVal, { color: isAtRisk ? colors.danger : colors.success }]}>
+                      {student.attendance || '--%'}
+                    </Text>
+                  </View>
 
-                <View style={styles.metricItem}>
-                  <Text style={styles.metricLabel}>Last SGPA</Text>
-                  <Text style={[styles.metricVal, { color: colors.primary }]}>{student.sgpa}</Text>
+                  <View style={styles.metricDivider} />
+
+                  <View style={styles.metricItem}>
+                    <Text style={styles.metricLabel}>Last SGPA</Text>
+                    <Text style={[styles.metricVal, { color: colors.primary }]}>{student.sgpa || '--'}</Text>
+                  </View>
                 </View>
-              </View>
-            </GlassCard>
-          );
-        })}
+              </GlassCard>
+            );
+          })
+        ) : (
+          <EmptyState message="No Data Available" description="No student records found in institution directory." />
+        )}
       </ScrollView>
     </View>
   );

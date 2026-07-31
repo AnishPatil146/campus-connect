@@ -20,8 +20,8 @@ import { apiClient } from '../../services/apiClient';
 import { GraduationCap, Mail, Lock, Building2, User, KeyRound } from 'lucide-react-native';
 
 export const LoginScreen: React.FC = () => {
-  const [identifier, setIdentifier] = useState('student@campusconnect.edu');
-  const [password, setPassword] = useState('password123');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [tenantId, setTenantIdState] = useState<'college-a' | 'college-b'>('college-a');
   const [loading, setLoading] = useState(false);
 
@@ -40,7 +40,6 @@ export const LoginScreen: React.FC = () => {
 
     setLoading(true);
     try {
-      // Universal single authentication API endpoint
       const response = await apiClient.post('/auth/login', {
         email: identifier.trim().toLowerCase(),
         password,
@@ -48,49 +47,34 @@ export const LoginScreen: React.FC = () => {
 
       const { accessToken, refreshToken, user } = response.data?.data || {};
 
-      // Automatically determine user role from backend response
-      const profile: UserProfile = {
-        id: user?.id || 'usr-101',
-        email: user?.email || identifier.trim(),
-        name: user?.name || 'Campus User',
-        role: (user?.role as any) || (identifier.includes('teacher') ? 'TEACHER' : identifier.includes('admin') ? 'ADMIN' : 'STUDENT'),
-        collegeId: user?.collegeId || tenantId,
-        prn: user?.prn || '2026CS101',
-        employeeId: user?.employeeId,
-        department: user?.department?.name || 'Computer Engineering',
-        semester: user?.semester?.name || 'Semester VI',
-      };
-
-      await setAuth(accessToken || 'demo_jwt_token_2026', refreshToken || 'demo_refresh_token_2026', profile);
-    } catch (err: any) {
-      console.warn('Universal login backend fallback active:', err?.message);
-
-      // Auto-detect role from input identifier if offline fallback is active
-      const trimmed = identifier.trim().toLowerCase();
-      let detectedRole: 'STUDENT' | 'TEACHER' | 'ADMIN' = 'STUDENT';
-      let detectedName = 'Anish Patil';
-
-      if (trimmed.includes('teacher') || trimmed.includes('prof') || trimmed.includes('emp')) {
-        detectedRole = 'TEACHER';
-        detectedName = 'Prof. Anish Patil';
-      } else if (trimmed.includes('admin') || trimmed.includes('sys')) {
-        detectedRole = 'ADMIN';
-        detectedName = 'System Administrator';
+      if (!accessToken || !user) {
+        throw new Error(response.data?.message || 'Authentication failed');
       }
 
-      const mockProfile: UserProfile = {
-        id: detectedRole === 'STUDENT' ? 'stu-101' : detectedRole === 'TEACHER' ? 'teach-101' : 'adm-101',
-        email: trimmed,
-        name: detectedName,
-        role: detectedRole,
-        collegeId: tenantId,
-        prn: detectedRole === 'STUDENT' ? '2026CS101' : undefined,
-        employeeId: detectedRole === 'TEACHER' ? 'EMP-T802' : detectedRole === 'ADMIN' ? 'ADM-001' : undefined,
-        department: 'Computer Engineering',
-        semester: 'Semester VI',
+      const profile: UserProfile = {
+        id: user.id,
+        email: user.email,
+        name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+        role: user.role,
+        collegeId: user.collegeId || tenantId,
+        prn: user.prn || user.rollNumber,
+        employeeId: user.employeeId,
+        department: user.department?.name,
+        semester: user.semester?.name,
+        avatarUrl: user.avatarUrl,
       };
 
-      await setAuth('demo_jwt_token_2026', 'demo_refresh_token_2026', mockProfile);
+      await setAuth(accessToken, refreshToken, profile);
+    } catch (err: any) {
+      if (!err.response) {
+        Alert.alert('Network Error', 'Unable to reach the server. Please check your network connection.');
+      } else if (err.response.status === 401 || err.response.status === 400) {
+        const errorMsg = err.response.data?.message || 'Invalid credentials. Please verify your email/ID and password.';
+        Alert.alert('Invalid Credentials', errorMsg);
+      } else {
+        const errorMsg = err.response.data?.message || 'A server error occurred. Please try again later.';
+        Alert.alert('Server Error', errorMsg);
+      }
     } finally {
       setLoading(false);
     }
@@ -158,7 +142,7 @@ export const LoginScreen: React.FC = () => {
               <User size={18} color={colors.textMuted} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="student@campus.edu or PRN2026001"
+                placeholder="Email / PRN / Employee ID"
                 placeholderTextColor={colors.textMuted}
                 value={identifier}
                 onChangeText={setIdentifier}

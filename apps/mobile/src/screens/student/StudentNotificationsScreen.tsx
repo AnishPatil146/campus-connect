@@ -5,59 +5,37 @@ import { borderRadius, spacing } from '../../theme/spacing';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { Badge } from '../../components/ui/Badge';
 import { Header } from '../../components/ui/Header';
-import { useAuthStore } from '../../store/useAuthStore';
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../services/apiClient';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/ui/ErrorState';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useApiData } from '../../hooks/useApiData';
 import { Bell, BookOpen, Award, Calendar, Megaphone } from 'lucide-react-native';
 
 export const StudentNotificationsScreen: React.FC = () => {
-  const tenantId = useAuthStore((state) => state.tenantId);
-
-  const { data: notifications, refetch, isRefetching } = useQuery({
-    queryKey: ['notifications', 'student', tenantId],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get('/notifications/in-app');
-        if (res.data?.data) return res.data.data;
-      } catch (e) {
-        console.warn('Backend in-app notifications endpoint fallback active:', e);
-      }
-      return [
-        {
-          id: '1',
-          title: 'New DBMS Lecture Notes Uploaded',
-          body: 'Prof. Anish uploaded "DBMS Module 3: Relational Algebra & SQL".',
-          type: 'NOTE',
-          timestamp: '10 mins ago',
-          read: false,
-        },
-        {
-          id: '2',
-          title: 'Semester V Results Published',
-          body: 'Your SGPA for Semester V is now available. SGPA: 8.92.',
-          type: 'RESULT',
-          timestamp: '2 hours ago',
-          read: false,
-        },
-        {
-          id: '3',
-          title: 'Tech Fest 2026 Registration Open',
-          body: 'Annual campus tech fest registration is now live for all engineering departments.',
-          type: 'EVENT',
-          timestamp: 'Yesterday',
-          read: true,
-        },
-        {
-          id: '4',
-          title: 'Timetable Adjustment Alert',
-          body: 'Friday Operating Systems lecture shifted to Hall A.',
-          type: 'ANNOUNCEMENT',
-          timestamp: 'Jul 21, 2026',
-          read: true,
-        },
-      ];
-    },
+  const {
+    data: notifications,
+    isLoading,
+    isError,
+    isEmpty,
+    refetch,
+    isRefetching,
+  } = useApiData({
+    queryKey: ['student', 'notifications'],
+    endpoint: '/notifications/in-app',
   });
+
+  if (isLoading) {
+    return <LoadingSpinner fullScreen message="Loading Alerts & Broadcasts..." />;
+  }
+
+  if (isError) {
+    return (
+      <View style={styles.container}>
+        <Header title="Notifications" subtitle="Push & Real-time Broadcast Alerts" />
+        <ErrorState message="Failed to load notifications from database." onRetry={refetch} />
+      </View>
+    );
+  }
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -80,27 +58,31 @@ export const StudentNotificationsScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
       >
-        {notifications?.map((item: any) => (
-          <GlassCard
-            key={item.id}
-            variant={item.read ? 'default' : 'glow'}
-            style={[styles.notifCard, !item.read && styles.unreadCard]}
-          >
-            <View style={styles.notifRow}>
-              <View style={styles.iconCircle}>{getNotificationIcon(item.type)}</View>
+        {notifications && notifications.length > 0 ? (
+          notifications.map((item: any) => (
+            <GlassCard
+              key={item.id}
+              variant={item.read ? 'default' : 'glow'}
+              style={[styles.notifCard, !item.read && styles.unreadCard]}
+            >
+              <View style={styles.notifRow}>
+                <View style={styles.iconCircle}>{getNotificationIcon(item.type)}</View>
 
-              <View style={styles.notifContent}>
-                <View style={styles.notifTop}>
-                  <Text style={styles.notifTitle}>{item.title}</Text>
-                  {!item.read && <Badge label="NEW" variant="primary" />}
+                <View style={styles.notifContent}>
+                  <View style={styles.notifTop}>
+                    <Text style={styles.notifTitle}>{item.title}</Text>
+                    {!item.read && <Badge label="NEW" variant="primary" />}
+                  </View>
+
+                  <Text style={styles.notifBody}>{item.body}</Text>
+                  <Text style={styles.notifTime}>{item.timestamp}</Text>
                 </View>
-
-                <Text style={styles.notifBody}>{item.body}</Text>
-                <Text style={styles.notifTime}>{item.timestamp}</Text>
               </View>
-            </View>
-          </GlassCard>
-        ))}
+            </GlassCard>
+          ))
+        ) : (
+          <EmptyState message="No Data Available" description="No unread alerts or notifications found." />
+        )}
       </ScrollView>
     </View>
   );

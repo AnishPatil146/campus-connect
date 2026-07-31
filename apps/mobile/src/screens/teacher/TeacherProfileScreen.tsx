@@ -34,7 +34,7 @@ export const TeacherProfileScreen: React.FC = () => {
           <View style={styles.avatarLarge}>
             <Text style={styles.avatarTextLarge}>{user?.name?.charAt(0) || 'P'}</Text>
           </View>
-          <Text style={styles.userName}>{user?.name || 'Prof. Anish Patil'}</Text>
+          <Text style={styles.userName}>{user?.name || 'Faculty Member'}</Text>
           <Text style={styles.userRole}>ASSISTANT PROFESSOR</Text>
 
           <View style={styles.badgeRow}>

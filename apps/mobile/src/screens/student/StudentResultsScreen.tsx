@@ -6,70 +6,44 @@ import { GlassCard } from '../../components/ui/GlassCard';
 import { Badge } from '../../components/ui/Badge';
 import { Header } from '../../components/ui/Header';
 import { useAuthStore } from '../../store/useAuthStore';
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../services/apiClient';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/ui/ErrorState';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useApiData } from '../../hooks/useApiData';
 import { Award, TrendingUp, CheckCircle, Sparkles } from 'lucide-react-native';
 
 export const StudentResultsScreen: React.FC = () => {
   const user = useAuthStore((state) => state.user);
-  const tenantId = useAuthStore((state) => state.tenantId);
 
-  const { data: resultsData, refetch, isRefetching } = useQuery({
-    queryKey: ['results', 'student', tenantId],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get('/dashboard/student');
-        if (res.data?.data?.performance) {
-          const perf = res.data.data.performance;
-          return {
-            sgpa: perf.gpa?.toString() || '8.92',
-            cgpa: perf.gpa?.toString() || '8.75',
-            semester: user?.semester || 'Semester V',
-            totalCredits: 22,
-            earnedCredits: 22,
-            subjects: perf.subjects?.map((s: any) => {
-              const numericMarks = parseFloat(s.marks) || 85;
-              let grade = 'A';
-              let points = 8;
-              if (numericMarks >= 90) { grade = 'O'; points = 10; }
-              else if (numericMarks >= 80) { grade = 'A+'; points = 9; }
-              else if (numericMarks >= 70) { grade = 'A'; points = 8; }
-              else if (numericMarks >= 60) { grade = 'B+'; points = 7; }
-              else if (numericMarks >= 50) { grade = 'B'; points = 6; }
-              else if (numericMarks >= 40) { grade = 'C'; points = 5; }
-              else { grade = 'F'; points = 0; }
-
-              return {
-                code: s.code,
-                name: s.name,
-                marks: numericMarks,
-                maxMarks: 100,
-                grade,
-                points,
-              };
-            }),
-          };
-        }
-      } catch (e) {
-        console.warn('Backend student performance dashboard fallback active:', e);
-      }
-      return {
-        sgpa: '8.92',
-        cgpa: '8.75',
-        semester: 'Semester V',
-        totalCredits: 22,
-        earnedCredits: 22,
-        subjects: [
-          { code: 'CS601', name: 'Database Management Systems', marks: 88, maxMarks: 100, grade: 'O', points: 10 },
-          { code: 'CS602', name: 'Operating Systems Architecture', marks: 82, maxMarks: 100, grade: 'A+', points: 9 },
-          { code: 'CS603', name: 'Software Engineering & Agile', marks: 79, maxMarks: 100, grade: 'A', points: 8 },
-          { code: 'CS604', name: 'System Design & Scalability', marks: 91, maxMarks: 100, grade: 'O', points: 10 },
-          { code: 'CS605', name: 'Web Engineering Laboratory', marks: 95, maxMarks: 100, grade: 'O', points: 10 },
-        ],
-      };
-    },
+  const {
+    data: dashboardData,
+    isLoading,
+    isError,
+    isEmpty,
+    refetch,
+    isRefetching,
+  } = useApiData({
+    queryKey: ['student', 'results'],
+    endpoint: '/dashboard/student',
   });
 
+  if (isLoading) {
+    return <LoadingSpinner fullScreen message="Loading Grade Report & Marksheet..." />;
+  }
+
+  if (isError) {
+    return (
+      <View style={styles.container}>
+        <Header title="Academic Results" subtitle="Semester Grade Report & Transcripts" />
+        <ErrorState message="Failed to load academic evaluation results from database." onRetry={refetch} />
+      </View>
+    );
+  }
+
+  const perf = dashboardData?.performance;
+  const sgpaVal = perf?.gpa !== undefined && perf?.gpa !== null ? perf.gpa.toString() : '--';
+  const cgpaVal = perf?.cgpa !== undefined && perf?.cgpa !== null ? perf.cgpa.toString() : sgpaVal;
+  const subjectsList = perf?.subjects || [];
   return (
     <View style={styles.container}>
       <Header title="Academic Results" subtitle="Semester Grades & SGPA Summary" />
@@ -83,30 +57,23 @@ export const StudentResultsScreen: React.FC = () => {
           <View style={styles.scoreHeaderRow}>
             <View style={styles.scoreHeaderLeft}>
               <Award size={20} color={colors.warning} />
-              <Text style={styles.scoreTitle}>{resultsData?.semester || 'Semester V'}</Text>
+              <Text style={styles.scoreTitle}>{user?.semester || 'Semester Grade Summary'}</Text>
             </View>
             <Badge label="OFFICIAL MARKSHEET" variant="success" />
           </View>
 
           <View style={styles.gpaGrid}>
             <View style={styles.gpaBox}>
-              <Text style={styles.gpaVal}>{resultsData?.sgpa || '8.92'}</Text>
+              <Text style={styles.gpaVal}>{sgpaVal}</Text>
               <Text style={styles.gpaLabel}>SGPA</Text>
             </View>
 
             <View style={styles.gpaDivider} />
 
             <View style={styles.gpaBox}>
-              <Text style={[styles.gpaVal, { color: colors.secondary }]}>{resultsData?.cgpa || '8.75'}</Text>
+              <Text style={[styles.gpaVal, { color: colors.secondary }]}>{cgpaVal}</Text>
               <Text style={styles.gpaLabel}>CUMULATIVE CGPA</Text>
             </View>
-          </View>
-
-          <View style={styles.creditsRow}>
-            <Text style={styles.creditsText}>
-              Earned Credits: <Text style={styles.bold}>{resultsData?.earnedCredits || 22}</Text> / {resultsData?.totalCredits || 22}
-            </Text>
-            <Badge label="FIRST CLASS WITH DISTINCTION" variant="primary" />
           </View>
         </GlassCard>
 
@@ -116,30 +83,35 @@ export const StudentResultsScreen: React.FC = () => {
           <Text style={styles.sectionTitle}>Subject Marksheet</Text>
         </View>
 
-        {resultsData?.subjects?.map((sub: any, idx: number) => (
-          <GlassCard key={idx} variant="default" style={styles.subjectResultCard}>
-            <View style={styles.subjectTopRow}>
-              <View style={styles.subjectTitleContainer}>
-                <Text style={styles.subjectCode}>{sub.code}</Text>
-                <Text style={styles.subjectName}>{sub.name}</Text>
+        {subjectsList && subjectsList.length > 0 ? (
+          subjectsList.map((sub: any, idx: number) => (
+            <GlassCard key={idx} variant="default" style={styles.subjectResultCard}>
+              <View style={styles.subjectTopRow}>
+                <View style={styles.subjectTitleContainer}>
+                  <Text style={styles.subjectCode}>{sub.code || ''}</Text>
+                  <Text style={styles.subjectName}>{sub.name || sub.subjectName || 'Course'}</Text>
+                </View>
+                {sub.grade && (
+                  <View style={styles.gradeBadge}>
+                    <Text style={styles.gradeText}>{sub.grade}</Text>
+                  </View>
+                )}
               </View>
-              <View style={styles.gradeBadge}>
-                <Text style={styles.gradeText}>{sub.grade}</Text>
-                <Text style={styles.gradePoints}>{sub.points} pts</Text>
-              </View>
-            </View>
 
-            <View style={styles.marksFooter}>
-              <Text style={styles.marksText}>
-                Marks: <Text style={styles.marksBold}>{sub.marks}</Text> / {sub.maxMarks}
-              </Text>
-              <View style={styles.statusIndicator}>
-                <CheckCircle size={14} color={colors.success} />
-                <Text style={styles.statusText}>PASSED</Text>
+              <View style={styles.marksFooter}>
+                <Text style={styles.marksText}>
+                  Marks: <Text style={styles.marksBold}>{sub.marks}</Text> / {sub.maxMarks || 100}
+                </Text>
+                <View style={styles.statusIndicator}>
+                  <CheckCircle size={14} color={colors.success} />
+                  <Text style={styles.statusText}>VERIFIED</Text>
+                </View>
               </View>
-            </View>
-          </GlassCard>
-        ))}
+            </GlassCard>
+          ))
+        ) : (
+          <EmptyState message="No Data Available" description="No evaluation marks published yet for this semester." />
+        )}
       </ScrollView>
     </View>
   );

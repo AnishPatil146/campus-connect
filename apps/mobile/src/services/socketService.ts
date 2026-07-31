@@ -13,6 +13,8 @@ const getSocketUrl = () => {
 class SocketService {
   private socket: Socket | null = null;
   private queryClient: QueryClient | null = null;
+  public isConnected: boolean = false;
+  public isReconnecting: boolean = false;
 
   init(queryClient: QueryClient) {
     this.queryClient = queryClient;
@@ -30,23 +32,38 @@ class SocketService {
       auth: { token },
       query: { token, collegeId: tenantId },
       transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
     });
 
     this.socket.on('connect', () => {
       console.log('⚡ Socket connected:', this.socket?.id);
+      this.isConnected = true;
+      this.isReconnecting = false;
       if (user?.id) {
         this.socket?.emit('join', user.id);
       }
     });
 
+    this.socket.on('reconnect_attempt', () => {
+      console.log('⚡ Socket reconnecting...');
+      this.isReconnecting = true;
+    });
+
     this.socket.on('disconnect', () => {
       console.log('⚡ Socket disconnected');
+      this.isConnected = false;
     });
 
     // Real-time events contract
     this.socket.on('attendance:updated', (data) => {
       console.log('⚡ [SOCKET EVENT] attendance:updated', data);
       if (this.queryClient) {
+        this.queryClient.invalidateQueries({ queryKey: ['student', 'attendance'] });
+        this.queryClient.invalidateQueries({ queryKey: ['student', 'dashboard'] });
+        this.queryClient.invalidateQueries({ queryKey: ['teacher', 'dashboard'] });
         this.queryClient.invalidateQueries({ queryKey: ['attendance'] });
         this.queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       }
@@ -55,6 +72,8 @@ class SocketService {
     this.socket.on('notes:uploaded', (data) => {
       console.log('⚡ [SOCKET EVENT] notes:uploaded', data);
       if (this.queryClient) {
+        this.queryClient.invalidateQueries({ queryKey: ['student', 'notes'] });
+        this.queryClient.invalidateQueries({ queryKey: ['teacher', 'notes'] });
         this.queryClient.invalidateQueries({ queryKey: ['notes'] });
       }
     });
@@ -62,6 +81,8 @@ class SocketService {
     this.socket.on('result:published', (data) => {
       console.log('⚡ [SOCKET EVENT] result:published', data);
       if (this.queryClient) {
+        this.queryClient.invalidateQueries({ queryKey: ['student', 'results'] });
+        this.queryClient.invalidateQueries({ queryKey: ['student', 'dashboard'] });
         this.queryClient.invalidateQueries({ queryKey: ['results'] });
       }
     });
@@ -69,6 +90,7 @@ class SocketService {
     this.socket.on('timetable:published', (data) => {
       console.log('⚡ [SOCKET EVENT] timetable:published', data);
       if (this.queryClient) {
+        this.queryClient.invalidateQueries({ queryKey: ['student', 'timetable'] });
         this.queryClient.invalidateQueries({ queryKey: ['timetable'] });
       }
     });
@@ -76,6 +98,8 @@ class SocketService {
     this.socket.on('notification:new', (data) => {
       console.log('⚡ [SOCKET EVENT] notification:new', data);
       if (this.queryClient) {
+        this.queryClient.invalidateQueries({ queryKey: ['student', 'notifications'] });
+        this.queryClient.invalidateQueries({ queryKey: ['teacher', 'notifications'] });
         this.queryClient.invalidateQueries({ queryKey: ['notifications'] });
       }
     });
@@ -84,6 +108,7 @@ class SocketService {
       console.log('⚡ [SOCKET EVENT] announcement:new', data);
       if (this.queryClient) {
         this.queryClient.invalidateQueries({ queryKey: ['announcements'] });
+        this.queryClient.invalidateQueries({ queryKey: ['student', 'dashboard'] });
       }
     });
   }
@@ -92,6 +117,8 @@ class SocketService {
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
+      this.isConnected = false;
+      this.isReconnecting = false;
     }
   }
 }

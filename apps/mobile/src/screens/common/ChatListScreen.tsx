@@ -14,54 +14,46 @@ import { GlassCard } from '../../components/ui/GlassCard';
 import { Badge } from '../../components/ui/Badge';
 import { Header } from '../../components/ui/Header';
 import { useAuthStore } from '../../store/useAuthStore';
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../services/apiClient';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/ui/ErrorState';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useApiData } from '../../hooks/useApiData';
 import { MessageSquare, Search, Circle, User } from 'lucide-react-native';
 
 export const ChatListScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
-  const tenantId = useAuthStore((state) => state.tenantId);
   const user = useAuthStore((state) => state.user);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const { data: conversations, refetch, isRefetching } = useQuery({
-    queryKey: ['chat', 'conversations', tenantId],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get('/chat/conversations');
-        if (res.data?.data) return res.data.data;
-      } catch (e) {
-        console.warn('Backend chat conversations endpoint error, using production fallback:', e);
-      }
-      return [
-        {
-          id: 'conv-1',
-          name: 'Prof. Anish Patil',
-          role: 'Faculty Advisor',
-          lastMessage: 'Your DBMS assignment revision has been verified.',
-          timestamp: '10:45 AM',
-          unreadCount: 1,
-          isOnline: true,
-        },
-        {
-          id: 'conv-2',
-          name: 'CS-601 Class Group',
-          role: 'Course Room',
-          lastMessage: 'Reminder: Lab session tomorrow at 09:00 AM.',
-          timestamp: 'Yesterday',
-          unreadCount: 0,
-          isOnline: false,
-        },
-        {
-          id: 'conv-3',
-          name: 'HOD Dr. Sharma',
-          role: 'Head of Department',
-          lastMessage: 'Please submit your medical leave documents.',
-          timestamp: 'Jul 22',
-          unreadCount: 0,
-          isOnline: false,
-        },
-      ];
-    },
+  const {
+    data: conversationsData,
+    isLoading,
+    isError,
+    isEmpty,
+    refetch,
+    isRefetching,
+  } = useApiData({
+    queryKey: ['common', 'chat', 'conversations'],
+    endpoint: '/chat/conversations',
+  });
+
+  if (isLoading) {
+    return <LoadingSpinner fullScreen message="Loading Conversations..." />;
+  }
+
+  if (isError) {
+    return (
+      <View style={styles.container}>
+        <Header title="Academic Messaging" subtitle="Realtime Channels" />
+        <ErrorState message="Failed to load chat conversations from database." onRetry={refetch} />
+      </View>
+    );
+  }
+
+  const conversationsList = Array.isArray(conversationsData) ? conversationsData : [];
+  const filteredConversations = (conversationsList || []).filter((conv: any) => {
+    const cName = conv.name || conv.title || '';
+    const cMsg = conv.lastMessage || '';
+    return cName.toLowerCase().includes(searchQuery.toLowerCase()) || cMsg.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
   return (
@@ -84,39 +76,43 @@ export const ChatListScreen: React.FC<{ navigation?: any }> = ({ navigation }) =
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
       >
-        {conversations?.map((conv: any) => (
-          <TouchableOpacity
-            key={conv.id}
-            onPress={() => navigation?.navigate('ChatDetail', { conversationId: conv.id, name: conv.name })}
-          >
-            <GlassCard variant={conv.unreadCount > 0 ? 'glow' : 'default'} style={styles.convCard}>
-              <View style={styles.convRow}>
-                <View style={styles.avatarBox}>
-                  <Text style={styles.avatarText}>{conv.name.charAt(0)}</Text>
-                  {conv.isOnline && <View style={styles.onlineDot} />}
-                </View>
-
-                <View style={styles.convContent}>
-                  <View style={styles.convHeader}>
-                    <Text style={styles.convName}>{conv.name}</Text>
-                    <Text style={styles.convTime}>{conv.timestamp}</Text>
+        {filteredConversations && filteredConversations.length > 0 ? (
+          filteredConversations.map((conv: any) => (
+            <TouchableOpacity
+              key={conv.id}
+              onPress={() => navigation?.navigate('ChatDetail', { conversationId: conv.id, name: conv.name })}
+            >
+              <GlassCard variant={conv.unreadCount > 0 ? 'glow' : 'default'} style={styles.convCard}>
+                <View style={styles.convRow}>
+                  <View style={styles.avatarBox}>
+                    <Text style={styles.avatarText}>{conv.name ? conv.name.charAt(0) : 'U'}</Text>
+                    {conv.isOnline && <View style={styles.onlineDot} />}
                   </View>
 
-                  <Text style={styles.convRole}>{conv.role}</Text>
-                  <Text style={styles.lastMsg} numberOfLines={1}>
-                    {conv.lastMessage}
-                  </Text>
-                </View>
+                  <View style={styles.convContent}>
+                    <View style={styles.convHeader}>
+                      <Text style={styles.convName}>{conv.name || conv.title}</Text>
+                      <Text style={styles.convTime}>{conv.timestamp || ''}</Text>
+                    </View>
 
-                {conv.unreadCount > 0 && (
-                  <View style={styles.unreadBadge}>
-                    <Text style={styles.unreadText}>{conv.unreadCount}</Text>
+                    <Text style={styles.convRole}>{conv.role || 'Contact'}</Text>
+                    <Text style={styles.lastMsg} numberOfLines={1}>
+                      {conv.lastMessage || 'No messages yet.'}
+                    </Text>
                   </View>
-                )}
-              </View>
-            </GlassCard>
-          </TouchableOpacity>
-        ))}
+
+                  {conv.unreadCount > 0 && (
+                    <View style={styles.unreadBadge}>
+                      <Text style={styles.unreadText}>{conv.unreadCount}</Text>
+                    </View>
+                  )}
+                </View>
+              </GlassCard>
+            </TouchableOpacity>
+          ))
+        ) : (
+          <EmptyState message="No Data Available" description="No chat conversations or channels available." />
+        )}
       </ScrollView>
     </View>
   );

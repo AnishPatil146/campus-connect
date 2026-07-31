@@ -128,43 +128,52 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 600)); // Smooth transitions
-
-    String role = 'STUDENT';
-    String name = 'Anish Patil';
-    String prnOrEmp = '2026CS101';
-
-    final lower = identifier.toLowerCase();
-    if (lower.contains('teacher') || lower.contains('prof') || lower.contains('emp')) {
-      role = 'TEACHER';
-      name = 'Prof. Anish Patil';
-      prnOrEmp = 'EMP-T802';
-    } else if (lower.contains('admin') || lower.contains('sys')) {
-      role = 'ADMIN';
-      name = 'System Administrator';
-      prnOrEmp = 'ADM-001';
-    }
-
-    await _secureStorage.write(key: 'jwt_token', value: 'demo_jwt_token_2026');
-    await _secureStorage.write(key: 'user_role', value: role);
-    await _secureStorage.write(key: 'user_name', value: name);
-    await _secureStorage.write(key: 'tenant_id', value: _selectedTenant);
-
-    setState(() => _isLoading = false);
-
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => MainWorkspaceShell(
-            role: role,
-            name: name,
-            prnOrEmp: prnOrEmp,
-            tenantId: _selectedTenant,
-            toggleTheme: widget.toggleTheme,
-          ),
-        ),
+    try {
+      final response = await http.post(
+        Uri.parse('http://10.0.2.2:10000/api/v1/auth/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': identifier, 'password': password}),
       );
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200 && data['success'] == true) {
+        final token = data['data']['accessToken'];
+        final user = data['data']['user'];
+        final role = user['role'] ?? 'STUDENT';
+        final name = user['name'] ?? user['email'];
+
+        await _secureStorage.write(key: 'jwt_token', value: token);
+        await _secureStorage.write(key: 'user_role', value: role);
+        await _secureStorage.write(key: 'user_name', value: name);
+        await _secureStorage.write(key: 'tenant_id', value: _selectedTenant);
+
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => MainWorkspaceShell(
+                role: role,
+                userName: name,
+                tenantId: _selectedTenant,
+              ),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(data['message'] ?? 'Authentication failed')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to connect to authentication backend.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -576,7 +585,7 @@ class StudentOverviewTab extends StatelessWidget {
           // Today's Lectures
           const Text('Today\'s Lectures', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 10),
-          _buildLectureItem(context, 'Advanced Web Architecture', '09:00 AM - 10:30 AM', 'Lab 3', 'Prof. Anish Patil', true),
+          _buildLectureItem(context, 'Advanced Web Architecture', '09:00 AM - 10:30 AM', 'Lab 3', 'Faculty Member', true),
           const SizedBox(height: 8),
           _buildLectureItem(context, 'Database Systems & Prisma', '11:00 AM - 12:30 PM', 'Hall B', 'Dr. S. Sharma', false),
           const SizedBox(height: 20),
@@ -750,7 +759,7 @@ class StudentTimetableTab extends StatelessWidget {
         const Text('Weekly Schedule', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         const SizedBox(height: 12),
         _buildDayHeader('MONDAY'),
-        _buildTimetableCard(context, '09:00 AM', 'Advanced Web Architecture', 'Lab 3', 'Prof. Anish Patil'),
+        _buildTimetableCard(context, '09:00 AM', 'Advanced Web Architecture', 'Lab 3', 'Faculty Member'),
         _buildTimetableCard(context, '11:00 AM', 'Database Management Systems', 'Hall B', 'Dr. S. Sharma'),
         const SizedBox(height: 12),
         _buildDayHeader('TUESDAY'),
@@ -804,7 +813,7 @@ class StudentNotesResultsTab extends StatelessWidget {
       children: [
         const Text('Study Material & Notes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         const SizedBox(height: 10),
-        _buildNoteItem(context, 'Advanced Web Architecture Notes.pdf', 'Uploaded by Prof. Anish Patil'),
+        _buildNoteItem(context, 'Advanced Web Architecture Notes.pdf', 'Uploaded by Faculty Member'),
         _buildNoteItem(context, 'Prisma ORM Cheat Sheet.pdf', 'Uploaded by Dr. S. Sharma'),
         _buildNoteItem(context, 'NestJS Backend Architecture Guidelines.pdf', 'Uploaded by System Admin'),
         const SizedBox(height: 20),
@@ -946,9 +955,10 @@ class TeacherAttendanceTab extends StatelessWidget {
       children: [
         const Text('Mark Attendance', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         const SizedBox(height: 12),
-        _buildAttendanceMarkRow(context, 'Anish Patil (2026CS101)'),
-        _buildAttendanceMarkRow(context, 'Rohan Sharma (2026CS102)'),
-        _buildAttendanceMarkRow(context, 'Priya Verma (2026CS103)'),
+        const Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text('No Data Available', style: TextStyle(color: Colors.grey), textAlign: TextAlign.center),
+        ),
       ],
     );
   }
@@ -1029,10 +1039,9 @@ class TeacherStudentsTab extends StatelessWidget {
       children: [
         const Text('Student Roster', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         const SizedBox(height: 10),
-        ListTile(
-          leading: const CircleAvatar(child: Text('AP')),
-          title: const Text('Anish Patil', style: TextStyle(fontWeight: FontWeight.bold)),
-          subtitle: const Text('PRN: 2026CS101 • Attendance: 88.5%'),
+        const Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text('No Data Available', style: TextStyle(color: Colors.grey), textAlign: TextAlign.center),
         ),
       ],
     );

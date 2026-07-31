@@ -15,88 +15,37 @@ import { GlassCard } from '../../components/ui/GlassCard';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Header } from '../../components/ui/Header';
-import { useAuthStore } from '../../store/useAuthStore';
-import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../services/apiClient';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/ui/ErrorState';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useApiData } from '../../hooks/useApiData';
 import { BookOpen, Search, Clock, AlertTriangle, Bookmark, Check } from 'lucide-react-native';
 
 export const StudentLibraryScreen: React.FC = () => {
-  const tenantId = useAuthStore((state) => state.tenantId);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'BORROWED' | 'CATALOG'>('BORROWED');
 
-  const { data: borrowedBooks, refetch: refetchBorrowed, isRefetching: isRefetchingBorrowed } = useQuery({
-    queryKey: ['library', 'borrowed', tenantId],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get('/library/my-borrowed');
-        if (res.data?.data) return res.data.data;
-      } catch (e) {
-        console.warn('Backend library borrowed books endpoint error, using production fallback:', e);
-      }
-      return [
-        {
-          id: 'b-1',
-          title: 'Database System Concepts (7th Edition)',
-          author: 'Silberschatz, Korth & Sudarshan',
-          isbn: '978-0078022159',
-          issueDate: 'Jul 10, 2026',
-          dueDate: 'Aug 10, 2026',
-          daysLeft: 15,
-          fineAmount: 0,
-          isOverdue: false,
-        },
-        {
-          id: 'b-2',
-          title: 'Operating System Concepts',
-          author: 'Abraham Silberschatz',
-          isbn: '978-1118063330',
-          issueDate: 'Jun 25, 2026',
-          dueDate: 'Jul 25, 2026',
-          daysLeft: -1,
-          fineAmount: 50,
-          isOverdue: true,
-        },
-      ];
-    },
+  const {
+    data: borrowedBooks,
+    isLoading: isLoadingBorrowed,
+    isError: isErrorBorrowed,
+    refetch: refetchBorrowed,
+    isRefetching: isRefetchingBorrowed,
+  } = useApiData({
+    queryKey: ['student', 'library', 'borrowed'],
+    endpoint: '/library/my-borrowed',
   });
 
-  const { data: catalogBooks, refetch: refetchCatalog } = useQuery({
-    queryKey: ['library', 'catalog', tenantId, searchQuery],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get(`/library/books?q=${encodeURIComponent(searchQuery)}`);
-        if (res.data?.data) return res.data.data;
-      } catch (e) {
-        console.warn('Backend catalog search endpoint error, using production fallback:', e);
-      }
-      return [
-        {
-          id: 'cat-1',
-          title: 'Design Patterns: Elements of Reusable Object-Oriented Software',
-          author: 'Erich Gamma, Richard Helm',
-          copiesAvailable: 4,
-          location: 'Rack B4 - Computer Science',
-          isReserved: false,
-        },
-        {
-          id: 'cat-2',
-          title: 'Clean Code: A Handbook of Agile Software Craftsmanship',
-          author: 'Robert C. Martin',
-          copiesAvailable: 1,
-          location: 'Rack A1 - Software Eng',
-          isReserved: false,
-        },
-        {
-          id: 'cat-3',
-          title: 'Introduction to Algorithms (4th Edition)',
-          author: 'Cormen, Leiserson, Rivest, Stein',
-          copiesAvailable: 0,
-          location: 'Rack B2 - Algorithms',
-          isReserved: true,
-        },
-      ];
-    },
+  const {
+    data: catalogBooks,
+    isLoading: isLoadingCatalog,
+    isError: isErrorCatalog,
+    refetch: refetchCatalog,
+    isRefetching: isRefetchingCatalog,
+  } = useApiData({
+    queryKey: ['student', 'library', 'catalog', searchQuery],
+    endpoint: `/library/books?q=${encodeURIComponent(searchQuery)}`,
   });
 
   const handleReserveBook = async (bookId: string, bookTitle: string) => {
@@ -151,41 +100,45 @@ export const StudentLibraryScreen: React.FC = () => {
       >
         {activeTab === 'BORROWED' ? (
           <>
-            {borrowedBooks?.map((book: any) => (
-              <GlassCard key={book.id} variant={book.isOverdue ? 'accent' : 'glow'} style={styles.bookCard}>
-                <View style={styles.bookHeaderRow}>
-                  <View style={styles.bookTitleBox}>
-                    <Text style={styles.bookTitle}>{book.title}</Text>
-                    <Text style={styles.bookAuthor}>by {book.author}</Text>
+            {borrowedBooks && borrowedBooks.length > 0 ? (
+              borrowedBooks.map((book: any) => (
+                <GlassCard key={book.id} variant={book.isOverdue ? 'accent' : 'glow'} style={styles.bookCard}>
+                  <View style={styles.bookHeaderRow}>
+                    <View style={styles.bookTitleBox}>
+                      <Text style={styles.bookTitle}>{book.title}</Text>
+                      <Text style={styles.bookAuthor}>by {book.author}</Text>
+                    </View>
+                    <Badge
+                      label={book.isOverdue ? `OVERDUE (₹${book.fineAmount || 0})` : `${book.daysLeft || 0} DAYS LEFT`}
+                      variant={book.isOverdue ? 'danger' : 'success'}
+                    />
                   </View>
-                  <Badge
-                    label={book.isOverdue ? `OVERDUE (₹${book.fineAmount})` : `${book.daysLeft} DAYS LEFT`}
-                    variant={book.isOverdue ? 'danger' : 'success'}
-                  />
-                </View>
 
-                <View style={styles.metaRow}>
-                  <View style={styles.metaItem}>
-                    <Clock size={14} color={colors.textSecondary} />
-                    <Text style={styles.metaText}>Issued: {book.issueDate}</Text>
+                  <View style={styles.metaRow}>
+                    <View style={styles.metaItem}>
+                      <Clock size={14} color={colors.textSecondary} />
+                      <Text style={styles.metaText}>Issued: {book.issueDate || 'Recent'}</Text>
+                    </View>
+                    <View style={styles.metaItem}>
+                      <AlertTriangle size={14} color={book.isOverdue ? colors.danger : colors.warning} />
+                      <Text style={[styles.metaText, book.isOverdue && styles.dangerText]}>
+                        Due: {book.dueDate || 'N/A'}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.metaItem}>
-                    <AlertTriangle size={14} color={book.isOverdue ? colors.danger : colors.warning} />
-                    <Text style={[styles.metaText, book.isOverdue && styles.dangerText]}>
-                      Due: {book.dueDate}
-                    </Text>
-                  </View>
-                </View>
 
-                {book.isOverdue && (
-                  <View style={styles.fineBox}>
-                    <Text style={styles.fineText}>
-                      Late fine of ₹{book.fineAmount} accumulated. Please return to avoid additional charges.
-                    </Text>
-                  </View>
-                )}
-              </GlassCard>
-            ))}
+                  {book.isOverdue && (
+                    <View style={styles.fineBox}>
+                      <Text style={styles.fineText}>
+                        Late fine of ₹{book.fineAmount || 0} accumulated. Please return to avoid additional charges.
+                      </Text>
+                    </View>
+                  )}
+                </GlassCard>
+              ))
+            ) : (
+              <EmptyState message="No Data Available" description="No books currently issued or borrowed." />
+            )}
           </>
         ) : (
           <>
@@ -201,33 +154,37 @@ export const StudentLibraryScreen: React.FC = () => {
               />
             </View>
 
-            {catalogBooks?.map((book: any) => (
-              <GlassCard key={book.id} variant="default" style={styles.catalogCard}>
-                <View style={styles.bookHeaderRow}>
-                  <View style={styles.bookTitleBox}>
-                    <Text style={styles.bookTitle}>{book.title}</Text>
-                    <Text style={styles.bookAuthor}>by {book.author}</Text>
-                    <Text style={styles.locationText}>📍 {book.location}</Text>
+            {catalogBooks && catalogBooks.length > 0 ? (
+              catalogBooks.map((book: any) => (
+                <GlassCard key={book.id} variant="default" style={styles.catalogCard}>
+                  <View style={styles.bookHeaderRow}>
+                    <View style={styles.bookTitleBox}>
+                      <Text style={styles.bookTitle}>{book.title}</Text>
+                      <Text style={styles.bookAuthor}>by {book.author}</Text>
+                      <Text style={styles.locationText}>📍 {book.location || 'Central Library'}</Text>
+                    </View>
                   </View>
-                </View>
 
-                <View style={styles.catalogFooterRow}>
-                  <Badge
-                    label={book.copiesAvailable > 0 ? `${book.copiesAvailable} Available` : 'All Issued'}
-                    variant={book.copiesAvailable > 0 ? 'success' : 'warning'}
-                  />
-                  {book.copiesAvailable > 0 && (
-                    <Button
-                      title={book.isReserved ? 'Reserved' : 'Reserve Title'}
-                      disabled={book.isReserved}
-                      onPress={() => handleReserveBook(book.id, book.title)}
-                      variant={book.isReserved ? 'secondary' : 'primary'}
-                      style={styles.reserveBtn}
+                  <View style={styles.catalogFooterRow}>
+                    <Badge
+                      label={book.copiesAvailable > 0 ? `${book.copiesAvailable} Available` : 'All Issued'}
+                      variant={book.copiesAvailable > 0 ? 'success' : 'warning'}
                     />
-                  )}
-                </View>
-              </GlassCard>
-            ))}
+                    {book.copiesAvailable > 0 && (
+                      <Button
+                        title={book.isReserved ? 'Reserved' : 'Reserve Title'}
+                        disabled={book.isReserved}
+                        onPress={() => handleReserveBook(book.id, book.title)}
+                        variant={book.isReserved ? 'secondary' : 'primary'}
+                        style={styles.reserveBtn}
+                      />
+                    )}
+                  </View>
+                </GlassCard>
+              ))
+            ) : (
+              <EmptyState message="No Data Available" description="No catalog books match your search query." />
+            )}
           </>
         )}
       </ScrollView>

@@ -15,34 +15,43 @@ import { GlassCard } from '../../components/ui/GlassCard';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Header } from '../../components/ui/Header';
-import { useAuthStore } from '../../store/useAuthStore';
-import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../services/apiClient';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/ui/ErrorState';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useApiData } from '../../hooks/useApiData';
 import { Plus, Trash2, FileText, UploadCloud, X } from 'lucide-react-native';
 
 export const TeacherNotesScreen: React.FC = () => {
-  const tenantId = useAuthStore((state) => state.tenantId);
   const [modalVisible, setModalVisible] = useState(false);
   const [title, setTitle] = useState('');
-  const [subject, setSubject] = useState('DBMS');
+  const [subject, setSubject] = useState('Course Notes');
   const [fileType, setFileType] = useState('PDF');
   const [uploading, setUploading] = useState(false);
 
-  const { data: teacherNotes, refetch } = useQuery({
-    queryKey: ['notes', 'teacher', tenantId],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get('/notes');
-        if (res.data?.data) return res.data.data;
-      } catch (e) {
-        console.log('Using local teacher notes fallback');
-      }
-      return [
-        { id: '1', title: 'DBMS Module 3: Relational Algebra', subject: 'DBMS', fileType: 'PDF', downloads: 142, date: 'Jul 22, 2026' },
-        { id: '2', title: 'OS Process Scheduling Presentation', subject: 'Operating Systems', fileType: 'PPT', downloads: 98, date: 'Jul 20, 2026' },
-      ];
-    },
+  const {
+    data: teacherNotes,
+    isLoading,
+    isError,
+    isEmpty,
+    refetch,
+  } = useApiData({
+    queryKey: ['teacher', 'notes'],
+    endpoint: '/notes',
   });
+
+  if (isLoading) {
+    return <LoadingSpinner fullScreen message="Loading Faculty Notes..." />;
+  }
+
+  if (isError) {
+    return (
+      <View style={styles.container}>
+        <Header title="Manage Notes" subtitle="Upload Study Material" />
+        <ErrorState message="Failed to load study notes from database." onRetry={refetch} />
+      </View>
+    );
+  }
 
   const handleUpload = async () => {
     if (!title) {
@@ -104,33 +113,37 @@ export const TeacherNotesScreen: React.FC = () => {
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {teacherNotes?.map((note: any) => (
-          <GlassCard key={note.id} variant="default" style={styles.noteCard}>
-            <View style={styles.noteTop}>
-              <View style={styles.fileBox}>
-                <FileText size={20} color={colors.primary} />
+        {teacherNotes && teacherNotes.length > 0 ? (
+          teacherNotes.map((note: any) => (
+            <GlassCard key={note.id} variant="default" style={styles.noteCard}>
+              <View style={styles.noteTop}>
+                <View style={styles.fileBox}>
+                  <FileText size={20} color={colors.primary} />
+                </View>
+
+                <View style={styles.noteInfo}>
+                  <Text style={styles.noteTitle}>{note.title}</Text>
+                  <Text style={styles.noteSub}>{note.subject} • {note.date}</Text>
+                </View>
+
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => handleDelete(note.id, note.title)}
+                  style={styles.deleteBtn}
+                >
+                  <Trash2 size={18} color={colors.danger} />
+                </TouchableOpacity>
               </View>
 
-              <View style={styles.noteInfo}>
-                <Text style={styles.noteTitle}>{note.title}</Text>
-                <Text style={styles.noteSub}>{note.subject} • {note.date}</Text>
+              <View style={styles.noteFooter}>
+                <Badge label={note.fileType} variant="primary" />
+                <Text style={styles.downloadCount}>{note.downloads} student downloads</Text>
               </View>
-
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => handleDelete(note.id, note.title)}
-                style={styles.deleteBtn}
-              >
-                <Trash2 size={18} color={colors.danger} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.noteFooter}>
-              <Badge label={note.fileType} variant="primary" />
-              <Text style={styles.downloadCount}>{note.downloads} student downloads</Text>
-            </View>
-          </GlassCard>
-        ))}
+            </GlassCard>
+          ))
+        ) : (
+          <EmptyState message="No Data Available" description="No study notes or documents uploaded yet." />
+        )}
       </ScrollView>
 
       {/* Upload Note Modal */}

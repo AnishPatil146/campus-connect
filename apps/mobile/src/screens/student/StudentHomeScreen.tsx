@@ -6,8 +6,10 @@ import { GlassCard } from '../../components/ui/GlassCard';
 import { StatCard } from '../../components/ui/StatCard';
 import { Badge } from '../../components/ui/Badge';
 import { useAuthStore } from '../../store/useAuthStore';
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../services/apiClient';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/ui/ErrorState';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useApiData } from '../../hooks/useApiData';
 import {
   Calendar,
   BookOpen,
@@ -29,34 +31,41 @@ import {
 
 export const StudentHomeScreen: React.FC<any> = ({ navigation }) => {
   const user = useAuthStore((state) => state.user);
-  const tenantId = useAuthStore((state) => state.tenantId);
 
-  const { data: dashboardData, refetch, isRefetching } = useQuery({
-    queryKey: ['student', 'dashboard', tenantId],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get('/dashboard/student');
-        if (res.data?.data) {
-          return res.data.data;
-        }
-      } catch (e) {
-        console.log('Fetching student dashboard API...');
-      }
-      return null;
-    },
+  const {
+    data: dashboardData,
+    isLoading,
+    isError,
+    isEmpty,
+    refetch,
+    isRefetching,
+  } = useApiData({
+    queryKey: ['student', 'dashboard'],
+    endpoint: '/dashboard/student',
   });
 
-  const tenantDisplayName = tenantId === 'college-b' ? 'Balasaheb College' : 'Pushpalata College';
+  if (isLoading) {
+    return <LoadingSpinner fullScreen message="Loading Student Dashboard..." />;
+  }
+
+  if (isError) {
+    return (
+      <View style={styles.container}>
+        <ErrorState message="Failed to load dashboard statistics from database." onRetry={refetch} />
+      </View>
+    );
+  }
+
   const firstName = user?.name ? user.name.split(' ')[0] : 'Student';
-  const attendanceNum = dashboardData?.attendance !== undefined ? Number(dashboardData.attendance) : 0;
-  const attendanceVal = dashboardData?.attendance !== undefined ? `${dashboardData.attendance}%` : '--%';
-  const newNotesCount = dashboardData?.newNotesCount !== undefined ? dashboardData.newNotesCount : 0;
+  const attendanceObj = dashboardData?.attendance;
+  const attendanceNum = attendanceObj?.overallPercentage !== undefined ? Number(attendanceObj.overallPercentage) : 0;
+  const attendanceVal = `${attendanceNum.toFixed(1)}%`;
+  const newNotesCount = dashboardData?.latestNotes?.length || 0;
   const classesList = dashboardData?.todayClasses || [];
   const nextClass = classesList.length > 0 ? classesList[0] : null;
-  const latestResult = dashboardData?.latestResult || null;
-  const upcomingEvent = dashboardData?.upcomingEvent || null;
+  const latestResult = dashboardData?.performance || null;
   const latestNotes = dashboardData?.latestNotes || [];
-  const notificationsList = dashboardData?.notifications || [];
+  const upcomingEvent = dashboardData?.events?.[0] || null;
 
   const isAttendanceSafe = attendanceNum >= 75;
 
@@ -76,7 +85,7 @@ export const StudentHomeScreen: React.FC<any> = ({ navigation }) => {
           <Text style={styles.welcomeTitle}>
             Welcome back, {firstName}
           </Text>
-          <Text style={styles.tenantSubtitle}>{tenantDisplayName}</Text>
+          <Text style={styles.tenantSubtitle}>{user?.collegeId ? `COLLEGE ID: ${user.collegeId.toUpperCase()}` : 'INSTITUTION WORKSPACE'}</Text>
         </View>
 
         <TouchableOpacity 

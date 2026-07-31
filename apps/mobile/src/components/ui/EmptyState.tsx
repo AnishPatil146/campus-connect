@@ -5,18 +5,21 @@ import { spacing } from '../../theme/spacing';
 import { Inbox } from 'lucide-react-native';
 
 interface EmptyStateProps {
-  title: string;
+  message?: string;
+  title?: string;
   description?: string;
   icon?: React.ReactNode;
 }
 
-export const EmptyState: React.FC<EmptyStateProps> = ({ title, description, icon }) => {
+export const EmptyState: React.FC<EmptyStateProps> = ({ message, title, description, icon }) => {
+  const displayTitle = message || title || 'No Data Available';
+
   return (
     <View style={styles.container}>
       <View style={styles.iconCircle}>
         {icon || <Inbox size={32} color={colors.textMuted} />}
       </View>
-      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.title}>{displayTitle}</Text>
       {description && <Text style={styles.description}>{description}</Text>}
     </View>
   );
@@ -41,17 +44,17 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   title: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: spacing.xs,
   },
   description: {
     fontSize: 13,
-    color: colors.textSecondary,
+    color: colors.textMuted,
     textAlign: 'center',
-    maxWidth: 240,
+    maxWidth: 260,
     lineHeight: 18,
   },
 });

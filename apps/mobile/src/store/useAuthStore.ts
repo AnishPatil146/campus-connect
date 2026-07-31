@@ -28,19 +28,54 @@ interface AuthState {
   loadSession: () => Promise<void>;
 }
 
+export const decodeJwtToken = (token: string): any => {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4) {
+      base64 += '=';
+    }
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+    let str = '';
+    for (let i = 0; i < base64.length; i += 4) {
+      const a = chars.indexOf(base64.charAt(i));
+      const b = chars.indexOf(base64.charAt(i + 1));
+      const c = chars.indexOf(base64.charAt(i + 2));
+      const d = chars.indexOf(base64.charAt(i + 3));
+      const bitmap = (a << 18) | (b << 12) | ((c & 63) << 6) | (d & 63);
+      if (c === 64) str += String.fromCharCode((bitmap >> 16) & 255);
+      else if (d === 64) str += String.fromCharCode((bitmap >> 16) & 255, (bitmap >> 8) & 255);
+      else str += String.fromCharCode((bitmap >> 16) & 255, (bitmap >> 8) & 255, bitmap & 255);
+    }
+    return JSON.parse(str);
+  } catch (e) {
+    return null;
+  }
+};
+
 export const useAuthStore = create<AuthState>((set) => ({
   token: null,
   refreshToken: null,
   user: null,
-  tenantId: 'college-a', // Default tenant (Pushpalata College)
+  tenantId: 'college-a',
   isLoading: true,
 
   setAuth: async (token: string, refreshToken: string, user: UserProfile) => {
+    const decoded = decodeJwtToken(token);
+    const validatedRole = (decoded?.role || user.role) as 'STUDENT' | 'TEACHER' | 'ADMIN';
+    const validatedUser: UserProfile = {
+      ...user,
+      role: validatedRole,
+      id: decoded?.sub || decoded?.userId || user.id,
+      email: decoded?.email || user.email,
+    };
+
     await AsyncStorage.setItem('cc_token', token);
     await AsyncStorage.setItem('cc_refresh_token', refreshToken);
-    await AsyncStorage.setItem('cc_user', JSON.stringify(user));
-    await AsyncStorage.setItem('cc_tenant_id', user.collegeId || 'college-a');
-    set({ token, refreshToken, user, tenantId: user.collegeId || 'college-a' });
+    await AsyncStorage.setItem('cc_user', JSON.stringify(validatedUser));
+    await AsyncStorage.setItem('cc_tenant_id', validatedUser.collegeId || 'college-a');
+    set({ token, refreshToken, user: validatedUser, tenantId: validatedUser.collegeId || 'college-a' });
   },
 
   setTenantId: async (tenantId: string) => {
@@ -92,9 +127,11 @@ export const useAuthStore = create<AuthState>((set) => ({
             await AsyncStorage.setItem('cc_user', JSON.stringify(updatedProfile));
             set({ user: updatedProfile });
           }
-        } catch (authErr) {
-          // Token expired or invalid
-          console.warn('Live session revalidation failed, maintaining local session');
+        } catch (authErr: any) {
+          if (authErr?.response?.status === 401 || authErr?.response?.status === 403) {
+            await AsyncStorage.multiRemove(['cc_token', 'cc_refresh_token', 'cc_user']);
+            set({ token: null, refreshToken: null, user: null });
+          }
         }
       } else {
         set({ isLoading: false });

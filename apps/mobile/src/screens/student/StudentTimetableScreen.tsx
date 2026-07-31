@@ -5,42 +5,43 @@ import { borderRadius, spacing } from '../../theme/spacing';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { Badge } from '../../components/ui/Badge';
 import { Header } from '../../components/ui/Header';
-import { useAuthStore } from '../../store/useAuthStore';
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../services/apiClient';
-import { saveOfflineData, OFFLINE_KEYS } from '../../services/offlineCache';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/ui/ErrorState';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useApiData } from '../../hooks/useApiData';
 import { Clock, MapPin, User, Calendar as CalendarIcon } from 'lucide-react-native';
 
 const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
 export const StudentTimetableScreen: React.FC = () => {
   const [selectedDay, setSelectedDay] = useState('MON');
-  const tenantId = useAuthStore((state) => state.tenantId);
 
-  const { data: timetableData, refetch, isRefetching } = useQuery({
-    queryKey: ['timetable', 'student', tenantId, selectedDay],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get(`/student/timetable?day=${selectedDay}`);
-        if (res.data?.data) {
-          await saveOfflineData(OFFLINE_KEYS.TIMETABLE, res.data.data);
-          return res.data.data;
-        }
-      } catch (e) {
-        console.warn('Backend student timetable route fallback active:', e);
-      }
-      return {
-        day: selectedDay,
-        nextClass: { subject: 'DBMS', room: 'Lab 402', time: '09:00 AM', teacher: 'Prof. Anish' },
-        slots: [
-          { id: '1', time: '09:00 AM - 10:00 AM', subject: 'Database Management Systems', code: 'CS601', room: 'Lab 402', teacher: 'Prof. Anish', type: 'PRACTICAL' },
-          { id: '2', time: '10:15 AM - 11:15 AM', subject: 'Operating Systems Architecture', code: 'CS602', room: 'Hall B', teacher: 'Dr. Sharma', type: 'LECTURE' },
-          { id: '3', time: '11:30 AM - 12:30 PM', subject: 'Software Engineering & Agile', code: 'CS603', room: 'Hall B', teacher: 'Prof. Verma', type: 'LECTURE' },
-          { id: '4', time: '01:30 PM - 02:30 PM', subject: 'System Design & Scalability', code: 'CS604', room: 'Seminar Room 1', teacher: 'Prof. Anish', type: 'LECTURE' },
-        ],
-      };
-    },
+  const {
+    data: timetableData,
+    isLoading,
+    isError,
+    isEmpty,
+    refetch,
+    isRefetching,
+  } = useApiData({
+    queryKey: ['student', 'timetable', selectedDay],
+    endpoint: `/student/timetable?day=${selectedDay}`,
   });
+
+  if (isLoading) {
+    return <LoadingSpinner fullScreen message="Loading Timetable Schedule..." />;
+  }
+
+  if (isError) {
+    return (
+      <View style={styles.container}>
+        <Header title="Class Timetable" subtitle="Weekly Schedule & Classroom Allocations" />
+        <ErrorState message="Failed to load timetable schedule from database." onRetry={refetch} />
+      </View>
+    );
+  }
+
+  const slots = timetableData?.slots || (Array.isArray(timetableData) ? timetableData : []);
 
   return (
     <View style={styles.container}>
@@ -91,34 +92,38 @@ export const StudentTimetableScreen: React.FC = () => {
 
         {/* Timetable Schedule Cards */}
         <View style={styles.scheduleList}>
-          {timetableData?.slots?.map((slot: any, index: number) => (
-            <GlassCard key={slot.id || index} variant="default" style={styles.slotCard}>
-              <View style={styles.slotTopRow}>
-                <View style={styles.timePill}>
-                  <Clock size={12} color={colors.primary} />
-                  <Text style={styles.timePillText}>{slot.time}</Text>
+          {slots && slots.length > 0 ? (
+            slots.map((slot: any, index: number) => (
+              <GlassCard key={slot.id || index} variant="default" style={styles.slotCard}>
+                <View style={styles.slotTopRow}>
+                  <View style={styles.timePill}>
+                    <Clock size={12} color={colors.primary} />
+                    <Text style={styles.timePillText}>{slot.time}</Text>
+                  </View>
+                  <Badge
+                    label={slot.type || 'LECTURE'}
+                    variant={slot.type === 'PRACTICAL' ? 'warning' : 'info'}
+                  />
                 </View>
-                <Badge
-                  label={slot.type || 'LECTURE'}
-                  variant={slot.type === 'PRACTICAL' ? 'warning' : 'info'}
-                />
-              </View>
 
-              <Text style={styles.slotSubject}>{slot.subject}</Text>
-              <Text style={styles.slotCode}>{slot.code}</Text>
+                <Text style={styles.slotSubject}>{slot.subject}</Text>
+                <Text style={styles.slotCode}>{slot.code}</Text>
 
-              <View style={styles.slotFooter}>
-                <View style={styles.slotFooterItem}>
-                  <MapPin size={13} color={colors.textSecondary} />
-                  <Text style={styles.slotFooterText}>{slot.room}</Text>
+                <View style={styles.slotFooter}>
+                  <View style={styles.slotFooterItem}>
+                    <MapPin size={13} color={colors.textSecondary} />
+                    <Text style={styles.slotFooterText}>{slot.room}</Text>
+                  </View>
+                  <View style={styles.slotFooterItem}>
+                    <User size={13} color={colors.textSecondary} />
+                    <Text style={styles.slotFooterText}>{slot.teacher}</Text>
+                  </View>
                 </View>
-                <View style={styles.slotFooterItem}>
-                  <User size={13} color={colors.textSecondary} />
-                  <Text style={styles.slotFooterText}>{slot.teacher}</Text>
-                </View>
-              </View>
-            </GlassCard>
-          ))}
+              </GlassCard>
+            ))
+          ) : (
+            <EmptyState message="No Data Available" description="No classes scheduled for this day." />
+          )}
         </View>
       </ScrollView>
     </View>

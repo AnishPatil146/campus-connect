@@ -7,14 +7,30 @@ import { Badge } from '../../components/ui/Badge';
 import { Header } from '../../components/ui/Header';
 import { Button } from '../../components/ui/Button';
 import { useAuthStore } from '../../store/useAuthStore';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/ui/ErrorState';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useApiData } from '../../hooks/useApiData';
 import { Building2, LogOut, Check } from 'lucide-react-native';
 
 export const StudentProfileScreen: React.FC = () => {
-  const { user, tenantId, setTenantId, logout } = useAuthStore();
+  const { user: storeUser, tenantId, setTenantId, logout } = useAuthStore();
+
+  const {
+    data: profileData,
+    isLoading,
+    isError,
+    refetch,
+  } = useApiData({
+    queryKey: ['auth', 'me'],
+    endpoint: '/auth/me',
+  });
+
+  const user = profileData || storeUser;
 
   const handleTenantSwitch = async (newTenant: string) => {
     await setTenantId(newTenant);
-    Alert.alert('Tenant Switched', `Switched active institution to ${newTenant === 'college-b' ? 'Balasaheb' : 'Pushpalata'} College.`);
+    Alert.alert('Tenant Switched', `Switched active institution to ${newTenant}.`);
   };
 
   const handleLogout = () => {
@@ -23,6 +39,19 @@ export const StudentProfileScreen: React.FC = () => {
       { text: 'Log Out', style: 'destructive', onPress: logout },
     ]);
   };
+
+  if (isLoading) {
+    return <LoadingSpinner fullScreen message="Loading User Profile..." />;
+  }
+
+  if (isError) {
+    return (
+      <View style={styles.container}>
+        <Header title="User Profile" subtitle="Account Settings" />
+        <ErrorState message="Failed to load user profile from database." onRetry={refetch} />
+      </View>
+    );
+  }
 
   const roleTitle = user?.role ? `${user.role} ACADEMIC PROFILE` : 'STUDENT ACADEMIC PROFILE';
 

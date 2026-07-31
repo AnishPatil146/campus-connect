@@ -7,8 +7,10 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { useAuthStore } from '../../store/useAuthStore';
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../services/apiClient';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/ui/ErrorState';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useApiData } from '../../hooks/useApiData';
 import {
   CheckSquare,
   BookOpen,
@@ -20,25 +22,34 @@ import {
 
 export const TeacherHomeScreen: React.FC<any> = ({ navigation }) => {
   const user = useAuthStore((state) => state.user);
-  const tenantId = useAuthStore((state) => state.tenantId);
 
-  const { data: teacherData, refetch, isRefetching } = useQuery({
-    queryKey: ['teacher', 'dashboard', tenantId],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get('/dashboard/teacher');
-        if (res.data?.data) return res.data.data;
-      } catch (e) {
-        console.log('Failed to fetch teacher dashboard API:', e);
-      }
-      return null;
-    },
+  const {
+    data: teacherData,
+    isLoading,
+    isError,
+    isEmpty,
+    refetch,
+    isRefetching,
+  } = useApiData({
+    queryKey: ['teacher', 'dashboard'],
+    endpoint: '/dashboard/teacher',
   });
 
-  const tenantDisplayName = tenantId === 'college-b' ? 'Balasaheb College' : 'Pushpalata College';
+  if (isLoading) {
+    return <LoadingSpinner fullScreen message="Loading Faculty Dashboard..." />;
+  }
+
+  if (isError) {
+    return (
+      <View style={styles.container}>
+        <ErrorState message="Failed to load faculty statistics from database." onRetry={refetch} />
+      </View>
+    );
+  }
+
   const firstName = user?.name ? user.name.split(' ')[0] : 'Teacher';
-  const pendingAttendanceCount = teacherData?.pendingAttendanceCount ?? 0;
-  const notesUploadedCount = teacherData?.notesUploadedCount ?? 0;
+  const pendingAttendanceCount = teacherData?.pendingAttendance?.length ?? 0;
+  const notesUploadedCount = teacherData?.uploadedNotes?.length ?? 0;
   const classesList = teacherData?.todayClasses || [];
 
   return (
@@ -57,7 +68,7 @@ export const TeacherHomeScreen: React.FC<any> = ({ navigation }) => {
           <Text style={styles.welcomeTitle}>
             Welcome, {firstName}
           </Text>
-          <Text style={styles.tenantSubtitle}>{tenantDisplayName}</Text>
+          <Text style={styles.tenantSubtitle}>{user?.collegeId ? `COLLEGE ID: ${user.collegeId.toUpperCase()}` : 'FACULTY ACADEMIC PORTAL'}</Text>
         </View>
 
         <TouchableOpacity activeOpacity={0.8} style={styles.profileAvatar}>

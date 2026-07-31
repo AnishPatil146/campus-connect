@@ -20,7 +20,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#020817"
       },
-      "package": "com.campusconnect.app"
+      "package": "com.campusconnect.app",
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/favicon.png"

@@ -6,28 +6,39 @@ import { GlassCard } from '../../components/ui/GlassCard';
 import { StatCard } from '../../components/ui/StatCard';
 import { Badge } from '../../components/ui/Badge';
 import { useAuthStore } from '../../store/useAuthStore';
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../services/apiClient';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/ui/ErrorState';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useApiData } from '../../hooks/useApiData';
 import { Users, Server, ShieldCheck, Radio } from 'lucide-react-native';
 
 export const AdminHomeScreen: React.FC = () => {
   const user = useAuthStore((state) => state.user);
-  const tenantId = useAuthStore((state) => state.tenantId);
 
-  const { data: adminData, refetch, isRefetching } = useQuery({
-    queryKey: ['admin', 'dashboard', tenantId],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get('/dashboard/admin');
-        if (res.data?.data) return res.data.data;
-      } catch (e) {
-        console.log('Failed to fetch admin dashboard API:', e);
-      }
-      return null;
-    },
+  const {
+    data: adminData,
+    isLoading,
+    isError,
+    isEmpty,
+    refetch,
+    isRefetching,
+  } = useApiData({
+    queryKey: ['admin', 'dashboard'],
+    endpoint: '/dashboard/admin',
   });
 
-  const tenantDisplayName = tenantId === 'college-b' ? 'Balasaheb College' : 'Pushpalata College';
+  if (isLoading) {
+    return <LoadingSpinner fullScreen message="Loading Admin Command Center..." />;
+  }
+
+  if (isError) {
+    return (
+      <View style={styles.container}>
+        <ErrorState message="Failed to load admin metrics from database." onRetry={refetch} />
+      </View>
+    );
+  }
+
   const totalStudents = adminData?.totalStudents ?? 0;
   const totalTeachers = adminData?.totalTeachers ?? 0;
 
@@ -44,7 +55,7 @@ export const AdminHomeScreen: React.FC = () => {
             <Text style={styles.liveText}>SYSTEM OPERATIONAL</Text>
           </View>
           <Text style={styles.welcomeTitle}>Admin Command Center</Text>
-          <Text style={styles.tenantSubtitle}>{tenantDisplayName}</Text>
+          <Text style={styles.tenantSubtitle}>{user?.collegeId ? `COLLEGE ID: ${user.collegeId.toUpperCase()}` : 'SYSTEM ADMINISTRATION'}</Text>
         </View>
 
         <View style={styles.profileAvatar}>

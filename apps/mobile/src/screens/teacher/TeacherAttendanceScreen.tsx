@@ -15,6 +15,10 @@ import { Button } from '../../components/ui/Button';
 import { Header } from '../../components/ui/Header';
 import { useAuthStore } from '../../store/useAuthStore';
 import { apiClient } from '../../services/apiClient';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/ui/ErrorState';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useApiData } from '../../hooks/useApiData';
 import { CheckCircle2, XCircle, Zap, Users, CheckCheck } from 'lucide-react-native';
 
 interface StudentRecord {
@@ -25,21 +29,50 @@ interface StudentRecord {
 }
 
 export const TeacherAttendanceScreen: React.FC = () => {
-  const tenantId = useAuthStore((state) => state.tenantId);
   const [submitting, setSubmitting] = useState(false);
-  const [subject, setSubject] = useState('DBMS (CS-601)');
-  const [division, setDivision] = useState('Div A - Semester VI');
+  const [subject, setSubject] = useState('Course Attendance');
+  const [division, setDivision] = useState('Div A');
 
-  const [students, setStudents] = useState<StudentRecord[]>([
-    { id: 'stu-1', name: 'Anish Patil', prn: 'PRN2026001', status: 'PRESENT' },
-    { id: 'stu-2', name: 'Rohan Sharma', prn: 'PRN2026002', status: 'PRESENT' },
-    { id: 'stu-3', name: 'Priya Verma', prn: 'PRN2026003', status: 'ABSENT' },
-    { id: 'stu-4', name: 'Aditya Kulkarni', prn: 'PRN2026004', status: 'PRESENT' },
-    { id: 'stu-5', name: 'Sneha Deshmukh', prn: 'PRN2026005', status: 'PRESENT' },
-    { id: 'stu-6', name: 'Vikas Gupta', prn: 'PRN2026006', status: 'PRESENT' },
-    { id: 'stu-7', name: 'Pooja Joshi', prn: 'PRN2026007', status: 'PRESENT' },
-  ]);
+  const {
+    data: fetchedData,
+    isLoading,
+    isError,
+    isEmpty,
+    refetch,
+  } = useApiData({
+    queryKey: ['teacher', 'students', 'attendance'],
+    endpoint: '/students',
+  });
 
+  const [students, setStudents] = useState<StudentRecord[]>([]);
+
+  React.useEffect(() => {
+    if (Array.isArray(fetchedData)) {
+      setStudents(
+        fetchedData.map((s: any) => ({
+          id: s.id,
+          name: s.name || `${s.profile?.firstName || ''} ${s.profile?.lastName || ''}`.trim() || s.email || 'Student',
+          prn: s.prn || s.rollNumber || 'PRN',
+          status: 'PRESENT' as const,
+        }))
+      );
+    } else {
+      setStudents([]);
+    }
+  }, [fetchedData]);
+
+  if (isLoading) {
+    return <LoadingSpinner fullScreen message="Loading Student Roster..." />;
+  }
+
+  if (isError) {
+    return (
+      <View style={styles.container}>
+        <Header title="Class Roll Call" subtitle="Mark Daily Attendance" />
+        <ErrorState message="Failed to load student roster from database." onRetry={refetch} />
+      </View>
+    );
+  }
   const toggleStudentStatus = (id: string) => {
     setStudents((prev) =>
       prev.map((s) => (s.id === id ? { ...s, status: s.status === 'PRESENT' ? 'ABSENT' : 'PRESENT' } : s))
@@ -108,40 +141,44 @@ export const TeacherAttendanceScreen: React.FC = () => {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {students.map((student) => {
-          const isPresent = student.status === 'PRESENT';
-          return (
-            <TouchableOpacity
-              key={student.id}
-              activeOpacity={0.8}
-              onPress={() => toggleStudentStatus(student.id)}
-            >
-              <GlassCard
-                variant={isPresent ? 'default' : 'glow'}
-                style={[styles.studentItem, !isPresent && styles.absentCard]}
+        {students.length > 0 ? (
+          students.map((student) => {
+            const isPresent = student.status === 'PRESENT';
+            return (
+              <TouchableOpacity
+                key={student.id}
+                activeOpacity={0.8}
+                onPress={() => toggleStudentStatus(student.id)}
               >
-                <View style={styles.studentLeft}>
-                  <View style={[styles.statusIconBox, isPresent ? styles.presentBox : styles.absentBox]}>
-                    {isPresent ? (
-                      <CheckCircle2 size={20} color={colors.success} />
-                    ) : (
-                      <XCircle size={20} color={colors.danger} />
-                    )}
+                <GlassCard
+                  variant={isPresent ? 'default' : 'glow'}
+                  style={[styles.studentItem, !isPresent && styles.absentCard]}
+                >
+                  <View style={styles.studentLeft}>
+                    <View style={[styles.statusIconBox, isPresent ? styles.presentBox : styles.absentBox]}>
+                      {isPresent ? (
+                        <CheckCircle2 size={20} color={colors.success} />
+                      ) : (
+                        <XCircle size={20} color={colors.danger} />
+                      )}
+                    </View>
+                    <View>
+                      <Text style={styles.studentName}>{student.name}</Text>
+                      <Text style={styles.studentPrn}>{student.prn}</Text>
+                    </View>
                   </View>
-                  <View>
-                    <Text style={styles.studentName}>{student.name}</Text>
-                    <Text style={styles.studentPrn}>{student.prn}</Text>
-                  </View>
-                </View>
 
-                <Badge
-                  label={isPresent ? 'PRESENT' : 'ABSENT'}
-                  variant={isPresent ? 'success' : 'danger'}
-                />
-              </GlassCard>
-            </TouchableOpacity>
-          );
-        })}
+                  <Badge
+                    label={isPresent ? 'PRESENT' : 'ABSENT'}
+                    variant={isPresent ? 'success' : 'danger'}
+                  />
+                </GlassCard>
+              </TouchableOpacity>
+            );
+          })
+        ) : (
+          <EmptyState message="No Data Available" description="No students added by system administrator." />
+        )}
 
         <Button
           title="Submit Attendance & Broadcast"

@@ -5,43 +5,37 @@ import { spacing } from '../../theme/spacing';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { Badge } from '../../components/ui/Badge';
 import { Header } from '../../components/ui/Header';
-import { useAuthStore } from '../../store/useAuthStore';
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../services/apiClient';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/ui/ErrorState';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useApiData } from '../../hooks/useApiData';
 import { Bell, Calendar, Clock, Megaphone } from 'lucide-react-native';
 
 export const TeacherNotificationsScreen: React.FC = () => {
-  const tenantId = useAuthStore((state) => state.tenantId);
-
-  const { data: notifications, refetch, isRefetching } = useQuery({
-    queryKey: ['notifications', 'teacher', tenantId],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get('/notifications/in-app');
-        if (res.data?.data) return res.data.data;
-      } catch (e) {
-        console.warn('Backend in-app notifications endpoint fallback active:', e);
-      }
-      return [
-        {
-          id: '1',
-          title: 'Attendance Marking Reminder',
-          body: 'DBMS (Div A) lecture completed. Please submit attendance.',
-          type: 'ATTENDANCE',
-          timestamp: '15 mins ago',
-          read: false,
-        },
-        {
-          id: '2',
-          title: 'Faculty Meeting Scheduled',
-          body: 'Departmental curriculum review meeting tomorrow at 04:00 PM.',
-          type: 'ANNOUNCEMENT',
-          timestamp: '3 hours ago',
-          read: true,
-        },
-      ];
-    },
+  const {
+    data: notifications,
+    isLoading,
+    isError,
+    isEmpty,
+    refetch,
+    isRefetching,
+  } = useApiData({
+    queryKey: ['teacher', 'notifications'],
+    endpoint: '/notifications/in-app',
   });
+
+  if (isLoading) {
+    return <LoadingSpinner fullScreen message="Loading Faculty Alerts..." />;
+  }
+
+  if (isError) {
+    return (
+      <View style={styles.container}>
+        <Header title="Faculty Alerts" subtitle="Classroom Reminders & Timetable Updates" />
+        <ErrorState message="Failed to load faculty notifications from database." onRetry={refetch} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -51,29 +45,33 @@ export const TeacherNotificationsScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
       >
-        {notifications?.map((item: any) => (
-          <GlassCard
-            key={item.id}
-            variant={item.read ? 'default' : 'glow'}
-            style={styles.notifCard}
-          >
-            <View style={styles.notifRow}>
-              <View style={styles.iconBox}>
-                <Bell size={18} color={colors.primary} />
-              </View>
-
-              <View style={styles.notifContent}>
-                <View style={styles.notifTop}>
-                  <Text style={styles.notifTitle}>{item.title}</Text>
-                  {!item.read && <Badge label="ACTION REQUIRED" variant="warning" />}
+        {notifications && notifications.length > 0 ? (
+          notifications.map((item: any) => (
+            <GlassCard
+              key={item.id}
+              variant={item.read ? 'default' : 'glow'}
+              style={styles.notifCard}
+            >
+              <View style={styles.notifRow}>
+                <View style={styles.iconBox}>
+                  <Bell size={18} color={colors.primary} />
                 </View>
 
-                <Text style={styles.notifBody}>{item.body}</Text>
-                <Text style={styles.notifTime}>{item.timestamp}</Text>
+                <View style={styles.notifContent}>
+                  <View style={styles.notifTop}>
+                    <Text style={styles.notifTitle}>{item.title}</Text>
+                    {!item.read && <Badge label="ACTION REQUIRED" variant="warning" />}
+                  </View>
+
+                  <Text style={styles.notifBody}>{item.body}</Text>
+                  <Text style={styles.notifTime}>{item.timestamp}</Text>
+                </View>
               </View>
-            </View>
-          </GlassCard>
-        ))}
+            </GlassCard>
+          ))
+        ) : (
+          <EmptyState message="No Data Available" description="No faculty alerts or notices available." />
+        )}
       </ScrollView>
     </View>
   );

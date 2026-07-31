@@ -15,76 +15,46 @@ import { GlassCard } from '../../components/ui/GlassCard';
 import { Badge } from '../../components/ui/Badge';
 import { Header } from '../../components/ui/Header';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { useAuthStore } from '../../store/useAuthStore';
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../services/apiClient';
+import { ErrorState } from '../../components/ui/ErrorState';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useApiData } from '../../hooks/useApiData';
 import { Search, Download, FileText, FileSpreadsheet, Presentation, User, Calendar } from 'lucide-react-native';
 
 export const StudentNotesScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('ALL');
-  const tenantId = useAuthStore((state) => state.tenantId);
 
-  const { data: notesData, refetch, isRefetching } = useQuery({
-    queryKey: ['notes', 'student', tenantId],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get('/student/notes');
-        if (res.data?.data) return res.data.data;
-      } catch (e) {
-        console.warn('Backend student notes route fallback active:', e);
-      }
-      return [
-        {
-          id: 'note-1',
-          title: 'DBMS Module 3: Relational Algebra & SQL',
-          subject: 'Database Systems',
-          fileType: 'PDF',
-          size: '2.4 MB',
-          uploadedBy: 'Prof. Anish',
-          date: 'Jul 22, 2026',
-          downloads: 142,
-        },
-        {
-          id: 'note-2',
-          title: 'OS Process Scheduling Algorithms',
-          subject: 'Operating Systems',
-          fileType: 'PPT',
-          size: '5.1 MB',
-          uploadedBy: 'Dr. Sharma',
-          date: 'Jul 20, 2026',
-          downloads: 98,
-        },
-        {
-          id: 'note-3',
-          title: 'System Design Patterns Cheat Sheet',
-          subject: 'Software Eng',
-          fileType: 'DOCX',
-          size: '1.2 MB',
-          uploadedBy: 'Prof. Anish',
-          date: 'Jul 18, 2026',
-          downloads: 210,
-        },
-        {
-          id: 'note-4',
-          title: 'Computer Networks Transport Layer Notes',
-          subject: 'Networks',
-          fileType: 'PDF',
-          size: '3.8 MB',
-          uploadedBy: 'Prof. Verma',
-          date: 'Jul 15, 2026',
-          downloads: 74,
-        },
-      ];
-    },
+  const {
+    data: notesData,
+    isLoading,
+    isError,
+    isEmpty,
+    refetch,
+    isRefetching,
+  } = useApiData({
+    queryKey: ['student', 'notes'],
+    endpoint: '/student/notes',
   });
 
-  const filteredNotes = (notesData || []).filter((note: any) => {
-    const matchesSearch =
-      note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      note.subject.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = selectedFilter === 'ALL' || note.fileType === selectedFilter;
-    return matchesSearch && matchesFilter;
+  if (isLoading) {
+    return <LoadingSpinner fullScreen message="Loading Notes & Study Material..." />;
+  }
+
+  if (isError) {
+    return (
+      <View style={styles.container}>
+        <Header title="Notes & Repository" subtitle="Study Material & Question Banks" />
+        <ErrorState message="Failed to load study notes from database." onRetry={refetch} />
+      </View>
+    );
+  }
+
+  const notesList = notesData || [];
+  const filteredNotes = (notesList || []).filter((note: any) => {
+    const titleMatch = (note.title || note.fileName || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const subjectMatch = (note.subject || note.courseName || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter = selectedFilter === 'ALL' || (note.fileType || note.extension || '').toUpperCase() === selectedFilter;
+    return (titleMatch || subjectMatch) && matchesFilter;
   });
 
   const handleDownloadNote = (note: any) => {

@@ -8,18 +8,58 @@ import { Button } from '../../components/ui/Button';
 import { Header } from '../../components/ui/Header';
 import { useAuthStore } from '../../store/useAuthStore';
 import { apiClient } from '../../services/apiClient';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/ui/ErrorState';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useApiData } from '../../hooks/useApiData';
 import { Award, Zap, CheckCircle2 } from 'lucide-react-native';
 
 export const TeacherResultsScreen: React.FC = () => {
-  const tenantId = useAuthStore((state) => state.tenantId);
   const [publishing, setPublishing] = useState(false);
+  const [subject, setSubject] = useState('Academic Evaluation');
+  const [division, setDivision] = useState('Division A');
 
-  const [marks, setMarks] = useState([
-    { id: '1', name: 'Anish Patil', prn: 'PRN2026001', score: '88', grade: 'O' },
-    { id: '2', name: 'Rohan Sharma', prn: 'PRN2026002', score: '82', grade: 'A+' },
-    { id: '3', name: 'Priya Verma', prn: 'PRN2026003', score: '79', grade: 'A' },
-    { id: '4', name: 'Aditya Kulkarni', prn: 'PRN2026004', score: '91', grade: 'O' },
-  ]);
+  const {
+    data: fetchedStudentsData,
+    isLoading,
+    isError,
+    isEmpty,
+    refetch,
+  } = useApiData({
+    queryKey: ['teacher', 'students', 'marksheet'],
+    endpoint: '/students',
+  });
+
+  const [marks, setMarks] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    if (Array.isArray(fetchedStudentsData)) {
+      setMarks(
+        fetchedStudentsData.map((s: any) => ({
+          id: s.id,
+          name: s.name || `${s.profile?.firstName || ''} ${s.profile?.lastName || ''}`.trim() || s.email || 'Student',
+          prn: s.prn || s.rollNumber || 'PRN',
+          score: '',
+          grade: '-',
+        }))
+      );
+    } else {
+      setMarks([]);
+    }
+  }, [fetchedStudentsData]);
+
+  if (isLoading) {
+    return <LoadingSpinner fullScreen message="Loading Student Marksheet Roster..." />;
+  }
+
+  if (isError) {
+    return (
+      <View style={styles.container}>
+        <Header title="Publish Results" subtitle="Input & Broadcast Marks" />
+        <ErrorState message="Failed to load student roster from database." onRetry={refetch} />
+      </View>
+    );
+  }
 
   const handleScoreChange = (id: string, newScore: string) => {
     setMarks((prev) =>
@@ -56,34 +96,40 @@ export const TeacherResultsScreen: React.FC = () => {
           <View style={styles.topInfoRow}>
             <Award size={20} color={colors.warning} />
             <View>
-              <Text style={styles.infoSubject}>DBMS (CS-601)</Text>
-              <Text style={styles.infoDiv}>Div A • Semester VI</Text>
+              <Text style={styles.infoSubject}>{subject}</Text>
+              <Text style={styles.infoDiv}>{division}</Text>
             </View>
           </View>
-          <Badge label="DRAFT MARKSHEET" variant="warning" />
+          <Badge label="OFFICIAL MARKSHEET" variant="warning" />
         </GlassCard>
 
         {/* Student Marks List */}
-        {marks.map((student) => (
-          <GlassCard key={student.id} variant="default" style={styles.markCard}>
-            <View style={styles.markRow}>
-              <View style={styles.studentInfo}>
-                <Text style={styles.studentName}>{student.name}</Text>
-                <Text style={styles.studentPrn}>{student.prn}</Text>
-              </View>
+        {marks.length > 0 ? (
+          marks.map((student) => (
+            <GlassCard key={student.id} variant="default" style={styles.markCard}>
+              <View style={styles.markRow}>
+                <View style={styles.studentInfo}>
+                  <Text style={styles.studentName}>{student.name}</Text>
+                  <Text style={styles.studentPrn}>{student.prn}</Text>
+                </View>
 
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.scoreInput}
-                  keyboardType="numeric"
-                  value={student.score}
-                  onChangeText={(val) => handleScoreChange(student.id, val)}
-                />
-                <Text style={styles.maxMark}>/100</Text>
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    style={styles.scoreInput}
+                    keyboardType="numeric"
+                    placeholder="0"
+                    placeholderTextColor={colors.textMuted}
+                    value={student.score}
+                    onChangeText={(val) => handleScoreChange(student.id, val)}
+                  />
+                  <Text style={styles.maxMark}>/100</Text>
+                </View>
               </View>
-            </View>
-          </GlassCard>
-        ))}
+            </GlassCard>
+          ))
+        ) : (
+          <EmptyState message="No Data Available" description="No students added by system administrator." />
+        )}
 
         <Button
           title="Publish Results & Broadcast"
