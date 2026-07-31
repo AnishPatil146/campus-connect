@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TimetableService } from './timetable.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { EventsGateway } from '../events/events.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
 import { NotFoundException } from '@nestjs/common';
 
 describe('TimetableService', () => {
@@ -33,6 +35,8 @@ describe('TimetableService', () => {
   };
 
   const mockAuditService = { log: jest.fn() };
+  const mockEventsGateway = { broadcast: jest.fn() };
+  const mockNotificationsService = { createNotification: jest.fn() };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -40,6 +44,8 @@ describe('TimetableService', () => {
         TimetableService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: AuditService, useValue: mockAuditService },
+        { provide: EventsGateway, useValue: mockEventsGateway },
+        { provide: NotificationsService, useValue: mockNotificationsService },
       ],
     }).compile();
 

@@ -744,9 +744,9 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
         throw new UnauthorizedException('Teacher is retired. Login is blocked.');
       }
 
-      const activeUserRole = user.userRoles.find((ur: any) => ur.role.name === roleName);
+      const activeUserRole = user.userRoles?.find((ur: any) => ur.role?.name === roleName);
       const permissions: string[] = activeUserRole
-        ? (activeUserRole.role as any).rolePermissions.map((rp: any) => rp.permission.name)
+        ? ((activeUserRole.role as any)?.rolePermissions || []).map((rp: any) => rp?.permission?.name).filter(Boolean)
         : [];
 
       const sessionTokens = await this.createSession(user, roleName, ipAddress, userAgent, permissions);

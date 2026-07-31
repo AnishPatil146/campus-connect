@@ -3,6 +3,7 @@ import { AttendanceService } from './attendance.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { EventsGateway } from '../events/events.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 describe('AttendanceService', () => {
@@ -38,7 +39,8 @@ describe('AttendanceService', () => {
   };
 
   const mockAuditService = { log: jest.fn() };
-  const mockEventsGateway = { broadcastToUser: jest.fn() };
+  const mockEventsGateway = { broadcast: jest.fn(), broadcastToUser: jest.fn() };
+  const mockNotificationsService = { createNotification: jest.fn() };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -47,6 +49,7 @@ describe('AttendanceService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: AuditService, useValue: mockAuditService },
         { provide: EventsGateway, useValue: mockEventsGateway },
+        { provide: NotificationsService, useValue: mockNotificationsService },
       ],
     }).compile();
 

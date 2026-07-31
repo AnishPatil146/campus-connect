@@ -3,7 +3,9 @@ import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { RedisService } from '../redis/redis.service';
-import { UnauthorizedException } from '@nestjs/common';
+import { MailService } from '../common/mail.service';
+import { EventsGateway } from '../events/events.gateway';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import bcrypt from 'bcryptjs';
 
 describe('AuthService', () => {
@@ -13,6 +15,15 @@ describe('AuthService', () => {
     user: {
       findUnique: jest.fn(),
       update: jest.fn(),
+    },
+    userRole: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+    },
+    userSession: {
+      create: jest.fn(),
+      findFirst: jest.fn(),
+      updateMany: jest.fn(),
     },
     student: {
       findUnique: jest.fn(),
@@ -42,6 +53,9 @@ describe('AuthService', () => {
     log: jest.fn(),
   };
 
+  const mockMailService = { sendMail: jest.fn() };
+  const mockEventsGateway = { broadcast: jest.fn() };
+
   const mockRedisService = {
     setSession: jest.fn().mockResolvedValue(undefined),
     getSession: jest.fn().mockResolvedValue(undefined),
@@ -62,6 +76,8 @@ describe('AuthService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: AuditService, useValue: mockAuditService },
         { provide: RedisService, useValue: mockRedisService },
+        { provide: MailService, useValue: mockMailService },
+        { provide: EventsGateway, useValue: mockEventsGateway },
       ],
     }).compile();
 
@@ -90,6 +106,7 @@ describe('AuthService', () => {
         {
           role: {
             name: 'STUDENT',
+            rolePermissions: [],
           },
         },
       ],
@@ -106,7 +123,7 @@ describe('AuthService', () => {
         password: 'Password@123',
       });
 
-      expect(result.needsWorkspaceSelection).toBe(false);
+      expect(result.mustChangePassword).toBe(false);
       expect(result.accessToken).toBeDefined();
       expect(result.refreshToken).toBeDefined();
       expect(result.user.email).toBe('student@college.edu');
