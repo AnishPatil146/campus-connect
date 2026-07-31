@@ -31,7 +31,7 @@ export default function Home() {
           <span className="font-display font-bold text-lg tracking-tight">Campus Connect</span>
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <button 
             onClick={toggleTheme}
             className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
@@ -40,6 +40,14 @@ export default function Home() {
             {theme === 'dark' ? <Sun size={18} className="text-amber-400" /> : <Moon size={18} className="text-slate-600" />}
           </button>
           
+          <a 
+            href="/downloads/CampusConnect.apk"
+            download="CampusConnect.apk"
+            className="px-3.5 py-2 text-sm font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all duration-200 flex items-center gap-1.5"
+          >
+            <Download size={15} /> Download APK
+          </a>
+
           <Link 
             href="/login"
             className="px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-sm transition-all duration-200 flex items-center gap-1"
@@ -66,6 +74,22 @@ export default function Home() {
           <p className="text-base md:text-lg text-slate-600 dark:text-slate-400 max-w-xl">
             A minimalist, high-speed unified ERP platform connecting students, teachers, and administrators across multiple science and arts institutions.
           </p>
+
+          <div className="flex flex-wrap items-center justify-center gap-4 mt-2">
+            <a 
+              href="/downloads/CampusConnect.apk"
+              download="CampusConnect.apk"
+              className="px-6 py-3 text-base font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2"
+            >
+              <Download size={18} /> Download Android APK (11.9 MB)
+            </a>
+            <Link 
+              href="/login"
+              className="px-6 py-3 text-base font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white transition-all duration-200 flex items-center gap-1"
+            >
+              Access Web Portal <ChevronRight size={16} />
+            </Link>
+          </div>
         </section>
 
         {/* Release Formats Section */}
