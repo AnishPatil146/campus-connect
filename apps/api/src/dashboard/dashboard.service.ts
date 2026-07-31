@@ -442,6 +442,19 @@ export class DashboardService {
     });
 
     // 8. Dynamic performance & Scoped Rank Calculations
+    // Helper for Standard Competition Ranking (1, 2, 2, 4)
+    const computeCompetitionRanks = (sorted: { studentId: string; score: number }[]) => {
+      const map = new Map<string, number>();
+      for (let i = 0; i < sorted.length; i++) {
+        if (i > 0 && Math.abs(sorted[i].score - sorted[i - 1].score) < 0.01) {
+          map.set(sorted[i].studentId, map.get(sorted[i - 1].studentId)!);
+        } else {
+          map.set(sorted[i].studentId, i + 1);
+        }
+      }
+      return map;
+    };
+
     // A. Classroom Rank (Within exact division/classroom)
     const classroomStudents = await this.prisma.student.findMany({
       where: { divisionId: student.divisionId, collegeId: student.collegeId, status: 'ACTIVE' },
@@ -457,7 +470,7 @@ export class DashboardService {
       }
       const attTotal = s.attendanceRecords.length;
       const attPresent = s.attendanceRecords.filter((r: any) => r.status === 'PRESENT' || r.status === 'LATE').length;
-      const attScore = attTotal > 0 ? (attPresent / attTotal) * 100 : 85;
+      const attScore = attTotal > 0 ? (attPresent / attTotal) * 100 : 0;
       
       return graded.length > 0 ? gradeScore * 0.7 + attScore * 0.3 : attScore;
     };
@@ -466,8 +479,8 @@ export class DashboardService {
       .map(s => ({ studentId: s.id, score: getScoreForStudent(s) }))
       .sort((a, b) => b.score - a.score);
 
-    const classroomRankIndex = classroomScores.findIndex(s => s.studentId === student.id);
-    const classroomRank = classroomRankIndex !== -1 ? classroomRankIndex + 1 : 1;
+    const classroomRankMap = computeCompetitionRanks(classroomScores);
+    const classroomRank = classroomRankMap.get(student.id) || 1;
 
     // B. Course / Degree Rank (Within exact course)
     const courseStudents = await this.prisma.student.findMany({
@@ -477,10 +490,10 @@ export class DashboardService {
     const courseScores = courseStudents
       .map(s => ({ studentId: s.id, score: getScoreForStudent(s) }))
       .sort((a, b) => b.score - a.score);
-    const courseRankIndex = courseScores.findIndex(s => s.studentId === student.id);
-    const courseRank = courseRankIndex !== -1 ? courseRankIndex + 1 : 1;
+    const courseRankMap = computeCompetitionRanks(courseScores);
+    const courseRank = courseRankMap.get(student.id) || 1;
 
-    // C. School-Wide Rank (Within exact college, never pooled)
+    // C. School-Wide Rank (Within exact college, never pooled across colleges)
     const schoolStudents = await this.prisma.student.findMany({
       where: { collegeId: student.collegeId, status: 'ACTIVE' },
       include: { submissions: true, attendanceRecords: true },
@@ -488,11 +501,12 @@ export class DashboardService {
     const schoolScores = schoolStudents
       .map(s => ({ studentId: s.id, score: getScoreForStudent(s) }))
       .sort((a, b) => b.score - a.score);
-    const schoolRankIndex = schoolScores.findIndex(s => s.studentId === student.id);
-    const schoolWideRank = schoolRankIndex !== -1 ? schoolRankIndex + 1 : 1;
+    const schoolRankMap = computeCompetitionRanks(schoolScores);
+    const schoolWideRank = schoolRankMap.get(student.id) || 1;
 
     // Current score for student
-    const currentScore = classroomRankIndex !== -1 ? Math.round(classroomScores[classroomRankIndex].score) : 85;
+    const studentScoreItem = classroomScores.find(s => s.studentId === student.id);
+    const currentScore = studentScoreItem ? Math.round(studentScoreItem.score) : 0;
 
     // Fetch semester subjects to compute subject-wise marks
     const semesterSubjects = await this.prisma.subject.findMany({

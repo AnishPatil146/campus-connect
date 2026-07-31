@@ -13,6 +13,8 @@ import {
   UpdateAttendanceDto,
 } from './dto/attendance.dto';
 
+import { OllamaService } from '../ai/ollama.service';
+
 @Injectable()
 export class AttendanceService {
   constructor(
@@ -20,6 +22,7 @@ export class AttendanceService {
     private audit: AuditService,
     private eventsGateway: EventsGateway,
     private notificationsService: NotificationsService,
+    private ollamaService: OllamaService,
   ) {}
 
   /**
@@ -28,48 +31,82 @@ export class AttendanceService {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async recomputeDailyAttendanceAnalytics() {
     console.log('⏰ [Cron] Recomputing daily attendance analytics at 12:00 AM...');
-    const students = await this.prisma.student.findMany({
-      where: { status: 'ACTIVE' },
-      select: { id: true, collegeId: true },
-    });
-
-    for (const student of students) {
-      const records = await this.prisma.attendanceRecord.findMany({
-        where: { studentId: student.id },
-        include: { attendanceSession: true },
+    try {
+      const students = await this.prisma.student.findMany({
+        where: { status: 'ACTIVE' },
+        select: { id: true, collegeId: true },
       });
 
-      // Group by subject to update summary
-      const subjectMap: Record<string, { present: number; absent: number; leave: number; total: number }> = {};
-      records.forEach(r => {
-        const subId = r.attendanceSession?.subjectId;
-        if (!subId) return;
-        if (!subjectMap[subId]) subjectMap[subId] = { present: 0, absent: 0, leave: 0, total: 0 };
-        if (r.status === 'PRESENT' || r.status === 'LATE') subjectMap[subId].present++;
-        else if (r.status === 'ABSENT') subjectMap[subId].absent++;
-        else subjectMap[subId].leave++;
-        subjectMap[subId].total++;
-      });
-
-      for (const [subjectId, data] of Object.entries(subjectMap)) {
-        const subPercentage = data.total > 0 ? (data.present / data.total) * 100 : 100;
-        await this.prisma.attendanceSummary.upsert({
-          where: { studentId_subjectId: { studentId: student.id, subjectId } },
-          create: {
-            studentId: student.id,
-            subjectId,
-            presentCount: data.present,
-            absentCount: data.absent,
-            leaveCount: data.leave,
-            attendancePercentage: subPercentage,
-          },
-          update: {
-            presentCount: data.present,
-            absentCount: data.absent,
-            leaveCount: data.leave,
-            attendancePercentage: subPercentage,
-          },
+      for (const student of students) {
+        const records = await this.prisma.attendanceRecord.findMany({
+          where: { studentId: student.id },
+          include: { attendanceSession: true },
         });
+
+        // Group by subject to update summary
+        const subjectMap: Record<string, { present: number; absent: number; leave: number; total: number }> = {};
+        records.forEach(r => {
+          const subId = r.attendanceSession?.subjectId;
+          if (!subId) return;
+          if (!subjectMap[subId]) subjectMap[subId] = { present: 0, absent: 0, leave: 0, total: 0 };
+          if (r.status === 'PRESENT' || r.status === 'LATE') subjectMap[subId].present++;
+          else if (r.status === 'ABSENT') subjectMap[subId].absent++;
+          else subjectMap[subId].leave++;
+          subjectMap[subId].total++;
+        });
+
+        for (const [subjectId, data] of Object.entries(subjectMap)) {
+          const subPercentage = data.total > 0 ? (data.present / data.total) * 100 : 100;
+          await this.prisma.attendanceSummary.upsert({
+            where: { studentId_subjectId: { studentId: student.id, subjectId } },
+            create: {
+              studentId: student.id,
+              subjectId,
+              presentCount: data.present,
+              absentCount: data.absent,
+              leaveCount: data.leave,
+              attendancePercentage: subPercentage,
+            },
+            update: {
+              presentCount: data.present,
+              absentCount: data.absent,
+              leaveCount: data.leave,
+              attendancePercentage: subPercentage,
+            },
+          });
+        }
+      }
+      console.log('✅ [Cron] Daily attendance analytics recomputed successfully.');
+    } catch (error: any) {
+      console.error('❌ [Cron Error] Daily attendance analytics failed:', error);
+      await this.audit.log(
+        'SYSTEM',
+        'System Cron',
+        'SYSTEM',
+        'Cron Job Failure: Attendance Analytics',
+        `Daily 12:00 AM attendance recalculation failed: ${error?.message || error}`,
+        'attendance',
+        'AttendanceSummary',
+        'CRON_MIDNIGHT',
+      );
+
+      // Alert admins across colleges
+      const admins = await this.prisma.user.findMany({
+        where: { userRoles: { some: { role: { name: 'ADMIN' } } }, status: 'ACTIVE' },
+        select: { id: true },
+      });
+      for (const admin of admins) {
+        try {
+          await this.notificationsService.sendNotification({
+            recipientId: admin.id,
+            title: '⚠️ System Alert: Daily Attendance Recalculation Failed',
+            body: `The 12:00 AM attendance cron job failed: ${error?.message || 'Internal error'}. Analytics graph served with last verified snapshot.`,
+            type: 'IN_APP',
+            link: '/dashboard/admin/attendance',
+          });
+        } catch (e) {
+          // ignore notification failure
+        }
       }
     }
   }
@@ -401,16 +438,55 @@ export class AttendanceService {
     const imageUrl = (dto as any).imageUrl || null;
     const reasonText = dto.reason || (imageUrl ? 'Uploaded written application image' : 'Excused absence request');
     
-    // Lightweight AI extraction step for leave application processing
-    const aiAnalysis = JSON.stringify({
-      isAiExtracted: true,
-      confidenceScore: 0.95,
+    // Call Ollama for AI extraction and confidence analysis
+    let aiAnalysisData: any = {
+      isAiExtracted: false,
+      confidenceScore: 0.0,
       extractedReason: reasonText,
       fromDate: dto.fromDate,
       toDate: dto.toDate,
       urgencyLevel: dto.leaveType?.toLowerCase().includes('sick') || dto.leaveType?.toLowerCase().includes('medical') ? 'HIGH' : 'NORMAL',
-      summaryNotes: `[AI-Assisted Analysis] Extracted leave request (${dto.leaveType}). Dates: ${dto.fromDate} to ${dto.toDate}. Formatted for Admin verification.`,
-    });
+      summaryNotes: 'AI analysis unavailable — routed directly to admin for manual review with raw submission.',
+    };
+
+    try {
+      const prompt = `Analyze this student leave request:
+Type: ${dto.leaveType}
+Dates: ${dto.fromDate} to ${dto.toDate}
+Submitted Reason / Image details: ${reasonText}
+
+Return a valid JSON object with keys:
+"summary": a 1-sentence summary of the request,
+"confidence": a number between 0.0 and 1.0 representing extraction confidence,
+"urgency": "HIGH" or "NORMAL"`;
+
+      const aiRes = await this.ollamaService.generateCompletion(
+        'Leave Application Analysis',
+        prompt,
+        'You parse academic leave requests into structured JSON.',
+        actorId,
+        actorName,
+        actorRole,
+      );
+
+      if (aiRes.success && aiRes.json) {
+        aiAnalysisData = {
+          isAiExtracted: true,
+          confidenceScore: aiRes.json.confidence ?? 0.85,
+          extractedReason: aiRes.json.summary || reasonText,
+          fromDate: dto.fromDate,
+          toDate: dto.toDate,
+          urgencyLevel: aiRes.json.urgency || aiAnalysisData.urgencyLevel,
+          summaryNotes: `[AI-Assisted Analysis via Ollama] ${aiRes.json.summary || 'Parsed successfully'}. Confidence: ${((aiRes.json.confidence ?? 0.85) * 100).toFixed(0)}%.`,
+        };
+      } else if (aiRes.success && aiRes.data) {
+        aiAnalysisData.summaryNotes = `[AI-Assisted Analysis via Ollama] ${aiRes.data.slice(0, 200)}`;
+        aiAnalysisData.isAiExtracted = true;
+        aiAnalysisData.confidenceScore = 0.75;
+      }
+    } catch (e: any) {
+      console.warn('Ollama leave extraction failed gracefully:', e?.message || e);
+    }
 
     const request = await this.prisma.attendanceRequest.create({
       data: {
@@ -420,7 +496,7 @@ export class AttendanceService {
         fromDate: new Date(dto.fromDate),
         toDate: new Date(dto.toDate),
         imageUrl,
-        aiAnalysis,
+        aiAnalysis: JSON.stringify(aiAnalysisData),
       },
     });
 
@@ -429,13 +505,51 @@ export class AttendanceService {
       actorName,
       actorRole,
       'Request Leave (AI Processed)',
-      `Leave request created and AI analyzed for student ${dto.studentId}`,
+      `Leave request created and analyzed via Ollama for student ${dto.studentId}`,
       'attendance',
       'AttendanceRequest',
       request.id,
     );
 
-    return request;
+  async approveStudentLeave(
+    requestId: string,
+    parentVerified: boolean,
+    parentVerificationNotes: string,
+    actorId: string,
+    actorName: string,
+    actorRole: string,
+  ) {
+    const request = await this.prisma.attendanceRequest.findUnique({ where: { id: requestId } });
+    if (!request) throw new NotFoundException('Leave request not found');
+
+    if (!parentVerified) {
+      throw new BadRequestException(
+        'Mandatory Checklist Incomplete: Admin must confirm calling parent using phone number on file before approving student leave.',
+      );
+    }
+
+    const updated = await this.prisma.attendanceRequest.update({
+      where: { id: requestId },
+      data: {
+        status: 'APPROVED',
+        approvedById: actorId,
+        parentVerified: true,
+        parentVerificationNotes: parentVerificationNotes || 'Parent call verified on file by admin.',
+      },
+    });
+
+    await this.audit.log(
+      actorId,
+      actorName,
+      actorRole,
+      'Approve Student Leave (Parent Verified)',
+      `Approved student leave request ${requestId} with parent call verification`,
+      'attendance',
+      'AttendanceRequest',
+      requestId,
+    );
+
+    return updated;
   }
 
   async requestCorrection(dto: AttendanceCorrectionDto, actorId: string, actorName: string, actorRole: string) {

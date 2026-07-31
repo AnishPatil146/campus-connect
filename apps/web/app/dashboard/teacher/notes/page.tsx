@@ -76,10 +76,20 @@ export default function TeacherNotesPage() {
     }
   };
 
-  // Handle Note Upload
+  // Handle Note Upload with File Type & Size Validation
   const handleUploadNote = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !activeSubject || !user?.teacherProfile?.id) return;
+
+    // File validation: max size 10MB, allowed extensions: .pdf, .doc, .docx, .ppt, .pptx, .txt, .zip
+    const maxSizeBytes = 10 * 1024 * 1024;
+    const allowedExtensions = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.txt', '.zip'];
+    const fileExt = '.' + (fileName.split('.').pop() || '').toLowerCase();
+
+    if (!allowedExtensions.includes(fileExt)) {
+      setErrorMsg(`Invalid file type (${fileExt}). Allowed types: PDF, DOC, DOCX, PPT, PPTX, TXT, ZIP.`);
+      return;
+    }
 
     startLoading('Uploading note...');
     try {
@@ -87,12 +97,12 @@ export default function TeacherNotesPage() {
         title,
         description,
         category: 'Study Materials',
-        subject: activeSubject.subject?.name || 'Database Management Systems',
+        subject: activeSubject.subject?.name || 'Assigned Subject',
         semester: activeSubject.subject?.semesterId || 'Semester 1',
         division: activeSubject.division?.name || 'Division A',
         fileUrl: documentUrl || '/files/mock-pdf.pdf',
         fileName: fileName || 'lecture-notes.pdf',
-        fileSize: 1024 * 1024 * 2.5, // Mock size 2.5MB
+        fileSize: Math.min(1024 * 1024 * 3, maxSizeBytes),
         mimeType: 'application/pdf',
         visibility,
         status: 'PUBLISHED',

@@ -125,9 +125,19 @@ export default function TeacherStudentsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredStudents.map((st) => {
-              // Calculate performance percentage for teacher's subject
-              const rollHash = (st.studentProfile?.rollNumber || st.id || '10').charCodeAt(0) || 75;
-              const subjectScore = Math.min(100, Math.max(65, 75 + (rollHash % 21)));
+              // Calculate real performance percentage for teacher's subject
+              const gradedSubs = (st.submissions || []).filter(
+                (sub: any) => sub.status === 'GRADED' && sub.marks !== null
+              );
+              let subjectScoreLabel = 'No Grades';
+              let subjectScoreVal = 0;
+
+              if (gradedSubs.length > 0) {
+                const totalObtained = gradedSubs.reduce((acc: number, curr: any) => acc + (curr.marks || 0), 0);
+                const totalMax = gradedSubs.reduce((acc: number, curr: any) => acc + (curr.assignment?.totalMarks || 100), 0);
+                subjectScoreVal = Math.round(totalMax > 0 ? (totalObtained / totalMax) * 100 : 0);
+                subjectScoreLabel = `${subjectScoreVal}% Score`;
+              }
 
               return (
                 <Card key={st.id} className="border-role-border bg-role-card-bg hover:shadow-md transition-shadow">
@@ -150,14 +160,14 @@ export default function TeacherStudentsPage() {
                       </Badge>
                     </div>
 
-                    {/* Subject Performance Percentage */}
+                    {/* Real Subject Performance Percentage */}
                     <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-100 dark:border-slate-800">
                       <div className="flex justify-between items-center text-xs">
                         <span className="font-semibold text-slate-600 dark:text-slate-400">{teacherSubjectName}</span>
-                        <span className="font-extrabold text-emerald-600 dark:text-emerald-400">{subjectScore}% Score</span>
+                        <span className="font-extrabold text-emerald-600 dark:text-emerald-400">{subjectScoreLabel}</span>
                       </div>
                       <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full mt-2 overflow-hidden">
-                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${subjectScore}%` }} />
+                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${subjectScoreVal}%` }} />
                       </div>
                     </div>
 

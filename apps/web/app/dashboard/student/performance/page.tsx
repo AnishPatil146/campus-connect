@@ -61,28 +61,22 @@ export default function PerformancePage() {
     );
   }
 
-  const currentGPA = dashboardData?.performance?.gpa || 8.8;
-  const rank = dashboardData?.leaderboard?.position || 3;
-  const totalInSem = dashboardData?.performance?.totalStudents || 120;
-  const percentile = Math.round((rank / totalInSem) * 100) || 5;
+  const currentGPA = dashboardData?.performance?.gpa ?? 0;
+  const rank = dashboardData?.leaderboard?.classroomRank ?? dashboardData?.leaderboard?.position ?? 0;
+  const totalInSem = dashboardData?.performance?.totalStudents ?? 0;
+  const percentile = totalInSem > 0 ? Math.round((rank / totalInSem) * 100) : 0;
 
   const academicProgress = {
-    course: dashboardData?.student?.course || 'Information Technology Curriculum',
-    semester: dashboardData?.student?.semester || 'Semester 4',
-    division: dashboardData?.student?.division || 'Division A',
-    gpa: currentGPA.toFixed(2),
-    rank: rank.toString()
+    course: dashboardData?.student?.course || 'Assigned Program',
+    semester: dashboardData?.student?.semester || 'Current Semester',
+    division: dashboardData?.student?.division || 'Classroom Division',
+    gpa: currentGPA > 0 ? currentGPA.toFixed(2) : 'N/A',
+    rank: rank > 0 ? `#${rank}` : 'Unranked'
   };
 
   const subjects = dashboardData?.performance?.subjects || [];
   const leaderboard = dashboardData?.leaderboard?.list || [];
-
-  const semesterGrades = [
-    { sem: 'Sem 1', gpa: currentGPA * 0.93 },
-    { sem: 'Sem 2', gpa: currentGPA * 0.96 },
-    { sem: 'Sem 3', gpa: currentGPA * 0.98 },
-    { sem: 'Sem 4', gpa: currentGPA }
-  ];
+  const semesterGrades = dashboardData?.performance?.semesterGrades || [];
 
   return (
     <DashboardLayout title="Academic Performance">

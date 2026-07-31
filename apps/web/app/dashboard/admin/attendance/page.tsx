@@ -18,6 +18,7 @@ interface AlertStudent {
 export default function AdminAttendancePage() {
   useAuth();
   const { socket } = useSocket();
+  const [targetRole, setTargetRole] = useState<'STUDENT' | 'TEACHER'>('STUDENT');
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [secondsAgo, setSecondsAgo] = useState(0);
@@ -110,7 +111,7 @@ export default function AdminAttendancePage() {
     <DashboardLayout title="Attendance Command Center" icon={<Activity className="h-6 w-6 text-purple-600" />}>
       <div className="space-y-6">
         
-        {/* Real-time Indicator Top Header */}
+        {/* Real-time Indicator Top Header with Teacher/Student Mode Toggle */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/5 dark:bg-slate-900/40 p-4.5 rounded-2xl border border-slate-250/20 dark:border-slate-800">
           <div className="flex items-center gap-3">
             <span className="relative flex h-2.5 w-2.5">
@@ -119,23 +120,45 @@ export default function AdminAttendancePage() {
             </span>
             <div>
               <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                Command Center Live Connection
+                Attendance Command Center ({targetRole} View)
               </h3>
               <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                Monitoring entire college. Updated {secondsAgo === 0 ? 'just' : `${secondsAgo} seconds`} ago ({lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })})
+                Monitoring {targetRole.toLowerCase()} attendance. Updated {secondsAgo === 0 ? 'just' : `${secondsAgo} seconds`} ago ({lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })})
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          
+          <div className="flex items-center gap-3">
+            {/* Teacher / Student Toggle */}
+            <div className="flex bg-white dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
+              <button
+                onClick={() => setTargetRole('STUDENT')}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                  targetRole === 'STUDENT'
+                    ? 'bg-purple-600 text-white shadow-sm'
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                Student View
+              </button>
+              <button
+                onClick={() => setTargetRole('TEACHER')}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                  targetRole === 'TEACHER'
+                    ? 'bg-purple-600 text-white shadow-sm'
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                Teacher View
+              </button>
+            </div>
+
             <button
               onClick={refreshAdminData}
               className="p-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
             >
               <RefreshCw className={`h-3.5 w-3.5 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
             </button>
-            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider bg-white dark:bg-slate-950 px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-xl">
-              Purple theme: Command Active
-            </div>
           </div>
         </div>
 

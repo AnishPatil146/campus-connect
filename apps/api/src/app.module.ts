@@ -34,10 +34,12 @@ import { FilesModule } from './files/files.module';
 import { HealthModule } from './health/health.module';
 import { RedisModule } from './redis/redis.module';
 import { ConfigModule } from './config/config.module';
+import { AiModule } from './ai/ai.module';
 import { AppController } from './app.controller';
 
 @Module({
   imports: [
+    AiModule,
     // Core infrastructure modules
     ConfigModule,
     ThrottlerModule.forRoot([{

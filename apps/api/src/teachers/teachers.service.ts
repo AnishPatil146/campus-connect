@@ -462,7 +462,7 @@ export class TeachersService {
     return leave;
   }
 
-  // Approve Leave System
+  // Approve Leave System (Atomic transaction enforcing max 2 approved teacher leaves per day constraint)
   async approveLeave(leaveId: string, actorId: string, actorName: string, actorRole: string) {
     const leave = await this.prisma.teacherLeave.findUnique({
       where: { id: leaveId },
@@ -471,31 +471,31 @@ export class TeachersService {
       throw new NotFoundException(`Leave application with ID "${leaveId}" not found`);
     }
 
-    // Hard Constraint: No more than 2 teachers may be approved for leave on the same calendar day
     const startDate = new Date(leave.startDate);
     const endDate = new Date(leave.endDate);
 
-    const existingApprovedLeaves = await this.prisma.teacherLeave.findMany({
-      where: {
-        status: 'APPROVED',
-        id: { not: leaveId },
-        OR: [
-          {
-            startDate: { lte: endDate },
-            endDate: { gte: startDate },
-          },
-        ],
-      },
-    });
-
-    if (existingApprovedLeaves.length >= 2) {
-      throw new BadRequestException(
-        'Teacher leave limit reached: Maximum 2 teachers may be approved for leave on the same calendar day.',
-      );
-    }
-
     const updatedLeave = await this.prisma.$transaction(async (tx) => {
-      // 1. Update leave status
+      // 1. Atomic check: count existing approved leaves overlapping date range
+      const existingApprovedLeaves = await tx.teacherLeave.findMany({
+        where: {
+          status: 'APPROVED',
+          id: { not: leaveId },
+          OR: [
+            {
+              startDate: { lte: endDate },
+              endDate: { gte: startDate },
+            },
+          ],
+        },
+      });
+
+      if (existingApprovedLeaves.length >= 2) {
+        throw new BadRequestException(
+          'Teacher leave limit reached: Maximum 2 teachers may be approved for leave on the same calendar day.',
+        );
+      }
+
+      // 2. Update leave status
       const updated = await tx.teacherLeave.update({
         where: { id: leaveId },
         data: {
@@ -504,7 +504,7 @@ export class TeachersService {
         },
       });
 
-      // 2. Set teacher status to ON_LEAVE
+      // 3. Set teacher status to ON_LEAVE
       await tx.teacher.update({
         where: { id: leave.teacherId },
         data: {
@@ -512,7 +512,7 @@ export class TeachersService {
         },
       });
 
-      // 3. Record status history
+      // 4. Record status history
       await tx.teacherStatusHistory.create({
         data: {
           teacherId: leave.teacherId,
@@ -524,6 +524,17 @@ export class TeachersService {
 
       return updated;
     });
+
+    await this.audit.log(
+      actorId,
+      actorName,
+      actorRole,
+      'Approve Teacher Leave',
+      `Approved leave ${leaveId} for teacher ${leave.teacherId}`,
+      'teachers',
+      'TeacherLeave',
+      leaveId,
+    );
 
     this.eventsGateway.broadcast('teacher.leave_approved', { id: leave.teacherId, leaveId });
     return updatedLeave;

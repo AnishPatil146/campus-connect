@@ -37,6 +37,7 @@ export default function TeacherDashboard() {
     pendingAttendance: 0,
     pendingAssignments: 0,
     uploadedNotes: 0,
+    connectionsTotal: 0,
   });
 
   // Timetable State
@@ -306,8 +307,13 @@ export default function TeacherDashboard() {
     fetchSubmissions();
   }, [selectedAssignmentId]);
 
-  // Real-time socket events setup
+  // Real-time socket events setup & 30s fallback poll
   useEffect(() => {
+    // 30-second fallback polling to ensure schedule never goes silently stale
+    const fallbackPollTimer = setInterval(() => {
+      fetchDashboardStats();
+    }, 30000);
+
     if (socket) {
       const handleTimetableUpdate = (data: any) => {
         console.log('Socket TIMETABLE_UPDATED received:', data);
@@ -315,9 +321,6 @@ export default function TeacherDashboard() {
       };
       const handleResultPublished = (data: any) => {
         console.log('Socket RESULT_PUBLISHED received:', data);
-        if (data.assignmentId === selectedAssignmentId) {
-          fetchSubmissions();
-        }
         fetchDashboardStats();
       };
       const handleNoteUploaded = (data: any) => {
@@ -328,23 +331,19 @@ export default function TeacherDashboard() {
       socket.on('TIMETABLE_UPDATED', handleTimetableUpdate);
       socket.on('RESULT_PUBLISHED', handleResultPublished);
       socket.on('noteUploaded', handleNoteUploaded);
-      
-      // Auto refresh log activities on socket events too
-      socket.on('TIMETABLE_UPDATED', fetchActivityLogs);
-      socket.on('RESULT_PUBLISHED', fetchActivityLogs);
-      socket.on('noteUploaded', fetchActivityLogs);
 
       return () => {
+        clearInterval(fallbackPollTimer);
         socket.off('TIMETABLE_UPDATED', handleTimetableUpdate);
         socket.off('RESULT_PUBLISHED', handleResultPublished);
         socket.off('noteUploaded', handleNoteUploaded);
-        socket.off('TIMETABLE_UPDATED', fetchActivityLogs);
-        socket.off('RESULT_PUBLISHED', fetchActivityLogs);
-        socket.off('noteUploaded', fetchActivityLogs);
       };
     }
-    return () => {};
-  }, [socket, selectedAssignmentId]);
+
+    return () => {
+      clearInterval(fallbackPollTimer);
+    };
+  }, [socket]);
 
   // Filter Tasks counts
   const pendingTasks = assignedTasks.filter(t => t.status === 'PENDING');

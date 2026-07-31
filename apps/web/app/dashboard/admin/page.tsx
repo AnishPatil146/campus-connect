@@ -376,164 +376,82 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* Dynamic Lists Two-Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Dynamic System Status & Quick Management Layout */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
-          {/* Column 1: Today's Timetable (Span 2) */}
-          <div className="lg:col-span-2 space-y-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between border-b border-slate-50 dark:border-slate-900/60 px-6 py-4">
-                <div className="space-y-0.5">
-                  <CardTitle className="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-slate-400 shrink-0" />
-                    <span>Today's Academic Timetable</span>
-                  </CardTitle>
-                </div>
-                <Link href="/dashboard/admin/timetable">
-                  <Button variant="secondary" size="sm" className="h-8 text-xs font-semibold px-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
-                    Full Schedule
-                  </Button>
-                </Link>
-              </CardHeader>
-              <CardContent className="p-6 divide-y divide-slate-50 dark:divide-slate-900/40">
-                {classes.length === 0 ? (
-                  <p className="text-xs text-slate-400 py-4 text-center">No classes scheduled for today.</p>
-                ) : classes.map((cls, idx) => (
-                  <div key={idx} className="py-3.5 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
-                    <div className="flex items-start gap-3">
-                      <div className="h-9 w-9 rounded-lg bg-role-surface/60 dark:bg-role-surface/20 text-role-primary flex items-center justify-center shrink-0 mt-0.5 border border-role-border/50">
-                        <BookOpen className="h-4.5 w-4.5" />
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-slate-900 dark:text-white text-sm">{cls.subject}</h4>
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          {cls.teacher} • <span className="font-semibold text-slate-500">{cls.room}</span>
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className="text-xs font-semibold text-slate-500 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-850 px-2.5 py-1 rounded-lg">
-                        {cls.time}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+          {/* Real-time System Nodes Status */}
+          <Card>
+            <CardHeader className="border-b border-slate-50 dark:border-slate-900/60 px-6 py-4">
+              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <Server className="h-4 w-4 text-slate-400 shrink-0" />
+                <span>System Nodes Status</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500 font-medium">PostgreSQL DB Cluster</span>
+                <span className={`font-semibold px-2.5 py-1 rounded-md text-[11px] ${
+                  systemHealth?.services?.database === 'UP'
+                    ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900'
+                    : 'text-rose-600 bg-rose-550/10 border border-rose-500/20'
+                }`}>
+                  {systemHealth?.services?.database === 'UP' ? 'Connected' : 'Offline'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500 font-medium">Redis Session Cache</span>
+                <span className={`font-semibold px-2.5 py-1 rounded-md text-[11px] ${
+                  systemHealth?.services?.redis === 'UP'
+                    ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900'
+                    : 'text-rose-600 bg-rose-550/10 border border-rose-500/20'
+                }`}>
+                  {systemHealth?.services?.redis === 'UP' ? 'Connected' : 'Offline'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500 font-medium">NestJS Core API Gateway</span>
+                <span className={`font-semibold px-2.5 py-1 rounded-md text-[11px] ${
+                  systemHealth?.services?.api === 'UP'
+                    ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900'
+                    : 'text-rose-600 bg-rose-550/10 border border-rose-500/20'
+                }`}>
+                  {systemHealth?.services?.api === 'UP' ? 'Operational' : 'Offline'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500 font-medium">Socket.IO Real-time Engine</span>
+                <span className="font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900 px-2.5 py-1 rounded-md text-[11px]">Operational</span>
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Recent Announcements */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between border-b border-slate-50 dark:border-slate-900/60 px-6 py-4">
-                <CardTitle className="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                  <Megaphone className="h-4 w-4 text-slate-400 shrink-0" />
-                  <span>Recent Announcements</span>
-                </CardTitle>
-                <Link href="/dashboard/admin/announcements">
-                  <Button variant="secondary" size="sm" className="h-8 text-xs font-semibold px-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
-                    View All
-                  </Button>
-                </Link>
-              </CardHeader>
-              <CardContent className="p-6 space-y-4">
-                {announcements.length === 0 ? (
-                  <p className="text-xs text-slate-400 py-2 text-center">No announcements yet.</p>
-                ) : announcements.map((ann, idx) => (
-                  <div key={idx} className="p-4 rounded-xl border border-slate-50 dark:border-slate-900/50 bg-slate-50/20 dark:bg-slate-900/10 hover:bg-slate-50/40 transition-colors flex items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                        {ann.category}
-                      </span>
-                      <h4 className="font-semibold text-slate-900 dark:text-white text-sm pt-1">{ann.title}</h4>
-                    </div>
-                    <span className="text-xs text-slate-400 shrink-0">{ann.date}</span>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Column 2: Logs & System Status (Span 1) */}
-          <div className="space-y-6">
-            
-            {/* Audit Logs */}
-            <Card className="flex flex-col h-full">
-              <CardHeader className="flex flex-row items-center justify-between border-b border-slate-50 dark:border-slate-900/60 px-6 py-4">
-                <CardTitle className="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-slate-400 shrink-0" />
-                  <span>Recent Audit Logs</span>
-                </CardTitle>
-                <Link href="/dashboard/admin/audit-logs">
-                  <ChevronRight className="h-4 w-4 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors cursor-pointer" />
-                </Link>
-              </CardHeader>
-              <CardContent className="p-6 flex-1">
-                {logs.length === 0 ? (
-                  <p className="text-xs text-slate-400 text-center py-4">No recent activity.</p>
-                ) : (
-                  <div className="relative border-l border-slate-100 dark:border-slate-800/80 ml-2.5 pl-5 space-y-6">
-                    {logs.map((log, idx) => (
-                      <div key={idx} className="relative">
-                        <div className="absolute top-1.5 -left-7.5 h-2.5 w-2.5 rounded-full bg-slate-300 dark:bg-slate-700 ring-4 ring-white dark:ring-slate-950" />
-                        <div className="space-y-0.5">
-                          <span className="text-[10px] font-semibold text-slate-400 block">{log.time}</span>
-                          <p className="text-xs text-slate-650 dark:text-slate-350">
-                            <span className="font-bold text-slate-800 dark:text-slate-200">{log.user}:</span> {log.action}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* System Status Card */}
-            <Card>
-              <CardHeader className="border-b border-slate-50 dark:border-slate-900/60 px-6 py-4">
-                <CardTitle className="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                  <Server className="h-4 w-4 text-slate-400 shrink-0" />
-                  <span>System Nodes Status</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6 space-y-4">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-500">PostgreSQL DB Cluster</span>
-                  <span className={`font-semibold px-2 py-0.5 rounded ${
-                    systemHealth?.services?.database === 'UP'
-                      ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900'
-                      : 'text-rose-600 bg-rose-550/10 border border-rose-500/20'
-                  }`}>
-                    {systemHealth?.services?.database === 'UP' ? 'Connected' : 'Offline'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-500">Redis Session Cache</span>
-                  <span className={`font-semibold px-2 py-0.5 rounded ${
-                    systemHealth?.services?.redis === 'UP'
-                      ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900'
-                      : 'text-rose-600 bg-rose-550/10 border border-rose-500/20'
-                  }`}>
-                    {systemHealth?.services?.redis === 'UP' ? 'Connected' : 'Offline'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-500">NestJS Core API Gateway</span>
-                  <span className={`font-semibold px-2 py-0.5 rounded ${
-                    systemHealth?.services?.api === 'UP'
-                      ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900'
-                      : 'text-rose-600 bg-rose-550/10 border border-rose-500/20'
-                  }`}>
-                    {systemHealth?.services?.api === 'UP' ? 'Operational' : 'Offline'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-500">Socket.IO Real-time Engine</span>
-                  <span className="font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900 px-2 py-0.5 rounded">Operational</span>
-                </div>
-              </CardContent>
-            </Card>
-
-          </div>
+          {/* Core Navigation Shortcuts */}
+          <Card>
+            <CardHeader className="border-b border-slate-50 dark:border-slate-900/60 px-6 py-4">
+              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-slate-400 shrink-0" />
+                <span>Administrative Workspaces</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 grid grid-cols-2 gap-3">
+              <Link href="/dashboard/admin/students" className="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-emerald-500/40 transition-colors">
+                <span className="text-xs font-bold text-slate-900 dark:text-white block">Student Directory</span>
+                <span className="text-[10px] text-slate-400">Bulk import & roster</span>
+              </Link>
+              <Link href="/dashboard/admin/teachers" className="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-emerald-500/40 transition-colors">
+                <span className="text-xs font-bold text-slate-900 dark:text-white block">Teacher Directory</span>
+                <span className="text-[10px] text-slate-400">Faculty management</span>
+              </Link>
+              <Link href="/dashboard/admin/timetable" className="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-emerald-500/40 transition-colors">
+                <span className="text-xs font-bold text-slate-900 dark:text-white block">AI Timetable Hub</span>
+                <span className="text-[10px] text-slate-400">Conflict resolver</span>
+              </Link>
+              <Link href="/dashboard/admin/reports" className="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-emerald-500/40 transition-colors">
+                <span className="text-xs font-bold text-slate-900 dark:text-white block">Reports & Analytics</span>
+                <span className="text-[10px] text-slate-400">Background generation</span>
+              </Link>
+            </CardContent>
+          </Card>
 
         </div>
 

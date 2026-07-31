@@ -1,4 +1,4 @@
-﻿import { Controller, Get, Post, Patch, Body, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Query, UseGuards, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AttendanceService } from './attendance.service';
 import {
@@ -84,6 +84,26 @@ export class AttendanceController {
   async requestLeave(@Body() dto: AttendanceRequestDto, @Req() req: any) {
     const data = await this.attendanceService.requestLeave(dto, req.user.id, req.user.name, req.user.role);
     return { message: 'Attendance leave request submitted successfully', data };
+  }
+
+  @Patch('request/:id/approve')
+  @Roles(Role.ADMIN)
+  @Permissions('attendance.update')
+  @ApiOperation({ summary: 'Approve student leave request with parent verification checklist' })
+  async approveStudentLeave(
+    @Query('id') id: string,
+    @Body() body: { parentVerified: boolean; parentVerificationNotes?: string },
+    @Req() req: any,
+  ) {
+    const data = await this.attendanceService.approveStudentLeave(
+      id,
+      body.parentVerified,
+      body.parentVerificationNotes || '',
+      req.user.id,
+      req.user.name,
+      req.user.role,
+    );
+    return { message: 'Student leave approved with parent call verification', data };
   }
 
   @Post('correction')

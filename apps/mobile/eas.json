@@ -19,8 +19,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://10.0.2.2:10000/api/v1",
-        "EXPO_PUBLIC_SOCKET_URL": "http://10.0.2.2:10000/events"
+        "EXPO_PUBLIC_API_URL": "https://api.campusconnect.com/api/v1",
+        "EXPO_PUBLIC_SOCKET_URL": "https://api.campusconnect.com/events"
       }
     }
   },
