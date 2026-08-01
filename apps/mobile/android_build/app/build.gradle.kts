@@ -5,19 +5,30 @@ plugins {
 }
 
 android {
-    namespace = "com.example.campusconnect"
+    namespace = "com.campusconnect.app"
     compileSdk = 36
+
+    signingConfigs {
+        create("release") {
+            storeFile = file("campusconnect.jks")
+            storePassword = "campusconnectpass"
+            keyAlias = "campusconnect"
+            keyPassword = "campusconnectpass"
+        }
+    }
+
     defaultConfig {
-        applicationId = "com.example.campusconnect"
+        applicationId = "com.campusconnect.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.0.1"
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }

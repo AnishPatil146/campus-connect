@@ -1,7 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useState } from 'react';
-import { Sparkles, Settings } from 'lucide-react';
+import Script from 'next/script';
+import { Sparkles } from 'lucide-react';
 
 interface LoadingContextType {
   startLoading: (message: string) => void;
@@ -26,6 +27,7 @@ export const LoadingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   return (
     <LoadingContext.Provider value={{ startLoading, stopLoading, isLoading }}>
+      <Script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js" strategy="lazyOnload" />
       {children}
       {isLoading && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-2xl transition-all duration-300 pointer-events-auto select-none p-4">
@@ -36,9 +38,16 @@ export const LoadingProvider: React.FC<{ children: React.ReactNode }> = ({ child
             <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.15),transparent_60%)] pointer-events-none -z-10 animate-pulse" />
             <div className="absolute bottom-[-20%] right-[-20%] w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none -z-10" />
 
-            {/* Simple Spinning Gear Loading */}
-            <div className="relative flex items-center justify-center h-20 w-20 my-2">
-              <Settings className="h-14 w-14 text-emerald-500 animate-spin" />
+            {/* Custom Lottie Loading Animation from /loading.json */}
+            <div className="relative flex items-center justify-center h-28 w-28 my-1">
+              {React.createElement('lottie-player', {
+                src: '/loading.json',
+                background: 'transparent',
+                speed: '1',
+                style: { width: '100%', height: '100%' },
+                loop: true,
+                autoplay: true,
+              })}
             </div>
 
             {/* Dynamic Message & Pulsing Status Badge */}

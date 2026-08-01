@@ -65,32 +65,32 @@ export default function DownloadAppPage() {
             </div>
 
             <div className="space-y-1 text-left">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-display font-bold text-xl text-slate-900 dark:text-white">CampusConnect.apk</h3>
                 <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                  Release v1.0.0
+                  Release v1.0.1 (Build 2)
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Package: <code className="font-mono text-slate-700 dark:text-slate-300">com.campusconnect.app</code>
               </p>
-              <div className="flex items-center gap-4 text-xs text-slate-400 dark:text-slate-500 pt-1 font-semibold">
-                <span>Size: 11.9 MB</span>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400 dark:text-slate-500 pt-1 font-semibold">
+                <span>Size: ~12.5 MB</span>
                 <span>•</span>
-                <span>Updated: 31 July 2026</span>
+                <span>Updated: 1 August 2026</span>
                 <span>•</span>
-                <span>Target: Android 8.0+</span>
+                <span>Target: Android 7.0+ (API 24+)</span>
               </div>
             </div>
           </div>
 
           <a
-            href="/downloads/CampusConnect.apk"
+            href="/CampusConnect.apk"
             download="CampusConnect.apk"
-            className="w-full md:w-auto px-8 py-4 text-base font-bold rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-3 shrink-0"
+            className="w-full md:w-auto min-h-[44px] px-8 py-4 text-base font-bold rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-3 shrink-0 touch-manipulation"
           >
             <Download size={20} />
-            <span>Download APK (11.9 MB)</span>
+            <span>Download APK (v1.0.1)</span>
           </a>
         </section>
 
