@@ -5,7 +5,7 @@ import { AuditService } from '../audit/audit.service';
 import { RedisService } from '../redis/redis.service';
 import { MailService } from '../common/mail.service';
 import { EventsGateway } from '../events/events.gateway';
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { UnauthorizedException } from '@nestjs/common';
 import bcrypt from 'bcryptjs';
 
 describe('AuthService', () => {

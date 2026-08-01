@@ -32,6 +32,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
   const [notifications, setNotifications] = React.useState<any[]>([]);
   const [unreadCount, setUnreadCount] = React.useState(0);
 
+  // Ensure global full-screen loading spinner is stopped when landing on dashboard
+  React.useEffect(() => {
+    stopLoading();
+  }, [stopLoading]);
+
   React.useEffect(() => {
     const fetchNotifications = async () => {
       try {

@@ -511,6 +511,9 @@ Return a valid JSON object with keys:
       request.id,
     );
 
+    return request;
+  }
+
   async approveStudentLeave(
     requestId: string,
     parentVerified: boolean,

@@ -394,15 +394,30 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
         stopLoading();
       }
     } catch (err: any) {
+      console.error('[Login Error]', err);
       setError(err.message || 'Invalid credentials. Check your selected college, role, and details.');
       stopLoading();
+    } finally {
+      setTimeout(() => {
+        stopLoading();
+      }, 800);
     }
   };
 
   const redirectUser = (userRole: UserRole) => {
-    if (userRole === 'STUDENT') router.push('/dashboard/student');
-    else if (userRole === 'TEACHER') router.push('/dashboard/teacher');
-    else if (userRole === 'ADMIN') router.push('/dashboard/admin');
+    stopLoading();
+    const targetPath = userRole === 'STUDENT' ? '/dashboard/student' : userRole === 'TEACHER' ? '/dashboard/teacher' : '/dashboard/admin';
+    try {
+      router.push(targetPath);
+      router.refresh();
+    } catch (_) {}
+    
+    // Immediate fallback full-window navigation to guarantee transition out of login page
+    setTimeout(() => {
+      if (typeof window !== 'undefined' && window.location.pathname !== targetPath) {
+        window.location.href = targetPath;
+      }
+    }, 150);
   };
 
   const collegeList: { id: CollegeId; name: string }[] = [

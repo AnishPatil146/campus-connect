@@ -35,14 +35,14 @@ export const Toast: React.FC<ToastProps> = ({
 
   if (!isOpen) return null;
 
-  const icons = {
+  const icons: Record<'success' | 'error' | 'info' | 'warning', React.ReactNode> = {
     success: React.createElement(CheckCircle2 as any, { className: 'h-5 w-5 text-emerald-500 shrink-0' }),
     error: React.createElement(AlertCircle as any, { className: 'h-5 w-5 text-red-500 shrink-0' }),
     info: React.createElement(Info as any, { className: 'h-5 w-5 text-role-primary shrink-0' }),
     warning: React.createElement(AlertTriangle as any, { className: 'h-5 w-5 text-amber-500 shrink-0' }),
   };
 
-  const bgStyles = {
+  const bgStyles: Record<'success' | 'error' | 'info' | 'warning', string> = {
     success: 'border-emerald-100 dark:border-emerald-950 bg-emerald-50/90 dark:bg-emerald-950/20 text-emerald-900 dark:text-emerald-300',
     error: 'border-red-100 dark:border-red-950 bg-red-50/90 dark:bg-red-950/20 text-red-900 dark:text-red-300',
     info: 'border-role-border/50 bg-role-surface/90 dark:bg-role-surface/20 text-role-primary',
