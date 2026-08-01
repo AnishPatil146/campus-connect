@@ -36,10 +36,10 @@ export const Toast: React.FC<ToastProps> = ({
   if (!isOpen) return null;
 
   const icons = {
-    success: <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />,
-    error: <AlertCircle className="h-5 w-5 text-red-500 shrink-0" />,
-    info: <Info className="h-5 w-5 text-role-primary shrink-0" />,
-    warning: <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />,
+    success: React.createElement(CheckCircle2 as any, { className: 'h-5 w-5 text-emerald-500 shrink-0' }),
+    error: React.createElement(AlertCircle as any, { className: 'h-5 w-5 text-red-500 shrink-0' }),
+    info: React.createElement(Info as any, { className: 'h-5 w-5 text-role-primary shrink-0' }),
+    warning: React.createElement(AlertTriangle as any, { className: 'h-5 w-5 text-amber-500 shrink-0' }),
   };
 
   const bgStyles = {
@@ -65,7 +65,7 @@ export const Toast: React.FC<ToastProps> = ({
           className="ml-auto p-0.5 rounded-lg opacity-70 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10 transition-all duration-200"
           aria-label="Close notification"
         >
-          <X className="h-3.5 w-3.5" />
+          {React.createElement(X as any, { className: 'h-3.5 w-3.5' })}
         </button>
       </div>
     </div>

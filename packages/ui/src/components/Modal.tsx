@@ -74,7 +74,7 @@ export const Modal: React.FC<ModalProps> = ({
             className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors"
             aria-label="Close modal"
           >
-            <X className="h-4 w-4" />
+            {React.createElement(X as any, { className: 'h-4 w-4' })}
           </button>
         </div>
 

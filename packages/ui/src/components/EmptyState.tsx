@@ -25,7 +25,7 @@ export const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(
       >
         {/* Icon container */}
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-role-surface/40 text-role-primary mb-4 border border-role-border/50">
-          {icon || <FolderOpen className="h-6 w-6" />}
+          {icon || React.createElement(FolderOpen as any, { className: 'h-6 w-6' })}
         </div>
 
         {/* Text */}
