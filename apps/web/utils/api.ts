@@ -1743,6 +1743,69 @@ export const api = {
     return { success: false, data: null };
   },
 
+  async getDepartments(params?: { collegeId?: string }): Promise<{ success: boolean; data: any[] }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const query = params?.collegeId ? `?collegeId=${params.collegeId}` : '';
+        const res = await fetch(`${API_BASE_URL}/departments${query}`, { headers: getHeaders() });
+        const payload = await res.json();
+        if (payload.success) return { success: true, data: payload.data || [] };
+      } catch (err) {
+        console.warn('Failed to fetch departments:', err);
+      }
+    }
+    return { success: true, data: [] };
+  },
+
+  async createDepartment(data: any): Promise<{ success: boolean; message?: string; data?: any }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/departments`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify(data),
+        });
+        const payload = await res.json();
+        return { success: payload.success, message: payload.message, data: payload.data };
+      } catch (err: any) {
+        return { success: false, message: err.message };
+      }
+    }
+    return { success: false, message: 'API Offline' };
+  },
+
+  async getCourses(params?: { collegeId?: string }): Promise<{ success: boolean; data: any[] }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const query = params?.collegeId ? `?collegeId=${params.collegeId}` : '';
+        const res = await fetch(`${API_BASE_URL}/courses${query}`, { headers: getHeaders() });
+        const payload = await res.json();
+        if (payload.success) return { success: true, data: payload.data || [] };
+      } catch (err) {
+        console.warn('Failed to fetch courses:', err);
+      }
+    }
+    return { success: true, data: [] };
+  },
+
+  async getSubjects(params?: { collegeId?: string }): Promise<{ success: boolean; data: any[] }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const query = params?.collegeId ? `?collegeId=${params.collegeId}` : '';
+        const res = await fetch(`${API_BASE_URL}/subjects${query}`, { headers: getHeaders() });
+        const payload = await res.json();
+        if (payload.success) return { success: true, data: payload.data || [] };
+      } catch (err) {
+        console.warn('Failed to fetch subjects:', err);
+      }
+    }
+    return { success: true, data: [] };
+  },
+
 
 
 

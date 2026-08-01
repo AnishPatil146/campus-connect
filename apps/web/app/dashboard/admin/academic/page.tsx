@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
-import { Card, Table, TableHeader, TableBody, TableHead, TableRow, TableCell, Button, Badge } from '@campus-connect/ui';
+import { Card, Table, TableHeader, TableBody, TableHead, TableRow, TableCell, Button } from '@campus-connect/ui';
 import { Plus, Layers, X, CheckCircle2, AlertCircle } from 'lucide-react';
 import { api } from '../../../../utils/api';
 import { useAuth } from '../../../../components/AuthProvider';

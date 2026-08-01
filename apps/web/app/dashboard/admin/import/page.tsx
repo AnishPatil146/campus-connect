@@ -5,7 +5,7 @@ import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { api, TimetableEntry } from '../../../../utils/api';
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell, Badge, Card, CardContent } from '@campus-connect/ui';
 import { FolderInput, Download, UploadCloud, CheckCircle2, AlertTriangle, Play, RefreshCw, History, FileSpreadsheet } from 'lucide-react';
-import * as XLSX from 'xlsx';
+
 
 interface PreviewRow {
   row: number;
@@ -102,8 +102,9 @@ export default function ImportCenter() {
   }, []);
 
   // Template Downloader
-  const handleDownloadTemplate = () => {
+  const handleDownloadTemplate = async () => {
     if (importType === 'TIMETABLE') {
+      const XLSX = await import('xlsx');
       const headers = ['Day', 'Time Slot', 'Course', 'Division', 'Subject Code', 'Subject Name', 'Teacher Name', 'Classroom'];
       const sampleRows = [
         {
@@ -171,6 +172,7 @@ export default function ImportCenter() {
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
+        const XLSX = await import('xlsx');
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
         const firstSheetName = workbook.SheetNames[0];
