@@ -132,7 +132,7 @@ export default function ProfilePage() {
   const semesterName = profile?.division?.semester?.name || profile?.semester?.name || 'N/A';
   const courseName = profile?.course?.name || profile?.division?.semester?.academicSession?.course?.name || 'N/A';
   const departmentName = profile?.department?.name || profile?.division?.semester?.academicSession?.course?.department?.name || 'N/A';
-  const collegeName = user?.college?.name || profile?.college?.name || profile?.division?.semester?.academicSession?.course?.department?.college?.name || 'Campus Connect Institution';
+  const collegeName = (typeof user?.college === 'object' ? user?.college?.name : user?.college) || profile?.college?.name || profile?.division?.semester?.academicSession?.course?.department?.college?.name || 'Campus Connect Institution';
 
   return (
     <DashboardLayout title="Student Profile" icon={<User className="h-6 w-6" />}>

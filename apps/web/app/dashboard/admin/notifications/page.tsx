@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, Table, TableHeader, TableBody, TableHead, TableRow, TableCell, Button, Badge } from '@campus-connect/ui';
-import { Bell, Plus, Eye, X, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { Bell, Plus, Eye, X, CheckCircle2, AlertCircle } from 'lucide-react';
 import { api } from '../../../../utils/api';
 import { useAuth } from '../../../../components/AuthProvider';
 

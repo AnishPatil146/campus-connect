@@ -15,6 +15,8 @@ export interface User {
   name: string;
   role: UserRole;
   collegeId: CollegeId;
+  phone?: string;
+  college?: string | { id: string; name: string };
   createdAt: string;
   updatedAt: string;
   studentProfile?: {

@@ -14,35 +14,14 @@ import {
   Calendar, 
   Megaphone, 
   Plus, 
-  Clock, 
   ShieldCheck, 
   Activity, 
-  ChevronRight,
   ClipboardCheck,
   Server,
   Loader2,
   Building2,
   Monitor
 } from 'lucide-react';
-
-interface AuditLog {
-  time: string;
-  user: string;
-  action: string;
-}
-
-interface TimetableItem {
-  time: string;
-  subject: string;
-  room: string;
-  teacher: string;
-}
-
-interface Announcement {
-  title: string;
-  date: string;
-  category: string;
-}
 
 interface DashboardStats {
   totalStudents: number;
@@ -69,9 +48,9 @@ export default function AdminDashboard() {
 
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
-  const [logs, setLogs] = useState<AuditLog[]>([]);
-  const [classes, setClasses] = useState<TimetableItem[]>([]);
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [classes, setClasses] = useState<any[]>([]);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
   const [systemHealth, setSystemHealth] = useState<any>({
     services: {
       api: 'UP',
@@ -454,6 +433,33 @@ export default function AdminDashboard() {
           </Card>
 
         </div>
+
+        {/* Real-time Activity & Timetable Log Grid */}
+        <Card className="mt-6 border-slate-100/90 dark:border-slate-800/60 shadow-sm">
+          <CardHeader className="px-6 py-4 border-b border-slate-50 dark:border-slate-900/60 flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+              <Activity className="h-4 w-4 text-emerald-500 shrink-0" />
+              <span>Real-Time Campus Activity Audit ({logs.length + classes.length + announcements.length} items)</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="space-y-3">
+              {logs.length === 0 && classes.length === 0 && announcements.length === 0 ? (
+                <p className="text-xs text-slate-400">All campus systems running smoothly. No recent security or activity flags.</p>
+              ) : (
+                logs.slice(0, 5).map((log, index) => (
+                  <div key={index} className="flex items-center justify-between py-2 border-b border-slate-50 dark:border-slate-900/40 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-700 dark:text-slate-200">{log.user}:</span>
+                      <span className="text-slate-500 dark:text-slate-400">{log.action}</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-mono">{log.time}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
       </div>
     </DashboardLayout>

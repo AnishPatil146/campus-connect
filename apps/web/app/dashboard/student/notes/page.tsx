@@ -91,7 +91,6 @@ export default function NotesPage() {
 
   // Folders organization
   const semesters = [1, 2, 3, 4];
-  const higherSecondarySubjects = ['Physics', 'Chemistry', 'Mathematics', 'Biology', 'English', 'Computer Science'];
   const subjectsBySem: Record<number, string[]> = {
     1: ['Database Management Systems', 'Operating Systems', 'Python Web Lab', 'Discrete Mathematics'],
     2: ['Data Structures', 'Web Technologies', 'Software Engineering', 'Microprocessors'],

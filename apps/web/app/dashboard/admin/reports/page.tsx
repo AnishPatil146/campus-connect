@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, CardContent, Button, Badge } from '@campus-connect/ui';
-import { LineChart, FileSpreadsheet, Download, FileText, ChevronRight, BarChart3, PieChart, Users, Sparkles, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
+import { LineChart, FileSpreadsheet, FileText, BarChart3, PieChart, Users, Sparkles, CheckCircle2, Loader2 } from 'lucide-react';
 import { api } from '../../../../utils/api';
 import { useAuth } from '../../../../components/AuthProvider';
 

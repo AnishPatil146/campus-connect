@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
-import { Card, CardContent, Table, TableHeader, TableBody, TableHead, TableRow, TableCell, Button, Badge } from '@campus-connect/ui';
-import { ClipboardCheck, PhoneCall, CheckCircle2, XCircle, AlertCircle, ShieldAlert, User, Calendar } from 'lucide-react';
+import { Card, Table, TableHeader, TableBody, TableHead, TableRow, TableCell, Button, Badge } from '@campus-connect/ui';
+import { ClipboardCheck, PhoneCall, CheckCircle2, XCircle, ShieldAlert } from 'lucide-react';
 import { api } from '../../../../utils/api';
 import { useAuth } from '../../../../components/AuthProvider';
 

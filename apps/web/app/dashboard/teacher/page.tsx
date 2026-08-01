@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@campus-connect/ui';
 import { useAuth } from '../../../components/AuthProvider';
 import { useSocket } from '../../../components/SocketProvider';
 import { useLoading } from '../../../components/LoadingProvider';
-import { Clock, User, CheckCircle2, ClipboardCheck, BookOpen, Calendar, Plus, AlertCircle, RefreshCw, GraduationCap, Activity, Users } from 'lucide-react';
+import { Clock, User, CheckCircle2, BookOpen, Calendar, Plus, AlertCircle, RefreshCw, GraduationCap, Users } from 'lucide-react';
 import { api, TaskRecord } from '../../../utils/api';
 
 interface Assignment {
@@ -84,6 +84,7 @@ export default function TeacherDashboard() {
         pendingAttendance: res.data.pendingAttendance || 0,
         pendingAssignments: res.data.pendingAssignments || 0,
         uploadedNotes: res.data.uploadedNotes || 0,
+        connectionsTotal: res.data.connectionsTotal || 0,
       });
       setTodayClasses(res.data.todayClasses || []);
     }
@@ -536,6 +537,21 @@ export default function TeacherDashboard() {
                           </span>
                         </div>
                       ))}
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-900 space-y-2">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Faculty Audit Logs ({activityLogs.length})</span>
+                      {isLogsLoading ? (
+                        <p className="text-[11px] text-slate-400">Loading audit feed...</p>
+                      ) : activityLogs.length === 0 ? (
+                        <p className="text-[11px] text-slate-400">No recent security or grading audit events.</p>
+                      ) : (
+                        activityLogs.slice(0, 3).map((log: any, idx: number) => (
+                          <div key={idx} className="p-2 rounded-lg bg-slate-50 dark:bg-slate-900/40 text-[11px] border border-slate-100 dark:border-slate-850">
+                            <span className="font-bold text-slate-700 dark:text-slate-300 block">{log.action}</span>
+                            <span className="text-[9px] text-slate-400 font-mono">{log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : 'Recent'}</span>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </CardContent>
                 </Card>

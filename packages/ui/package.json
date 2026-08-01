@@ -15,7 +15,7 @@
   "dependencies": {
     "@campus-connect/types": "*",
     "@campus-connect/utils": "*",
-    "lucide-react": "^0.400.0"
+    "lucide-react": "^0.475.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",

@@ -198,7 +198,7 @@ export default function PerformancePage() {
                       </defs>
                     </svg>
 
-                    {semesterGrades.map((grade, idx) => (
+                    {semesterGrades.map((grade: any, idx: number) => (
                       <div key={idx} className="flex flex-col items-center z-10 w-1/4">
                         <div className="bg-blue-600 dark:bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow mb-1">
                           {grade.gpa.toFixed(2)}

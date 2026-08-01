@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
-import { Card, CardContent, Table, TableHeader, TableBody, TableHead, TableRow, TableCell, Button, Badge } from '@campus-connect/ui';
-import { BookOpen, FileText, Download, CheckCircle, XCircle, Eye, UploadCloud, AlertCircle, Sparkles } from 'lucide-react';
+import { Card, Table, TableHeader, TableBody, TableHead, TableRow, TableCell, Badge } from '@campus-connect/ui';
+import { BookOpen, FileText, Download, CheckCircle, XCircle, UploadCloud, AlertCircle, Sparkles } from 'lucide-react';
 import { api } from '../../../../utils/api';
 import { useAuth } from '../../../../components/AuthProvider';
 import { useLoading } from '../../../../components/LoadingProvider';

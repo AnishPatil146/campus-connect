@@ -4,7 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { api, TimetableEntry } from '../../../../utils/api';
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell, Badge, Card, CardContent } from '@campus-connect/ui';
-import { FolderInput, Download, UploadCloud, CheckCircle2, AlertTriangle, Play, RefreshCw, History, FileSpreadsheet } from 'lucide-react';
+import { FolderInput, Download, UploadCloud, CheckCircle2, AlertTriangle, Play, RefreshCw, History, FileSpreadsheet, ShieldCheck } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 
 interface PreviewRow {
@@ -876,6 +877,13 @@ export default function ImportCenter() {
                       <option value="OVERWRITE">Update / Overwrite</option>
                       <option value="CREATE_NEW">Create New (Fail on Unique)</option>
                     </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1 text-left min-w-[200px] justify-center">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                      DPDP Act 2023 Notice: Parent contact details are processed strictly for attendance notifications.
+                    </span>
                   </div>
 
                   <Button

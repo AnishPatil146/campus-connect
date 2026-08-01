@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, Toast } from '@campus-connect/ui';
-import { Bell, EyeOff, Settings, AlertTriangle } from 'lucide-react';
+import { Bell, Settings, AlertTriangle } from 'lucide-react';
 import { api } from '../../../../utils/api';
 
 export default function SettingsPage() {

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, Toast } from '@campus-connect/ui';
-import { Bell, Settings, ShieldAlert, Monitor, LogOut, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Settings, ShieldAlert, LogOut, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../../../components/AuthProvider';
 import { api } from '../../../../utils/api';
 
@@ -153,6 +153,49 @@ export default function TeacherSettingsPage() {
             <div className="p-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-850 rounded-xl space-y-1">
               <span className="text-[10px] text-slate-400 block uppercase tracking-wider">Date Joined</span>
               <span className="text-slate-800 dark:text-slate-200 block text-sm">{joinedDate}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Notification Preferences Card */}
+        <Card className="border-slate-150 dark:border-slate-900 bg-white dark:bg-slate-950">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-base text-slate-900 dark:text-white flex items-center gap-2">
+                <Settings className="h-5 w-5 text-emerald-500" /> Notification Channels
+              </CardTitle>
+              <p className="text-xs text-slate-500">Manage real-time push and email alerts for student submissions and leaves</p>
+            </div>
+            <button
+              onClick={handleSavePreferences}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all"
+            >
+              Save Preferences
+            </button>
+          </CardHeader>
+          <CardContent className="space-y-3 text-xs">
+            <label className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-850 cursor-pointer">
+              <span>Email System Notifications</span>
+              <input type="checkbox" checked={emailAlerts} onChange={(e) => setEmailAlerts(e.target.checked)} className="h-4 w-4 text-emerald-600 rounded" />
+            </label>
+            <label className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-850 cursor-pointer">
+              <span>SMS Urgent Alerts</span>
+              <input type="checkbox" checked={smsAlerts} onChange={(e) => setSmsAlerts(e.target.checked)} className="h-4 w-4 text-emerald-600 rounded" />
+            </label>
+            <div className="pt-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Active Security Sessions ({sessions.length})</span>
+              <div className="space-y-1.5">
+                {isSessionsLoading ? (
+                  <span className="text-slate-400">Loading active sessions...</span>
+                ) : (
+                  sessions.map((s) => (
+                    <div key={s.id} className="flex items-center justify-between p-2 rounded-lg bg-slate-100/60 dark:bg-slate-900/30 text-[11px]">
+                      <span>{s.device || 'Web Session'} • {s.ipAddress || 'Active'}</span>
+                      <span className="text-emerald-500 font-bold">{s.isCurrent ? 'Current Session' : 'Active'}</span>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>

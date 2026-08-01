@@ -9,7 +9,7 @@ import { useLoading } from './LoadingProvider';
 import { useSocket } from './SocketProvider';
 import { api } from '../utils/api';
 import { getCollegeName, getCollegeLogo } from '@campus-connect/utils';
-import { LogOut, User as UserIcon, Settings, GraduationCap, BookOpen, Menu, X, Bell, Sun, Moon, LayoutDashboard, LineChart, Calendar, Clock, Sparkles, Megaphone, Users, Building2, Activity, FolderInput, ClipboardCheck } from 'lucide-react';
+import { LogOut, User as UserIcon, Settings, GraduationCap, BookOpen, Menu, X, Bell, Sun, Moon, LayoutDashboard, LineChart, Calendar, Clock, Sparkles, Megaphone, Users, Building2, Activity, ClipboardCheck } from 'lucide-react';
 import { CommandPalette } from './CommandPalette';
 
 interface DashboardLayoutProps {

@@ -862,16 +862,17 @@ export const api = {
     return { success: true, data: [] };
   },
 
-  async getTeacherLeaves(teacherId: string): Promise<{ success: boolean; data: any[] }> {
+  async getTeacherLeaves(teacherId?: string): Promise<{ success: boolean; data: any[] }> {
     const isOnline = await pingAPI();
     if (isOnline) {
       try {
-        const res = await fetch(`${API_BASE_URL}/teachers/${teacherId}`, {
+        const endpoint = teacherId ? `${API_BASE_URL}/teachers/${teacherId}` : `${API_BASE_URL}/leave/teacher`;
+        const res = await fetch(endpoint, {
           headers: getHeaders(),
         });
         const payload = await res.json();
-        if (payload.success && payload.data?.leaves) {
-          return { success: true, data: payload.data.leaves };
+        if (payload.success) {
+          return { success: true, data: payload.data?.leaves || payload.data || [] };
         }
       } catch (err) {
         console.warn('Failed to fetch teacher leaves:', err);
@@ -1170,6 +1171,7 @@ export const api = {
     divisionId?: string;
     teacherId?: string;
     status?: string;
+    collegeId?: string;
   }): Promise<{ success: boolean; data: any[] }> {
     const isOnline = await pingAPI();
     if (isOnline) {
@@ -1180,6 +1182,7 @@ export const api = {
         if (query?.divisionId) params.append('divisionId', query.divisionId);
         if (query?.teacherId) params.append('teacherId', query.teacherId);
         if (query?.status) params.append('status', query.status);
+        if (query?.collegeId) params.append('collegeId', query.collegeId);
 
         const res = await fetch(`${API_BASE_URL}/notes?${params.toString()}`, {
           headers: getHeaders(),
@@ -1263,11 +1266,12 @@ export const api = {
     return false;
   },
 
-  async getEvents(): Promise<{ success: boolean; data: any[] }> {
+  async getEvents(query?: { collegeId?: string }): Promise<{ success: boolean; data: any[] }> {
     const isOnline = await pingAPI();
     if (isOnline) {
       try {
-        const res = await fetch(`${API_BASE_URL}/events`, {
+        const urlParams = query?.collegeId ? `?collegeId=${query.collegeId}` : '';
+        const res = await fetch(`${API_BASE_URL}/events${urlParams}`, {
           headers: getHeaders(),
         });
         const payload = await res.json();
@@ -1533,6 +1537,7 @@ export const api = {
     divisionId?: string;
     teacherId?: string;
     status?: string;
+    collegeId?: string;
   }): Promise<{ success: boolean; data: any[] }> {
     const isOnline = await pingAPI();
     if (isOnline) {
@@ -1555,6 +1560,7 @@ export const api = {
     }
     return { success: true, data: [] };
   },
+
 
   async getStudentSubmissions(assignmentId: string): Promise<{ success: boolean; data: any }> {
     const isOnline = await pingAPI();
@@ -1845,12 +1851,160 @@ export const api = {
           body: formData,
         });
         const resp = await res.json();
-        return { success: res.ok, data: resp.data || resp };
+        if (resp.success) return { success: true, data: resp.data };
       } catch (err) {
         console.warn('Failed to upload file:', err);
       }
     }
     return { success: false, data: null };
+  },
+
+  async getTeachers(params?: { collegeId?: string; search?: string }): Promise<{ success: boolean; data: any[] }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const query = params?.collegeId ? `?collegeId=${params.collegeId}` : '';
+        const res = await fetch(`${API_BASE_URL}/teachers${query}`, { headers: getHeaders() });
+        const payload = await res.json();
+        if (payload.success) return { success: true, data: payload.data || [] };
+      } catch (err) {
+        console.warn('Failed to fetch teachers:', err);
+      }
+    }
+    return { success: true, data: [] };
+  },
+
+  async createTeacher(data: any): Promise<{ success: boolean; message?: string; data?: any }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/teachers`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify(data),
+        });
+        const payload = await res.json();
+        return { success: payload.success, message: payload.message, data: payload.data };
+      } catch (err: any) {
+        return { success: false, message: err.message };
+      }
+    }
+    return { success: false, message: 'API Offline' };
+  },
+
+
+  async createEvent(data: any): Promise<{ success: boolean; message?: string; data?: any }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/events`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify(data),
+        });
+        const payload = await res.json();
+        return { success: payload.success, message: payload.message, data: payload.data };
+      } catch (err: any) {
+        return { success: false, message: err.message };
+      }
+    }
+    return { success: true, message: 'Event created' };
+  },
+
+
+  async getStudentLeaves(): Promise<{ success: boolean; data: any[] }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/leave/student`, { headers: getHeaders() });
+        const payload = await res.json();
+        if (payload.success) return { success: true, data: payload.data || [] };
+      } catch (err) {
+        console.warn('Failed to fetch student leaves:', err);
+      }
+    }
+    return { success: true, data: [] };
+  },
+
+  async approveTeacherLeave(id: string): Promise<{ success: boolean; message?: string }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/leave/teacher/${id}/approve`, { method: 'PATCH', headers: getHeaders() });
+        const payload = await res.json();
+        return { success: payload.success, message: payload.message };
+      } catch (err: any) {
+        return { success: false, message: err.message };
+      }
+    }
+    return { success: true };
+  },
+
+  async rejectTeacherLeave(id: string): Promise<{ success: boolean; message?: string }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/leave/teacher/${id}/reject`, { method: 'PATCH', headers: getHeaders() });
+        const payload = await res.json();
+        return { success: payload.success, message: payload.message };
+      } catch (err: any) {
+        return { success: false, message: err.message };
+      }
+    }
+    return { success: true };
+  },
+
+  async approveStudentLeave(id: string, payloadData?: any): Promise<{ success: boolean; message?: string }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const fetchOptions: RequestInit = {
+          method: 'PATCH',
+          headers: getHeaders(),
+        };
+        if (payloadData) {
+          fetchOptions.body = JSON.stringify(payloadData);
+        }
+        const res = await fetch(`${API_BASE_URL}/leave/student/${id}/approve`, fetchOptions);
+        const payload = await res.json();
+        return { success: payload.success, message: payload.message };
+      } catch (err: any) {
+        return { success: false, message: err.message };
+      }
+    }
+    return { success: true };
+  },
+
+  async rejectStudentLeave(id: string): Promise<{ success: boolean; message?: string }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/leave/student/${id}/reject`, { method: 'PATCH', headers: getHeaders() });
+        const payload = await res.json();
+        return { success: payload.success, message: payload.message };
+      } catch (err: any) {
+        return { success: false, message: err.message };
+      }
+    }
+    return { success: true };
+  },
+
+  async sendNotification(data: any): Promise<{ success: boolean; message?: string }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/notifications`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify(data),
+        });
+        const payload = await res.json();
+        return { success: payload.success, message: payload.message };
+      } catch (err: any) {
+        return { success: false, message: err.message };
+      }
+    }
+    return { success: true, message: 'Notification sent' };
   },
 };
 
