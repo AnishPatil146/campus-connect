@@ -22,7 +22,7 @@ export class EducationGroupsController {
   @ApiOperation({ summary: 'Retrieve list of academic groups (Degree -> Semester -> Division)' })
   async getGroups(@Query('collegeId') collegeId?: string, @Req() req?: any) {
     const targetCollegeId = collegeId || req.user?.collegeId;
-    const data = await this.educationGroupsService.getAcademicGroups(targetCollegeId, req.user?.role, req.user?.id);
+    const data = await this.educationGroupsService.getAcademicGroups(targetCollegeId);
     return {
       message: 'Academic groups retrieved successfully',
       data,
