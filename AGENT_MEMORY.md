@@ -75,6 +75,11 @@ Get the real crash log (BrowserStack Device Logs panel or local adb logcat) or b
   - **CONFIRMED DEFECT**: `assets/index.android.bundle` was MISSING from the 7.65 MB APK, explaining the immediate crash on launch before JS execution.
 - Local Gradle `assembleRelease` failed due to disk space shortage on C: drive (0.18 GB free).
 
-### 4. Next Step
-- Free disk space on C: drive and package `assets/index.android.bundle` into `apps/mobile/android/app/src/main/assets/` during `gradlew assembleRelease` to produce a full ~12 MB APK, then capture device logs/screenshots on boot.
+### 5. Disk Space Recovery
+- Cleared dev caches (`npm-cache`, `pnpm-cache`, `pip cache`, `$env:TEMP`, `.gradle` daemon/worker caches).
+- Recovered disk space on drive C: from **0.00 GB free** to **14.23 GB free**.
+
+### 6. Next Step
+- Package `assets/index.android.bundle` into `apps/mobile/android/app/src/main/assets/` during `gradlew assembleRelease` using the recovered disk space (14.23 GB free) to produce the complete release APK (~12 MB), then verify on device/emulator.
+
 
