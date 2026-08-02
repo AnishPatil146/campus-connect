@@ -95,8 +95,14 @@ Get the real crash log (BrowserStack Device Logs panel or local adb logcat) or b
 - Updated release metadata to reflect file size `~59.5 MB` and build date `2 August 2026`.
 - Verified production web build with `pnpm --filter @campus-connect/web build` — **52/52 static pages generated**, 0 TypeScript errors.
 
-### 8. Next Step
+### 8. Monorepo & API Workspace Verification
+- Merged Prisma models from `apps/api/prisma/models/*.prisma` into `schema_merged.prisma` and generated `@prisma/client` (v5.22.0).
+- Verified `apps/api` TypeScript compilation (`npx tsc --noEmit --project apps/api/tsconfig.json`) — **PASSED with 0 errors**.
+- Re-verified web build (`pnpm --filter @campus-connect/web build`) — **52/52 static pages generated**, 0 TypeScript errors.
+
+### 9. Next Step
 - Install the newly compiled 59.5 MB APK onto a device or emulator (or BrowserStack App Live) to capture boot evidence (screenshot of login screen or adb logcat if any runtime issue occurs).
+
 
 
 
