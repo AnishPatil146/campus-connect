@@ -146,7 +146,7 @@ export class EducationGroupsService {
     return { message: `Education group "${group.name}" deleted successfully` };
   }
 
-  async getAcademicGroups(collegeId?: string, role?: string, userId?: string) {
+  async getAcademicGroups(collegeId?: string) {
     const whereClause: any = { deletedAt: null };
     if (collegeId) {
       whereClause.semester = {
