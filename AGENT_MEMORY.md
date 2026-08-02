@@ -90,8 +90,14 @@ Get the real crash log (BrowserStack Device Logs panel or local adb logcat) or b
 - **Signature Verification**: `apksigner verify --verbose` — **VERIFIED using APK Signature Scheme v2** (1 signer).
 - **Deployment Artifacts**: Copied verified release APK to `apps/web/public/downloads/CampusConnect.apk`.
 
-### 7. Next Step
+### 7. Website APK Download Integration
+- Updated [download page](file:///c:/Users/USER/OneDrive/Desktop/campus-connect/apps/web/app/download/page.tsx) with the direct download link `/downloads/CampusConnect.apk`.
+- Updated release metadata to reflect file size `~59.5 MB` and build date `2 August 2026`.
+- Verified production web build with `pnpm --filter @campus-connect/web build` — **52/52 static pages generated**, 0 TypeScript errors.
+
+### 8. Next Step
 - Install the newly compiled 59.5 MB APK onto a device or emulator (or BrowserStack App Live) to capture boot evidence (screenshot of login screen or adb logcat if any runtime issue occurs).
+
 
 
 
