@@ -79,7 +79,19 @@ Get the real crash log (BrowserStack Device Logs panel or local adb logcat) or b
 - Cleared dev caches (`npm-cache`, `pnpm-cache`, `pip cache`, `$env:TEMP`, `.gradle` daemon/worker caches).
 - Recovered disk space on drive C: from **0.00 GB free** to **14.23 GB free**.
 
-### 6. Next Step
-- Package `assets/index.android.bundle` into `apps/mobile/android/app/src/main/assets/` during `gradlew assembleRelease` using the recovered disk space (14.23 GB free) to produce the complete release APK (~12 MB), then verify on device/emulator.
+### 6. Production APK Build & Inspection (BUILD SUCCESSFUL)
+- **Disk Space**: 14.23 GB free space available on C: drive.
+- **Node Linker**: Configured `node-linker=hoisted` in `.npmrc` to bypass Windows long `.pnpm` virtual path CMake C++ prefab compilation error.
+- **Gradle Build**: Ran `gradlew.bat assembleRelease` with NDK 27.1.12297006 and JDK 17 — **BUILD SUCCESSFUL in 3m 36s** (371 actionable tasks executed).
+- **Bundle & Binary Verification**:
+  - `assets/index.android.bundle` **IS PRESENT** (4.72 MB Hermes bytecode bundle).
+  - Native `.so` libraries for `arm64-v8a`, `armeabi-v7a`, `x86`, and `x86_64` are present.
+  - Final APK binary size: **59.5 MB** (`apps/mobile/android/app/build/outputs/apk/release/app-release.apk`).
+- **Signature Verification**: `apksigner verify --verbose` — **VERIFIED using APK Signature Scheme v2** (1 signer).
+- **Deployment Artifacts**: Copied verified release APK to `apps/web/public/downloads/CampusConnect.apk`.
+
+### 7. Next Step
+- Install the newly compiled 59.5 MB APK onto a device or emulator (or BrowserStack App Live) to capture boot evidence (screenshot of login screen or adb logcat if any runtime issue occurs).
+
 
 
