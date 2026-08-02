@@ -29,6 +29,7 @@ const PRIORITIES = ['HIGH', 'NORMAL', 'LOW'] as const;
 export default function AnnouncementCenter() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isApiOffline, setIsApiOffline] = useState(false);
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -60,7 +61,12 @@ export default function AnnouncementCenter() {
   const fetchAnnouncements = async () => {
     setIsLoading(true);
     const result = await api.getAnnouncements();
-    if (result.success) {
+    if (result.isOffline || !result.success) {
+      const isOnline = await api.checkHealth();
+      setIsApiOffline(!isOnline);
+      if (result.data) setAnnouncements(result.data);
+    } else {
+      setIsApiOffline(false);
       setAnnouncements(result.data);
     }
     setIsLoading(false);
@@ -105,6 +111,10 @@ export default function AnnouncementCenter() {
   };
 
   const handleSave = async () => {
+    if (isApiOffline) {
+      setToast({ type: 'error', text: 'API is offline. Submissions are temporarily disabled.' });
+      return;
+    }
     if (!formTitle.trim() || !formContent.trim()) {
       setToast({ type: 'error', text: 'Title and content are required.' });
       return;
@@ -136,11 +146,18 @@ export default function AnnouncementCenter() {
       closeModal();
       fetchAnnouncements();
     } else {
+      if (result?.message === 'API is offline') {
+        setIsApiOffline(true);
+      }
       setToast({ type: 'error', text: result?.message || 'Operation failed. Please try again.' });
     }
   };
 
   const handleDelete = async (ann: Announcement) => {
+    if (isApiOffline) {
+      setToast({ type: 'error', text: 'API is offline. Cannot delete announcement.' });
+      return;
+    }
     if (!confirm(`Delete "${ann.title}"? This cannot be undone.`)) return;
 
     const result = await api.deleteAnnouncement(ann.id);
@@ -148,6 +165,9 @@ export default function AnnouncementCenter() {
       setToast({ type: 'success', text: 'Announcement deleted.' });
       fetchAnnouncements();
     } else {
+      if (result.message === 'API is offline') {
+        setIsApiOffline(true);
+      }
       setToast({ type: 'error', text: result.message || 'Failed to delete.' });
     }
   };
@@ -180,6 +200,29 @@ export default function AnnouncementCenter() {
     <DashboardLayout title="Announcement Center" icon={<Megaphone className="h-6 w-6" />}>
       <div className="space-y-6">
 
+        {/* API Offline Banner */}
+        {isApiOffline && (
+          <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 dark:bg-amber-950/70 dark:border-amber-800 dark:text-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-semibold shadow-sm">
+            <div className="flex items-center gap-2.5">
+              <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+              <div>
+                <span className="font-bold block text-sm">API is Offline</span>
+                <span className="font-normal text-amber-800 dark:text-amber-300">
+                  Backend connection is currently unreachable. Form submissions are disabled until connection is re-established.
+                </span>
+              </div>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={fetchAnnouncements}
+              className="h-8 px-3 rounded-lg bg-amber-200/60 hover:bg-amber-200 text-amber-950 dark:bg-amber-900 dark:hover:bg-amber-800 dark:text-amber-100 font-bold shrink-0 cursor-pointer"
+            >
+              Retry Connection
+            </Button>
+          </div>
+        )}
+
         {/* Toast notification */}
         {toast && (
           <div className={`fixed top-6 right-6 z-[100] p-4 rounded-xl border shadow-lg flex items-center gap-3 text-sm font-medium animate-in slide-in-from-right duration-300 max-w-md ${
@@ -204,7 +247,8 @@ export default function AnnouncementCenter() {
           
           <Button
             onClick={openCreateModal}
-            className="h-10 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-slate-100 flex items-center gap-2 cursor-pointer"
+            disabled={isApiOffline}
+            className="h-10 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-slate-100 flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="h-4 w-4" />
             <span>Publish Announcement</span>
@@ -412,16 +456,34 @@ export default function AnnouncementCenter() {
                         <select
                           value={formTarget}
                           onChange={(e) => setFormTarget(e.target.value)}
-                          className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                          disabled={isApiOffline}
+                          className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:opacity-50"
                         >
                           <option value="Entire College">Entire College</option>
-                          <option value="BSc IT">BSc IT</option>
-                          <option value="BSc IT Semester 1">BSc IT Semester 1</option>
-                          <option value="BSc IT Semester 3">BSc IT Semester 3</option>
-                          <option value="BSc CS">BSc CS</option>
-                          <option value="BMS">BMS</option>
-                          <option value="BCom">BCom</option>
-                          <option value="Teachers Only">Teachers Only</option>
+                          <optgroup label="Degrees">
+                            <option value="BSc IT">BSc IT</option>
+                            <option value="BSc CS">BSc CS</option>
+                            <option value="BMS">BMS</option>
+                            <option value="BCom">BCom</option>
+                          </optgroup>
+                          <optgroup label="Semesters">
+                            <option value="BSc IT Semester 1">BSc IT Semester 1</option>
+                            <option value="BSc IT Semester 3">BSc IT Semester 3</option>
+                            <option value="BSc IT Semester 5">BSc IT Semester 5</option>
+                            <option value="BSc CS Semester 1">BSc CS Semester 1</option>
+                            <option value="BSc CS Semester 3">BSc CS Semester 3</option>
+                            <option value="BMS Semester 1">BMS Semester 1</option>
+                          </optgroup>
+                          <optgroup label="Divisions / Groups">
+                            <option value="BSc IT - Sem 1 - Div A">BSc IT - Sem 1 - Div A</option>
+                            <option value="BSc IT - Sem 3 - Div A">BSc IT - Sem 3 - Div A</option>
+                            <option value="BSc CS - Sem 1 - Div A">BSc CS - Sem 1 - Div A</option>
+                            <option value="BMS - Sem 1 - Div A">BMS - Sem 1 - Div A</option>
+                          </optgroup>
+                          <optgroup label="Roles">
+                            <option value="Teachers Only">Teachers Only</option>
+                            <option value="Students Only">Students Only</option>
+                          </optgroup>
                         </select>
                       </div>
                       <div className="space-y-1.5">
@@ -429,7 +491,8 @@ export default function AnnouncementCenter() {
                         <select
                           value={formStatus}
                           onChange={(e) => setFormStatus(e.target.value)}
-                          className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                          disabled={isApiOffline}
+                          className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:opacity-50"
                         >
                           {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
@@ -444,7 +507,8 @@ export default function AnnouncementCenter() {
                           type="datetime-local"
                           value={formScheduledAt}
                           onChange={(e) => setFormScheduledAt(e.target.value)}
-                          className="flex h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all duration-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 font-medium"
+                          disabled={isApiOffline}
+                          className="flex h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all duration-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 font-medium disabled:opacity-50"
                         />
                       </div>
                     )}
@@ -464,8 +528,8 @@ export default function AnnouncementCenter() {
                 {modalMode !== 'view' && (
                   <Button
                     onClick={handleSave}
-                    disabled={isSaving}
-                    className="h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-md cursor-pointer disabled:opacity-50"
+                    disabled={isSaving || isApiOffline}
+                    className="h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSaving ? 'Saving...' : modalMode === 'create' ? 'Create Announcement' : 'Save Changes'}
                   </Button>

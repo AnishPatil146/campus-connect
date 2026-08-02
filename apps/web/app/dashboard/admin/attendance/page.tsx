@@ -27,17 +27,40 @@ export default function AdminAttendancePage() {
   const [alertFilter, setAlertFilter] = useState<'ALL' | 'AT_RISK' | 'WARNING'>('ALL');
 
   // Seeded/Mock Admin statistics matching specifications
-  const stats = {
-    collegeAttendance: 92,
+  // Admin vs Teacher Scoped Statistics
+  const adminStats = {
+    attendanceRate: 92,
     studentsBelow75: 145,
     departmentsCount: 12,
+    presentPct: 92,
+    absentPct: 6,
+    leavePct: 2,
+    label: 'College Attendance',
+    subLabel: 'Active Departments',
   };
 
+  const teacherStats = {
+    attendanceRate: 88,
+    studentsBelow75: 1,
+    departmentsCount: 1,
+    presentPct: 88,
+    absentPct: 9,
+    leavePct: 3,
+    label: 'My Class Attendance',
+    subLabel: 'Assigned Department',
+  };
+
+  const currentStats = targetRole === 'TEACHER' ? teacherStats : adminStats;
+
   const departments = [
-    { name: 'Computer Science (CS)', percentage: 94 },
-    { name: 'Information Technology (IT)', percentage: 91 },
-    { name: 'Artificial Intelligence (AI)', percentage: 89 },
+    { name: 'Computer Science (CS)', percentage: 94, isTeacherScope: false },
+    { name: 'Information Technology (IT)', percentage: 91, isTeacherScope: true },
+    { name: 'Artificial Intelligence (AI)', percentage: 89, isTeacherScope: false },
   ];
+
+  const visibleDepartments = targetRole === 'TEACHER'
+    ? departments.filter(d => d.isTeacherScope)
+    : departments;
 
   const initialAlerts: AlertStudent[] = [
     { id: 'al-1', name: 'Anish Patil', department: 'CS', attendance: 68, status: 'AT RISK' },
@@ -94,6 +117,10 @@ export default function AdminAttendancePage() {
   };
 
   const filteredAlerts = alerts.filter(a => {
+    // Teacher permission boundary: restrict to assigned department ('IT')
+    if (targetRole === 'TEACHER' && a.department !== 'IT') {
+      return false;
+    }
     if (alertFilter === 'ALL') return true;
     if (alertFilter === 'AT_RISK') return a.status === 'AT RISK';
     if (alertFilter === 'WARNING') return a.status === 'WARNING';
@@ -102,10 +129,9 @@ export default function AdminAttendancePage() {
 
   // Donut parameters
   const circ = 2 * Math.PI * 30; // Radius = 30 -> Circ ≈ 188.5
-  // Segment lengths corresponding to ratios: Present=92%, Absent=6%, Leave=2%
-  const presentVal = (92 / 100) * circ;
-  const absentVal = (6 / 100) * circ;
-  const leaveVal = (2 / 100) * circ;
+  const presentVal = (currentStats.presentPct / 100) * circ;
+  const absentVal = (currentStats.absentPct / 100) * circ;
+  const leaveVal = (currentStats.leavePct / 100) * circ;
 
   return (
     <DashboardLayout title="Attendance Command Center" icon={<Activity className="h-6 w-6 text-purple-600" />}>
@@ -139,7 +165,7 @@ export default function AdminAttendancePage() {
                     : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
-                Student View
+                Admin View
               </button>
               <button
                 onClick={() => setTargetRole('TEACHER')}
@@ -162,7 +188,7 @@ export default function AdminAttendancePage() {
           </div>
         </div>
 
-        {/* TOP SECTION: College Overview Metrics */}
+        {/* TOP SECTION: Overview Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-sm relative overflow-hidden group">
             <CardContent className="p-5 flex items-center gap-4">
@@ -171,10 +197,10 @@ export default function AdminAttendancePage() {
               </div>
               <div>
                 <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block">
-                  College Attendance
+                  {currentStats.label}
                 </span>
                 <span className="text-2xl font-black text-slate-900 dark:text-white mt-1 block">
-                  {stats.collegeAttendance}%
+                  {currentStats.attendanceRate}%
                 </span>
               </div>
             </CardContent>
@@ -190,7 +216,7 @@ export default function AdminAttendancePage() {
                   Students below 75%
                 </span>
                 <span className="text-2xl font-black text-slate-900 dark:text-white mt-1 block">
-                  {stats.studentsBelow75}
+                  {currentStats.studentsBelow75}
                 </span>
               </div>
             </CardContent>
@@ -203,10 +229,10 @@ export default function AdminAttendancePage() {
               </div>
               <div>
                 <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block">
-                  Active Departments
+                  {currentStats.subLabel}
                 </span>
                 <span className="text-2xl font-black text-slate-900 dark:text-white mt-1 block">
-                  {stats.departmentsCount}
+                  {targetRole === 'TEACHER' ? 'Information Technology (IT)' : `${currentStats.departmentsCount} Active`}
                 </span>
               </div>
             </CardContent>
@@ -219,7 +245,7 @@ export default function AdminAttendancePage() {
           <Card className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                Attendance Distribution
+                Attendance Distribution ({targetRole === 'TEACHER' ? 'Assigned Class' : 'College-Wide'})
               </CardTitle>
               <p className="text-[10px] text-slate-400">Total recorded lecture status ratios</p>
             </CardHeader>
@@ -262,7 +288,7 @@ export default function AdminAttendancePage() {
                   />
                 </svg>
                 <div className="absolute flex flex-col items-center justify-center text-center">
-                  <span className="text-xs font-black text-slate-800 dark:text-white">92%</span>
+                  <span className="text-xs font-black text-slate-800 dark:text-white">{currentStats.presentPct}%</span>
                   <span className="text-[7px] text-slate-400 font-bold uppercase tracking-wider">Present</span>
                 </div>
               </div>
@@ -274,21 +300,21 @@ export default function AdminAttendancePage() {
                     <span className="h-2.5 w-2.5 rounded-full bg-purple-500 block"></span>
                     <span className="font-semibold text-slate-700 dark:text-slate-300">Present</span>
                   </div>
-                  <span className="text-xs font-black text-purple-600 dark:text-purple-400">92%</span>
+                  <span className="text-xs font-black text-purple-600 dark:text-purple-400">{currentStats.presentPct}%</span>
                 </div>
                 <div className="flex items-center justify-between p-2 rounded-xl bg-red-50/20 dark:bg-red-950/10">
                   <div className="flex items-center gap-2 text-xs">
                     <span className="h-2.5 w-2.5 rounded-full bg-red-500 block"></span>
                     <span className="font-semibold text-slate-700 dark:text-slate-300">Absent</span>
                   </div>
-                  <span className="text-xs font-black text-red-655 dark:text-red-400">6%</span>
+                  <span className="text-xs font-black text-red-655 dark:text-red-400">{currentStats.absentPct}%</span>
                 </div>
                 <div className="flex items-center justify-between p-2 rounded-xl bg-amber-50/20 dark:bg-amber-950/10">
                   <div className="flex items-center gap-2 text-xs">
                     <span className="h-2.5 w-2.5 rounded-full bg-amber-500 block"></span>
                     <span className="font-semibold text-slate-700 dark:text-slate-300">Leave</span>
                   </div>
-                  <span className="text-xs font-black text-amber-600 dark:text-amber-400">2%</span>
+                  <span className="text-xs font-black text-amber-600 dark:text-amber-400">{currentStats.leavePct}%</span>
                 </div>
               </div>
             </CardContent>
@@ -298,12 +324,16 @@ export default function AdminAttendancePage() {
           <Card className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                Department Comparison
+                {targetRole === 'TEACHER' ? 'My Assigned Department Performance' : 'Department Comparison'}
               </CardTitle>
-              <p className="text-[10px] text-slate-400">Comparing core department attendance rates</p>
+              <p className="text-[10px] text-slate-400">
+                {targetRole === 'TEACHER'
+                  ? 'Scoped to assigned IT Department (Cross-department view reserved for Admin)'
+                  : 'Comparing core department attendance rates'}
+              </p>
             </CardHeader>
             <CardContent className="space-y-4">
-              {departments.map((dept, idx) => (
+              {visibleDepartments.map((dept, idx) => (
                 <div key={idx} className="space-y-1.5">
                   <div className="flex justify-between items-center text-xs">
                     <span className="font-bold text-slate-700 dark:text-slate-300">{dept.name}</span>
@@ -317,6 +347,12 @@ export default function AdminAttendancePage() {
                   </div>
                 </div>
               ))}
+              {targetRole === 'TEACHER' && (
+                <div className="mt-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800 text-[10px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
+                  <span>Cross-department analytics locked for Teacher profile</span>
+                  <Badge variant="secondary" className="text-[9px]">Scope Boundary</Badge>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

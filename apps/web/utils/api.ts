@@ -77,9 +77,6 @@ function getHeaders() {
 
 // Check if API is responsive
 async function pingAPI(): Promise<boolean> {
-  // Safe check: If on the server-side in a production environment (like Vercel),
-  // do not attempt to contact the backend to prevent serverless function timeouts 
-  // (especially if the backend is on a free tier like Render and is sleeping).
   if (typeof window === 'undefined' && process.env.NODE_ENV === 'production') {
     return false;
   }
@@ -87,9 +84,15 @@ async function pingAPI(): Promise<boolean> {
     const res = await fetch(`${API_BASE_URL}/auth/health`, { 
       method: 'GET',
       headers: getHeaders(),
-      signal: AbortSignal.timeout(1500) // quick timeout
+      signal: AbortSignal.timeout(3000)
     });
-    return res.ok;
+    if (res.ok) return true;
+    const fallbackRes = await fetch(`${API_BASE_URL}/health`, {
+      method: 'GET',
+      headers: getHeaders(),
+      signal: AbortSignal.timeout(3000)
+    });
+    return fallbackRes.ok;
   } catch (e) {
     return false;
   }
@@ -842,9 +845,13 @@ export const api = {
     }
   },
 
+  async checkHealth(): Promise<boolean> {
+    return await pingAPI();
+  },
+
   // ────────────────── Announcements ──────────────────
 
-  async getAnnouncements(collegeId?: string): Promise<{ success: boolean; data: any[] }> {
+  async getAnnouncements(collegeId?: string): Promise<{ success: boolean; data: any[]; isOffline?: boolean }> {
     const isOnline = await pingAPI();
     if (isOnline) {
       try {
@@ -859,7 +866,7 @@ export const api = {
         console.warn('Failed to fetch announcements from API:', err);
       }
     }
-    return { success: true, data: [] };
+    return { success: false, data: [], isOffline: !isOnline };
   },
 
   async getTeacherLeaves(teacherId?: string): Promise<{ success: boolean; data: any[] }> {
