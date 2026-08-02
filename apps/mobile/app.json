@@ -13,7 +13,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.campusconnect.app"
+      "bundleIdentifier": "com.campusconnect.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Campus Connect requires access to camera for uploading profile photos and study document scans.",
+        "NSPhotoLibraryUsageDescription": "Campus Connect requires access to photo library for attaching document images and study notes."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +25,14 @@
         "backgroundColor": "#020817"
       },
       "package": "com.campusconnect.app",
-      "versionCode": 2
+      "versionCode": 2,
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

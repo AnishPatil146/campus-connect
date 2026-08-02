@@ -40,9 +40,26 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
-      // Auto logout on unauthorized token failure
-      useAuthStore.getState().logout();
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+      originalRequest._retry = true;
+      const { refreshToken, setAuth, logout, user } = useAuthStore.getState();
+      if (refreshToken) {
+        try {
+          const refreshRes = await axios.post(`${getBaseUrl()}/auth/refresh`, { refreshToken });
+          const { accessToken, refreshToken: newRefresh } = refreshRes.data?.data || {};
+          if (accessToken && user) {
+            await setAuth(accessToken, newRefresh || refreshToken, user);
+            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+            return apiClient(originalRequest);
+          }
+        } catch (refreshErr) {
+          console.warn('[Mobile API] Token refresh failed:', refreshErr);
+          await logout();
+        }
+      } else {
+        await logout();
+      }
     }
     return Promise.reject(error);
   }

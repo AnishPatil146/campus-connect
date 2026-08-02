@@ -53,6 +53,10 @@ class SocketService {
     this.socket.on('reconnect_attempt', () => {
       console.log('⚡ Socket reconnecting...');
       this.isReconnecting = true;
+      const freshToken = useAuthStore.getState().token;
+      if (freshToken && this.socket) {
+        this.socket.auth = { token: freshToken };
+      }
     });
 
     this.socket.on('disconnect', () => {

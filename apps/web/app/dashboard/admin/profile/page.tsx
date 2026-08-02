@@ -24,7 +24,7 @@ export default function AdminProfilePage() {
                 <h1 className="text-2xl font-bold font-display text-slate-900 dark:text-white">{user?.name}</h1>
                 <p className="text-xs text-slate-500 flex items-center justify-center sm:justify-start gap-1.5">
                   <Mail className="h-3.5 w-3.5 text-role-primary" />
-                  {user?.email} • {user?.phone || '+91 9876543210'}
+                  {user?.email} • {user?.phone || 'N/A'}
                 </p>
               </div>
               <Badge className="sm:ml-auto bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400">

@@ -35,7 +35,7 @@ export const TeacherProfileScreen: React.FC = () => {
             <Text style={styles.avatarTextLarge}>{user?.name?.charAt(0) || 'P'}</Text>
           </View>
           <Text style={styles.userName}>{user?.name || 'Faculty Member'}</Text>
-          <Text style={styles.userRole}>ASSISTANT PROFESSOR</Text>
+          <Text style={styles.userRole}>{(user as any)?.teacherProfile?.designation?.toUpperCase() || (user as any)?.designation?.toUpperCase() || 'FACULTY MEMBER'}</Text>
 
           <View style={styles.badgeRow}>
             <Badge label={tenantId === 'college-b' ? 'Balasaheb College' : 'Pushpalata College'} variant="primary" />
@@ -49,17 +49,19 @@ export const TeacherProfileScreen: React.FC = () => {
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Employee ID</Text>
-            <Text style={styles.infoVal}>{user?.employeeId || 'EMP-T802'}</Text>
+            <Text style={styles.infoVal}>{(user as any)?.teacherProfile?.employeeId || (user as any)?.employeeId || 'N/A'}</Text>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Department</Text>
-            <Text style={styles.infoVal}>{user?.department || 'Computer Engineering'}</Text>
+            <Text style={styles.infoVal}>{(user as any)?.teacherProfile?.department?.name || (user as any)?.department || 'N/A'}</Text>
           </View>
 
           <View style={[styles.infoRow, styles.noBorder]}>
             <Text style={styles.infoLabel}>Assigned Subjects</Text>
-            <Text style={styles.infoVal}>DBMS, System Design</Text>
+            <Text style={styles.infoVal}>
+              {(user as any)?.teacherProfile?.subjects?.map((s: any) => s.subject?.name).filter(Boolean).join(', ') || 'N/A'}
+            </Text>
           </View>
         </GlassCard>
 

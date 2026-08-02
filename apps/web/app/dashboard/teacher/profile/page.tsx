@@ -37,7 +37,7 @@ export default function TeacherProfilePage() {
                 </p>
               </div>
               <Badge className="sm:ml-auto bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
-                {profile?.designation || 'Assistant Professor'}
+                {profile?.designation || profile?.teacher?.designation || 'Faculty Member'}
               </Badge>
             </div>
 
@@ -49,27 +49,28 @@ export default function TeacherProfilePage() {
                 <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Personal Information</span>
                 <p className="text-sm font-bold text-slate-900 dark:text-white">{user?.name}</p>
                 <p className="text-xs text-slate-500">Email: {user?.email}</p>
-                <p className="text-xs text-slate-500">Phone: {profile?.phone || '+91 9876543210'}</p>
+                <p className="text-xs text-slate-500">Phone: {profile?.phone || user?.phone || 'N/A'}</p>
               </div>
 
-              {/* Profession & Designation */}
+              {/* Department & Designation */}
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-800 space-y-2">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Profession & Designation</span>
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Department & Designation</span>
                 <p className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <Building2 className="h-4 w-4 text-emerald-600" />
-                  {profile?.department?.name || 'Academic Faculty'}
+                  {profile?.department?.name || profile?.teacher?.department?.name || 'N/A'}
                 </p>
-                <p className="text-xs text-slate-500 font-medium">Designation: {profile?.designation || 'Senior Lecturer'}</p>
-                <p className="text-xs text-slate-500 font-medium">Profession: Higher Education Teaching / Professor</p>
+                <p className="text-xs text-slate-500 font-medium">Designation: {profile?.designation || profile?.teacher?.designation || 'Faculty Member'}</p>
               </div>
 
               {/* Qualifications */}
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-800 space-y-2">
                 <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Qualifications & Academic Degrees</span>
                 <p className="text-sm font-bold text-slate-900 dark:text-white">
-                  {profile?.qualification || 'M.Tech in Computer Science / Ph.D. Scholar'}
+                  {profile?.qualifications?.[0]?.degree || profile?.qualification || 'N/A'}
                 </p>
-                <p className="text-xs text-slate-500">Years of Experience: {profile?.experienceYears || '5+'} Years Teaching</p>
+                <p className="text-xs text-slate-500">
+                  {profile?.teacher?.joiningDate ? `Experience: ${Math.max(1, new Date().getFullYear() - new Date(profile.teacher.joiningDate).getFullYear())} Years` : 'Experience: N/A'}
+                </p>
               </div>
 
               {/* HOD Status */}
@@ -86,7 +87,7 @@ export default function TeacherProfilePage() {
               <div className="md:col-span-2 p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-800 space-y-3">
                 <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Assigned Classes & Roster Courses</span>
                 {subjectsTaught.length === 0 ? (
-                  <p className="text-xs text-slate-500 font-medium">Assigned Classes: Division A (Database Systems, Web Lab)</p>
+                  <p className="text-xs text-slate-500 font-medium">No assigned classes listed in database roster</p>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {subjectsTaught.map((item: any, idx: number) => (

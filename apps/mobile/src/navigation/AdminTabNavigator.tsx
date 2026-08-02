@@ -5,7 +5,7 @@ import { AdminHomeScreen } from '../screens/admin/AdminHomeScreen';
 import { AdminAcademicScreen } from '../screens/admin/AdminAcademicScreen';
 import { TeacherStudentsScreen } from '../screens/teacher/TeacherStudentsScreen';
 import { StudentNotificationsScreen } from '../screens/student/StudentNotificationsScreen';
-import { StudentProfileScreen } from '../screens/student/StudentProfileScreen';
+import { AdminProfileScreen } from '../screens/admin/AdminProfileScreen';
 import { LayoutDashboard, Layers, Users, Bell, User } from 'lucide-react-native';
 
 const Tab = createBottomTabNavigator();
@@ -69,7 +69,7 @@ export const AdminTabNavigator: React.FC = () => {
 
       <Tab.Screen
         name="Profile"
-        component={StudentProfileScreen}
+        component={AdminProfileScreen}
         options={{
           tabBarLabel: 'Profile',
           tabBarIcon: ({ color, size }) => <User color={color} size={size} />,

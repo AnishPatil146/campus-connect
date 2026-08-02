@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, Button } from '@campus-connec
 import { useAuth } from '../../../../components/AuthProvider';
 import { Mail, Calendar, School, GraduationCap, User, Phone, MapPin, Shield, Edit2, CheckCircle, Save, X } from 'lucide-react';
 import { api } from '../../../../utils/api';
+import { getCollegeName } from '@campus-connect/utils';
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -132,7 +133,7 @@ export default function ProfilePage() {
   const semesterName = profile?.division?.semester?.name || profile?.semester?.name || 'N/A';
   const courseName = profile?.course?.name || profile?.division?.semester?.academicSession?.course?.name || 'N/A';
   const departmentName = profile?.department?.name || profile?.division?.semester?.academicSession?.course?.department?.name || 'N/A';
-  const collegeName = (typeof user?.college === 'object' ? user?.college?.name : user?.college) || profile?.college?.name || profile?.division?.semester?.academicSession?.course?.department?.college?.name || 'Campus Connect Institution';
+  const collegeName = (typeof user?.college === 'object' ? user?.college?.name : user?.college) || profile?.college?.name || profile?.division?.semester?.academicSession?.course?.department?.college?.name || (user?.collegeId ? getCollegeName(user.collegeId) : 'N/A');
 
   return (
     <DashboardLayout title="Student Profile" icon={<User className="h-6 w-6" />}>
@@ -150,13 +151,13 @@ export default function ProfilePage() {
                 />
               ) : (
                 <div className="h-20 w-20 rounded-2xl bg-blue-600 dark:bg-blue-500 text-white font-extrabold text-3xl flex items-center justify-center shadow-lg shadow-blue-500/10 shrink-0">
-                  {name.charAt(0)}
+                  {name ? name.charAt(0).toUpperCase() : 'S'}
                 </div>
               )}
             </div>
             <div className="text-center md:text-left flex-1 space-y-1">
               <h2 className="text-xl font-extrabold text-slate-800 dark:text-slate-200">{name}</h2>
-              <p className="text-xs text-slate-400 font-semibold">ID: {profile?.rollNumber || 'STU-NEW'}</p>
+              <p className="text-xs text-slate-400 font-semibold">ID: {profile?.rollNumber || profile?.admissionNumber || 'Registered'}</p>
               
               {/* Profile Completion percentage */}
               <div className="flex flex-col mt-4 space-y-1.5 max-w-xs mx-auto md:mx-0">

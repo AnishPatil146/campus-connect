@@ -59,7 +59,10 @@ export class EventsGateway
         return next(new Error('Authentication error: No token provided'));
       }
       try {
-        const secret = process.env.JWT_SECRET || 'jwt_secret_key';
+        const secret = process.env.JWT_SECRET;
+        if (!secret) {
+          return next(new Error('FATAL CONFIG ERROR: JWT_SECRET environment variable is required'));
+        }
         const decoded = jwt.verify(token, secret);
         (socket as any).user = decoded;
         next();

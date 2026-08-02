@@ -55,24 +55,56 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:10000/
 
 // Get auth headers
 function getHeaders() {
-  const userStr = typeof window !== 'undefined' ? localStorage.getItem('cc_user') : null;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-  if (userStr) {
-    try {
-      const user = JSON.parse(userStr);
-      if (user && user.collegeId) {
-        headers['x-college-id'] = user.collegeId;
-      }
-      // If we had a real token, we would use it:
-      const token = localStorage.getItem('cc_token');
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-    } catch (_) {}
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('cc_token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const userStr = localStorage.getItem('cc_user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        if (user && user.collegeId) {
+          headers['x-college-id'] = user.collegeId;
+        }
+      } catch (_) {}
+    }
   }
   return headers;
+}
+
+// Fetch with automatic 401 token refresh retry
+export async function fetchWithRefresh(url: string, options: RequestInit = {}): Promise<Response> {
+  const headers = { ...getHeaders(), ...(options.headers as Record<string, string> || {}) };
+  let response = await fetch(url, { ...options, headers });
+
+  if (response.status === 401 && typeof window !== 'undefined') {
+    const refreshToken = localStorage.getItem('cc_refresh_token');
+    if (refreshToken) {
+      try {
+        const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken }),
+        });
+        const refreshData = await refreshRes.json();
+        if (refreshData.success && refreshData.data?.accessToken) {
+          localStorage.setItem('cc_token', refreshData.data.accessToken);
+          if (refreshData.data.refreshToken) {
+            localStorage.setItem('cc_refresh_token', refreshData.data.refreshToken);
+          }
+          const newHeaders = { ...headers, Authorization: `Bearer ${refreshData.data.accessToken}` };
+          response = await fetch(url, { ...options, headers: newHeaders });
+        }
+      } catch (e) {
+        console.warn('[API Client] Auto token refresh failed:', e);
+      }
+    }
+  }
+  return response;
 }
 
 // Check if API is responsive
@@ -81,18 +113,19 @@ async function pingAPI(): Promise<boolean> {
     return false;
   }
   try {
-    const res = await fetch(`${API_BASE_URL}/auth/health`, { 
+    const res = await fetch(`${API_BASE_URL}/health`, { 
       method: 'GET',
       headers: getHeaders(),
       signal: AbortSignal.timeout(3000)
-    });
-    if (res.ok) return true;
-    const fallbackRes = await fetch(`${API_BASE_URL}/health`, {
+    }).catch(() => null);
+    if (res && res.ok) return true;
+    
+    const fallbackRes = await fetch(`${API_BASE_URL}/auth/health`, {
       method: 'GET',
       headers: getHeaders(),
       signal: AbortSignal.timeout(3000)
-    });
-    return fallbackRes.ok;
+    }).catch(() => null);
+    return Boolean(fallbackRes && fallbackRes.ok);
   } catch (e) {
     return false;
   }
@@ -817,9 +850,7 @@ export const api = {
         const params = new URLSearchParams();
         if (query?.page) params.append('page', String(query.page));
         if (query?.limit) params.append('limit', String(query.limit));
-        const res = await fetch(`${API_BASE_URL}/audit-logs?${params.toString()}`, {
-          headers: getHeaders(),
-        });
+        const res = await fetchWithRefresh(`${API_BASE_URL}/audit-logs?${params.toString()}`);
         const payload = await res.json();
         if (payload.success) return { success: true, data: payload.data || [] };
       } catch (err) {
@@ -857,9 +888,7 @@ export const api = {
       try {
         const params = new URLSearchParams();
         if (collegeId) params.append('collegeId', collegeId);
-        const res = await fetch(`${API_BASE_URL}/announcements?${params.toString()}`, {
-          headers: getHeaders(),
-        });
+        const res = await fetchWithRefresh(`${API_BASE_URL}/announcements?${params.toString()}`);
         const payload = await res.json();
         if (payload.success) return { success: true, data: payload.data || [] };
       } catch (err) {

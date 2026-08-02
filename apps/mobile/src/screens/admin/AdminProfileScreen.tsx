@@ -7,102 +7,71 @@ import { Badge } from '../../components/ui/Badge';
 import { Header } from '../../components/ui/Header';
 import { Button } from '../../components/ui/Button';
 import { useAuthStore } from '../../store/useAuthStore';
-import { EmptyState } from '../../components/ui/EmptyState';
-import { ErrorState } from '../../components/ui/ErrorState';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { useApiData } from '../../hooks/useApiData';
 import { Building2, LogOut, Check } from 'lucide-react-native';
 
-export const StudentProfileScreen: React.FC = () => {
-  const { user: storeUser, tenantId, setTenantId, logout } = useAuthStore();
-
-  const {
-    data: profileData,
-    isLoading,
-    isError,
-    refetch,
-  } = useApiData({
-    queryKey: ['auth', 'me'],
-    endpoint: '/auth/me',
-  });
-
-  const user = profileData || storeUser;
+export const AdminProfileScreen: React.FC = () => {
+  const { user, tenantId, setTenantId, logout } = useAuthStore();
 
   const handleTenantSwitch = async (newTenant: string) => {
     await setTenantId(newTenant);
-    Alert.alert('Tenant Switched', `Switched active institution to ${newTenant}.`);
+    Alert.alert('Tenant Switched', `Switched active institution to ${newTenant === 'college-b' ? 'Balasaheb' : 'Pushpalata'} College.`);
   };
 
   const handleLogout = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to log out from Campus Connect?', [
+    Alert.alert('Sign Out', 'Are you sure you want to log out from Campus Connect Admin Mobile?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Log Out', style: 'destructive', onPress: logout },
     ]);
   };
 
-  if (isLoading) {
-    return <LoadingSpinner fullScreen message="Loading User Profile..." />;
-  }
-
-  if (isError) {
-    return (
-      <View style={styles.container}>
-        <Header title="User Profile" subtitle="Account Settings" />
-        <ErrorState message="Failed to load user profile from database." onRetry={refetch} />
-      </View>
-    );
-  }
-
-  const roleTitle = user?.role ? `${user.role} ACADEMIC PROFILE` : 'STUDENT ACADEMIC PROFILE';
-
   return (
     <View style={styles.container}>
-      <Header title="User Profile" subtitle="Account Settings & Institution Tenant Switcher" />
+      <Header title="Admin Profile" subtitle="System Administrator Account & Privileges" />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Profile Card Header */}
         <GlassCard variant="glow" style={styles.profileCard}>
           <View style={styles.avatarLarge}>
-            <Text style={styles.avatarTextLarge}>{user?.name ? user.name.charAt(0) : 'U'}</Text>
+            <Text style={styles.avatarTextLarge}>{user?.name?.charAt(0) || 'A'}</Text>
           </View>
-          <Text style={styles.userName}>{user?.name || 'Student'}</Text>
-          <Text style={styles.userRole}>{roleTitle}</Text>
+          <Text style={styles.userName}>{user?.name || 'System Administrator'}</Text>
+          <Text style={styles.userRole}>SUPER-ADMINISTRATOR</Text>
 
           <View style={styles.badgeRow}>
             <Badge label={tenantId === 'college-b' ? 'Balasaheb College' : 'Pushpalata College'} variant="primary" />
-            <Badge label="VERIFIED ACCOUNT" variant="success" />
+            <Badge label="SUPER ADMIN" variant="success" />
           </View>
         </GlassCard>
 
-        {/* Academic Profile Details */}
+        {/* Administrator Details */}
         <GlassCard variant="default">
-          <Text style={styles.sectionTitle}>Academic Information</Text>
+          <Text style={styles.sectionTitle}>Administrator Credentials</Text>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Roll / Student ID</Text>
-            <Text style={styles.infoVal}>{(user as any)?.studentProfile?.rollNumber || (user as any)?.studentProfile?.admissionNumber || user?.prn || 'Registered'}</Text>
+            <Text style={styles.infoLabel}>Admin Account ID</Text>
+            <Text style={styles.infoVal}>{user?.id ? user.id.slice(0, 12) + '...' : 'System Root'}</Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Department</Text>
-            <Text style={styles.infoVal}>{(user as any)?.studentProfile?.division?.semester?.academicSession?.course?.department?.name || user?.department || 'N/A'}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Current Semester</Text>
-            <Text style={styles.infoVal}>{(user as any)?.studentProfile?.division?.semester?.name || user?.semester || 'N/A'}</Text>
-          </View>
-
-          <View style={[styles.infoRow, styles.noBorder]}>
             <Text style={styles.infoLabel}>Campus Email</Text>
             <Text style={styles.infoVal}>{user?.email || 'N/A'}</Text>
           </View>
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>System Privileges</Text>
+            <Text style={styles.infoVal}>Full Scope Access</Text>
+          </View>
+
+          <View style={[styles.infoRow, styles.noBorder]}>
+            <Text style={styles.infoLabel}>Account Status</Text>
+            <Text style={[styles.infoVal, { color: colors.success }]}>ACTIVE (VERIFIED)</Text>
+          </View>
         </GlassCard>
 
-        {/* Multi-Tenant Switcher Settings */}
+        {/* Multi-Tenant Switcher */}
         <GlassCard variant="default">
           <View style={styles.tenantHeaderRow}>
-            <Building2 size={18} color={colors.student.primary} />
+            <Building2 size={18} color={colors.admin.primary} />
             <Text style={styles.sectionTitle}>Institution Tenant (Multi-Tenant)</Text>
           </View>
 
@@ -115,7 +84,7 @@ export const StudentProfileScreen: React.FC = () => {
               <Text style={styles.tenantOptionTitle}>Pushpalata College</Text>
               <Text style={styles.tenantOptionSub}>Isolated Tenant DB: college-a</Text>
             </View>
-            {tenantId === 'college-a' && <Check size={18} color={colors.student.primary} />}
+            {tenantId === 'college-a' && <Check size={18} color={colors.admin.primary} />}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -127,7 +96,7 @@ export const StudentProfileScreen: React.FC = () => {
               <Text style={styles.tenantOptionTitle}>Balasaheb College</Text>
               <Text style={styles.tenantOptionSub}>Isolated Tenant DB: college-b</Text>
             </View>
-            {tenantId === 'college-b' && <Check size={18} color={colors.student.primary} />}
+            {tenantId === 'college-b' && <Check size={18} color={colors.admin.primary} />}
           </TouchableOpacity>
         </GlassCard>
 
@@ -161,9 +130,9 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: colors.student.glow,
+    backgroundColor: colors.admin.glow || 'rgba(59, 130, 246, 0.2)',
     borderWidth: 2,
-    borderColor: colors.student.primary,
+    borderColor: colors.admin.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
@@ -171,7 +140,7 @@ const styles = StyleSheet.create({
   avatarTextLarge: {
     fontSize: 32,
     fontWeight: '800',
-    color: colors.student.primary,
+    color: colors.admin.primary,
   },
   userName: {
     fontSize: 22,
@@ -198,7 +167,7 @@ const styles = StyleSheet.create({
   },
   infoRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justify.content: 'space-between',
     alignItems: 'center',
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
@@ -233,8 +202,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   tenantOptionActive: {
-    backgroundColor: colors.student.glow,
-    borderColor: colors.student.primary,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    borderColor: colors.admin.primary,
   },
   tenantOptionTitle: {
     fontSize: 14,

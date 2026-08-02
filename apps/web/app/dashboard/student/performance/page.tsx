@@ -71,7 +71,7 @@ export default function PerformancePage() {
     semester: dashboardData?.student?.semester || 'Current Semester',
     division: dashboardData?.student?.division || 'Classroom Division',
     gpa: currentGPA > 0 ? currentGPA.toFixed(2) : 'N/A',
-    rank: rank > 0 ? `#${rank}` : 'Unranked'
+    rankDisplay: rank > 0 ? `#${rank}` : 'Unranked'
   };
 
   const subjects = dashboardData?.performance?.subjects || [];
@@ -107,7 +107,9 @@ export default function PerformancePage() {
                 </div>
                 <div>
                   <span className="text-[10px] text-slate-400 dark:text-slate-550 uppercase tracking-wider block">Current Rank</span>
-                  <span className="text-lg font-bold text-slate-850 dark:text-slate-100 block mt-0.5">Rank #{academicProgress.rank}</span>
+                  <span className="text-lg font-bold text-slate-850 dark:text-slate-100 block mt-0.5">
+                    {rank > 0 ? `Rank ${academicProgress.rankDisplay}` : 'Unranked'}
+                  </span>
                 </div>
               </div>
               <Badge variant="primary" className="text-xs">
