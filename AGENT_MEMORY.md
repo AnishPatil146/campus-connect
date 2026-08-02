@@ -55,5 +55,26 @@ report claimed it.
   timestamp fresh.
 
 ## NEXT STEP
-Get the real crash log (BrowserStack Device Logs panel or local adb logcat) before any 
-further fix attempts. Everything else is secondary until this is obtained.
+Get the real crash log (BrowserStack Device Logs panel or local adb logcat) or build a complete APK with assets/index.android.bundle (~12MB) bundled before any further release.
+
+---
+## SESSION LOG — 2026-08-02
+
+### 1. Rebuild & Dependency Sync
+- Cleaned `apps/mobile/node_modules`, `apps/mobile/.expo`, `apps/mobile/android/app/build`, and workspace `node_modules`.
+- Ran `pnpm install --frozen-lockfile` — PASSED with 0 lockfile changes.
+
+### 2. Cause Analysis & Verification (Steps 3A & 3B)
+- **API URL Configuration**: Confirmed `apiClient.ts` and `socketService.ts` read `EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_SOCKET_URL`. In production (`__DEV__ === false`), fallback URLs point to HTTPS `https://api.campusconnect.com/api/v1` and `https://api.campusconnect.com/events`. `eas.json` production profile specifies both variables.
+- **Firebase Dependency**: Confirmed zero references/imports to `firebase` or `initializeApp` anywhere under `apps/mobile/src`.
+
+### 3. Bundle Inspection & APK Root Cause (Step 3C & 4)
+- Ran `npx expo export --platform android` — created 4.72 MB Hermes bytecode bundle (`_expo/static/js/android/index-*.hbc`).
+- Inspected previous `downloaded_test_app.apk` (7.65 MB) zip contents with `tar -tf`:
+  - Native libraries (`lib/arm64-v8a`, `lib/armeabi-v7a`) are present.
+  - **CONFIRMED DEFECT**: `assets/index.android.bundle` was MISSING from the 7.65 MB APK, explaining the immediate crash on launch before JS execution.
+- Local Gradle `assembleRelease` failed due to disk space shortage on C: drive (0.18 GB free).
+
+### 4. Next Step
+- Free disk space on C: drive and package `assets/index.android.bundle` into `apps/mobile/android/app/src/main/assets/` during `gradlew assembleRelease` to produce a full ~12 MB APK, then capture device logs/screenshots on boot.
+

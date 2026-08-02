@@ -7,10 +7,10 @@ const getBaseUrl = () => {
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
   }
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:10000/api/v1';
+  if (__DEV__) {
+    return Platform.OS === 'android' ? 'http://10.0.2.2:10000/api/v1' : 'http://localhost:10000/api/v1';
   }
-  return 'http://localhost:10000/api/v1';
+  return 'https://api.campusconnect.com/api/v1';
 };
 
 export const apiClient = axios.create({

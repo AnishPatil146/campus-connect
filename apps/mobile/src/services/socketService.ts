@@ -7,10 +7,10 @@ const getSocketUrl = () => {
   if (process.env.EXPO_PUBLIC_SOCKET_URL) {
     return process.env.EXPO_PUBLIC_SOCKET_URL;
   }
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:10000/events';
+  if (__DEV__) {
+    return Platform.OS === 'android' ? 'http://10.0.2.2:10000/events' : 'http://localhost:10000/events';
   }
-  return 'http://localhost:10000/events';
+  return 'https://api.campusconnect.com/events';
 };
 
 class SocketService {
