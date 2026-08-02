@@ -409,7 +409,7 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
         if (cachedUser) {
           return cachedUser;
         }
-        const dbUser = await this.prisma.user.findUnique({
+        let dbUser: any = await this.prisma.user.findUnique({
           where: { email: emailLower },
           include: {
             userRoles: {
@@ -436,6 +436,43 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
             },
           },
         });
+
+        if (!dbUser) {
+          dbUser = await this.prisma.user.findFirst({
+            where: {
+              OR: [
+                { studentProfile: { rollNumber: { equals: emailLower, mode: 'insensitive' } } },
+                { studentProfile: { admissionNo: { equals: emailLower, mode: 'insensitive' } } },
+                { teacherProfile: { employeeId: { equals: emailLower, mode: 'insensitive' } } },
+              ],
+            },
+            include: {
+              userRoles: {
+                include: {
+                  role: {
+                    include: {
+                      rolePermissions: {
+                        include: {
+                          permission: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+              teacherProfile: true,
+              studentProfile: {
+                include: {
+                  profile: true,
+                  guardians: true,
+                  addresses: true,
+                  medical: true,
+                },
+              },
+            },
+          });
+        }
+
         if (dbUser) {
           await this.redis.set(userCacheKey, dbUser, 600).catch((err) =>
             console.error('[AuthService] Failed to cache user auth:', err)
@@ -1487,7 +1524,7 @@ If you did not make this change, please contact support immediately.
 
     const passwordHash = bcrypt.hashSync(dto.password, 12);
 
-    return await this.prisma.$transaction(async (tx) => {
+    const registeredUser = await this.prisma.$transaction(async (tx) => {
       const resolvedRole = dto.role || Role.STUDENT;
       if (resolvedRole === Role.ADMIN) {
         const allowedAdmins = process.env.ALLOWED_ADMIN_EMAILS
@@ -1825,6 +1862,9 @@ The Campus Connect Team
         role: resolvedRole,
       };
     });
+
+    await this.invalidateUserCache(registeredUser.id, registeredUser.email);
+    return registeredUser;
   }
 
   // Google Login method

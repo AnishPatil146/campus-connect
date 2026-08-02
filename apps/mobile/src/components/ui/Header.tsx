@@ -2,22 +2,23 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
-import { Badge } from './Badge';
+import { Badge, BadgeVariant } from './Badge';
 
 interface HeaderProps {
   title: string;
   subtitle?: string;
   tenantName?: string;
+  badgeVariant?: BadgeVariant;
   rightAction?: React.ReactNode;
 }
 
-export const Header: React.FC<HeaderProps> = ({ title, subtitle, tenantName, rightAction }) => {
+export const Header: React.FC<HeaderProps> = ({ title, subtitle, tenantName, badgeVariant = 'primary', rightAction }) => {
   return (
     <View style={styles.header}>
       <View style={styles.titleContainer}>
         {tenantName && (
           <View style={styles.tenantRow}>
-            <Badge label={tenantName} variant="primary" />
+            <Badge label={tenantName} variant={badgeVariant} />
           </View>
         )}
         <Text style={styles.title}>{title}</Text>

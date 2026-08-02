@@ -49,6 +49,9 @@ export default function StudentNotificationsPage() {
     try {
       await api.markAllNotificationsAsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('cc_notifications_updated'));
+      }
     } catch (e) {
       console.error(e);
     }

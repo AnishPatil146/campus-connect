@@ -1,7 +1,10 @@
 import React, { useEffect } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuthStore } from '../store/useAuthStore';
+import { RoleSelectScreen } from '../screens/auth/RoleSelectScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
+import { SignUpScreen } from '../screens/auth/SignUpScreen';
+import { AuthLoadingScreen } from '../screens/auth/AuthLoadingScreen';
 import { StudentTabNavigator } from './StudentTabNavigator';
 import { TeacherTabNavigator } from './TeacherTabNavigator';
 import { AdminTabNavigator } from './AdminTabNavigator';
@@ -27,7 +30,12 @@ export const RootNavigator: React.FC = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {!token ? (
-        <Stack.Screen name="Auth" component={LoginScreen} />
+        <>
+          <Stack.Screen name="RoleSelect" component={RoleSelectScreen} />
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="SignUp" component={SignUpScreen} />
+          <Stack.Screen name="AuthLoading" component={AuthLoadingScreen} />
+        </>
       ) : user?.role === 'ADMIN' ? (
         <Stack.Screen name="AdminApp" component={AdminTabNavigator} />
       ) : user?.role === 'TEACHER' ? (

@@ -116,6 +116,18 @@ class SocketService {
     });
   }
 
+  on(event: string, callback: (data: any) => void) {
+    if (this.socket) {
+      this.socket.on(event, callback);
+    }
+  }
+
+  off(event: string, callback: (data: any) => void) {
+    if (this.socket) {
+      this.socket.off(event, callback);
+    }
+  }
+
   disconnect() {
     if (this.socket) {
       this.socket.disconnect();

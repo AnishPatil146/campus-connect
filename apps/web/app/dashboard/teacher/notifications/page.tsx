@@ -69,6 +69,9 @@ export default function TeacherNotificationsPage() {
         setNotifications(prev =>
           prev.map(n => n.id === id ? { ...n, read: true, isRead: true } : n)
         );
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('cc_notifications_updated'));
+        }
       }
     } catch (e) {
       console.error(e);
@@ -80,6 +83,9 @@ export default function TeacherNotificationsPage() {
       const res = await api.markAllNotificationsAsRead();
       if (res.success) {
         setNotifications(prev => prev.map(n => ({ ...n, read: true, isRead: true })));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('cc_notifications_updated'));
+        }
         setSuccessMsg('All notifications marked as read.');
         setTimeout(() => setSuccessMsg(null), 3000);
       }

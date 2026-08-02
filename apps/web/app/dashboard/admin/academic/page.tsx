@@ -10,6 +10,7 @@ import { useAuth } from '../../../../components/AuthProvider';
 export default function AcademicManagement() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'departments' | 'courses' | 'subjects'>('departments');
+  const [selectedCollegeFilter, setSelectedCollegeFilter] = useState<string>('all');
 
   const [departments, setDepartments] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
@@ -25,6 +26,21 @@ export default function AcademicManagement() {
   const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([]);
   const [university, setUniversity] = useState('Mumbai University');
 
+  // Add Course Modal
+  const [showAddCourseModal, setShowAddCourseModal] = useState(false);
+  const [courseName, setCourseName] = useState('');
+  const [courseCode, setCourseCode] = useState('');
+  const [courseDeptId, setCourseDeptId] = useState('');
+  const [courseCollegeId, setCourseCollegeId] = useState('college-c');
+  const [courseCredits, setCourseCredits] = useState<number>(120);
+
+  // Add Subject Modal
+  const [showAddSubjectModal, setShowAddSubjectModal] = useState(false);
+  const [subjectName, setSubjectName] = useState('');
+  const [subjectCode, setSubjectCode] = useState('');
+  const [subjectCourseId, setSubjectCourseId] = useState('');
+  const [subjectCredits, setSubjectCredits] = useState<number>(4);
+
   // Messages
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -32,11 +48,12 @@ export default function AcademicManagement() {
   const fetchAcademicData = async () => {
     setIsLoading(true);
     try {
+      const collegeParam = selectedCollegeFilter === 'all' ? undefined : selectedCollegeFilter;
       const [deptRes, crsRes, subRes, tchRes] = await Promise.all([
-        api.getDepartments({ collegeId: user?.collegeId }),
-        api.getCourses({ collegeId: user?.collegeId }),
-        api.getSubjects({ collegeId: user?.collegeId }),
-        api.getTeachers({ collegeId: user?.collegeId }),
+        api.getDepartments({ collegeId: collegeParam }),
+        api.getCourses({ collegeId: collegeParam }),
+        api.getSubjects({ collegeId: collegeParam }),
+        api.getTeachers({ collegeId: collegeParam }),
       ]);
 
       if (deptRes.success && deptRes.data) setDepartments(deptRes.data);
@@ -51,10 +68,8 @@ export default function AcademicManagement() {
   };
 
   useEffect(() => {
-    if (user) {
-      fetchAcademicData();
-    }
-  }, [user]);
+    fetchAcademicData();
+  }, [user, selectedCollegeFilter]);
 
   const handleCreateDepartment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,11 +82,11 @@ export default function AcademicManagement() {
         hodId: hodId || undefined,
         assignedTeacherIds: selectedTeacherIds,
         university,
-        collegeId: user?.collegeId,
+        collegeId: selectedCollegeFilter === 'all' ? (user?.collegeId || 'college-a') : selectedCollegeFilter,
       });
 
       if (res.success) {
-        setSuccessMsg(`Department "${deptName}" created! Assigned teachers and HOD have been auto-notified.`);
+        setSuccessMsg(`Department "${deptName}" created successfully!`);
         setDeptName('');
         setDeptCode('');
         setSelectedTeacherIds([]);
@@ -87,10 +102,115 @@ export default function AcademicManagement() {
     }
   };
 
+  const handleCreateCourse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!courseName.trim() || !courseDeptId) {
+      setErrorMsg('Please enter course name and select a department.');
+      return;
+    }
+
+    try {
+      const res = await api.createCourse({
+        name: courseName,
+        code: courseCode || 'PRG-' + Math.floor(Math.random() * 900 + 100),
+        departmentId: courseDeptId,
+        collegeId: courseCollegeId,
+        credits: courseCredits,
+      });
+
+      if (res.success) {
+        setSuccessMsg(`Course "${courseName}" created successfully for ${courseCollegeId === 'college-a' ? "Pushpalata Women's College" : courseCollegeId === 'college-b' ? 'Balasaheb Junior' : 'Balasaheb Senior'}!`);
+        setCourseName('');
+        setCourseCode('');
+        setShowAddCourseModal(false);
+        fetchAcademicData();
+      } else {
+        setErrorMsg(res.message || 'Failed to create course.');
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Error creating course.');
+    } finally {
+      setTimeout(() => { setSuccessMsg(null); setErrorMsg(null); }, 4000);
+    }
+  };
+
+  const handleCreateSubject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subjectName.trim() || !subjectCourseId) {
+      setErrorMsg('Please enter subject name and select a course.');
+      return;
+    }
+
+    try {
+      const res = await api.createSubject({
+        name: subjectName,
+        code: subjectCode || 'SUB-' + Math.floor(Math.random() * 900 + 100),
+        courseId: subjectCourseId,
+        credits: subjectCredits,
+      });
+
+      if (res.success) {
+        setSuccessMsg(`Subject "${subjectName}" added to catalog!`);
+        setSubjectName('');
+        setSubjectCode('');
+        setShowAddSubjectModal(false);
+        fetchAcademicData();
+      } else {
+        setErrorMsg(res.message || 'Failed to create subject.');
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Error creating subject.');
+    } finally {
+      setTimeout(() => { setSuccessMsg(null); setErrorMsg(null); }, 4000);
+    }
+  };
+
   return (
     <DashboardLayout title="Academic Catalog & Department Management" icon={<Layers className="h-6 w-6 text-emerald-500" />}>
       <div className="space-y-6">
         
+        {/* College Filter Header */}
+        <div className="p-4 bg-slate-900 dark:bg-slate-950 text-white rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-emerald-400 font-bold">Institution Scope</div>
+            <div className="text-sm font-bold">Select Active College Tenant for Academic Operations</div>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() => setSelectedCollegeFilter('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                selectedCollegeFilter === 'all' ? 'bg-emerald-500 text-white shadow-md' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              All Colleges
+            </button>
+            <button
+              onClick={() => setSelectedCollegeFilter('college-a')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                selectedCollegeFilter === 'college-a' ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              Pushpalata Women's
+            </button>
+            <button
+              onClick={() => setSelectedCollegeFilter('college-b')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                selectedCollegeFilter === 'college-b' ? 'bg-purple-600 text-white shadow-md' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              Balasaheb Junior
+            </button>
+            <button
+              onClick={() => setSelectedCollegeFilter('college-c')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                selectedCollegeFilter === 'college-c' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              Balasaheb Senior
+            </button>
+          </div>
+        </div>
+
         {successMsg && (
           <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-xs font-semibold rounded-2xl flex items-start gap-2">
             <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
@@ -191,7 +311,14 @@ export default function AcademicManagement() {
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-bold uppercase text-slate-400 tracking-wider">Courses & Academic Programs</h3>
-              <Button size="sm" className="rounded-xl h-9 bg-slate-900 text-white dark:bg-white dark:text-slate-950 font-bold text-xs">
+              <Button
+                onClick={() => {
+                  if (departments.length > 0) setCourseDeptId(departments[0].id);
+                  setShowAddCourseModal(true);
+                }}
+                size="sm"
+                className="rounded-xl h-9 bg-slate-900 text-white dark:bg-white dark:text-slate-950 font-bold text-xs"
+              >
                 <Plus className="h-4 w-4 mr-1.5" /> Add Course
               </Button>
             </div>
@@ -229,7 +356,14 @@ export default function AcademicManagement() {
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-bold uppercase text-slate-400 tracking-wider">Subjects Catalog</h3>
-              <Button size="sm" className="rounded-xl h-9 bg-slate-900 text-white dark:bg-white dark:text-slate-950 font-bold text-xs">
+              <Button
+                onClick={() => {
+                  if (courses.length > 0) setSubjectCourseId(courses[0].id);
+                  setShowAddSubjectModal(true);
+                }}
+                size="sm"
+                className="rounded-xl h-9 bg-slate-900 text-white dark:bg-white dark:text-slate-950 font-bold text-xs"
+              >
                 <Plus className="h-4 w-4 mr-1.5" /> Add Subject
               </Button>
             </div>
@@ -241,7 +375,6 @@ export default function AcademicManagement() {
                     <TableHead>Subject Name</TableHead>
                     <TableHead>Course & Term</TableHead>
                     <TableHead>Credits</TableHead>
-                    <TableHead>Department Head</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -251,10 +384,9 @@ export default function AcademicManagement() {
                       <TableCell className="font-mono text-xs font-semibold text-slate-500">{sub.code || 'SUB-101'}</TableCell>
                       <TableCell className="font-bold text-slate-800 dark:text-slate-200">{sub.name}</TableCell>
                       <TableCell className="text-xs text-slate-500">
-                        {sub.course?.name || 'Program'} • Semester {sub.semesterId ? sub.semesterId.replace(/\D/g, '') : '1'}
+                        {sub.course?.name || 'Program'}
                       </TableCell>
                       <TableCell className="text-xs font-semibold">{sub.credits || 4} HP</TableCell>
-                      <TableCell className="text-xs text-slate-500">{sub.department?.hod?.user?.name || 'Prof. HOD'}</TableCell>
                       <TableCell className="text-right">
                         <Button variant="secondary" size="sm" className="h-8 text-xs rounded-lg font-semibold">Edit</Button>
                       </TableCell>
@@ -324,37 +456,10 @@ export default function AcademicManagement() {
                     <option value="">Select HOD...</option>
                     {teachers.map((t: any) => (
                       <option key={t.id} value={t.id}>
-                        {t.user?.name || t.name} ({t.qualification || 'M.Tech'}, {t.experienceYears || 5} yrs exp)
+                        {t.user?.name || t.name} ({t.qualification || 'Faculty'})
                       </option>
                     ))}
                   </select>
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                    Select Faculty Members (With Qualifications)
-                  </label>
-                  <div className="max-h-36 overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-xl p-3 space-y-2 bg-slate-50/50 dark:bg-slate-900/10">
-                    {teachers.map((t: any) => (
-                      <label key={t.id} className="flex items-center justify-between text-xs cursor-pointer hover:bg-slate-100/50 p-1.5 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={selectedTeacherIds.includes(t.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) setSelectedTeacherIds(prev => [...prev, t.id]);
-                              else setSelectedTeacherIds(prev => prev.filter(id => id !== t.id));
-                            }}
-                            className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                          />
-                          <span className="font-bold text-slate-800 dark:text-slate-200">{t.user?.name || t.name}</span>
-                        </div>
-                        <span className="text-[10px] text-slate-400">
-                          {t.qualification || 'CS'}, {t.experienceYears || 5} years
-                        </span>
-                      </label>
-                    ))}
-                  </div>
                 </div>
 
                 <div className="pt-4 flex justify-end gap-2 border-t border-slate-100 dark:border-slate-900">
@@ -370,6 +475,181 @@ export default function AcademicManagement() {
                     className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md"
                   >
                     Create Department
+                  </button>
+                </div>
+              </form>
+            </div>
+          </>
+        )}
+
+        {/* Add Course Modal */}
+        {showAddCourseModal && (
+          <>
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-45" onClick={() => setShowAddCourseModal(false)} />
+            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-2xl shadow-2xl z-50 overflow-hidden">
+              <div className="p-6 border-b border-slate-100 dark:border-slate-900 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/30">
+                <h3 className="font-bold text-slate-900 dark:text-white text-base">Add Course / Academic Program</h3>
+                <button onClick={() => setShowAddCourseModal(false)} className="p-1 text-slate-400 hover:bg-slate-100 rounded-lg">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateCourse} className="p-6 space-y-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Target College</label>
+                  <select
+                    value={courseCollegeId}
+                    onChange={(e) => setCourseCollegeId(e.target.value)}
+                    className="w-full h-10 px-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-white dark:bg-slate-950 font-bold"
+                  >
+                    <option value="college-a">Pushpalata Mhatre Women's College (`college-a`)</option>
+                    <option value="college-b">Balasaheb Mhatre College (Junior) (`college-b`)</option>
+                    <option value="college-c">Balasaheb Mhatre College (Senior) (`college-c`)</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Program Name</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. B.Sc. Computer Science"
+                      value={courseName}
+                      onChange={(e) => setCourseName(e.target.value)}
+                      className="w-full h-10 px-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-white dark:bg-slate-950"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Program Code</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. BSCCS-101"
+                      value={courseCode}
+                      onChange={(e) => setCourseCode(e.target.value)}
+                      className="w-full h-10 px-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-white dark:bg-slate-950 uppercase"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Department</label>
+                    <select
+                      value={courseDeptId}
+                      onChange={(e) => setCourseDeptId(e.target.value)}
+                      className="w-full h-10 px-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-white dark:bg-slate-950"
+                    >
+                      {departments.map((d: any) => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Minimum Credits / HP</label>
+                    <input
+                      type="number"
+                      value={courseCredits}
+                      onChange={(e) => setCourseCredits(Number(e.target.value))}
+                      className="w-full h-10 px-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-white dark:bg-slate-950"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4 flex justify-end gap-2 border-t border-slate-100 dark:border-slate-900">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddCourseModal(false)}
+                    className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md"
+                  >
+                    Create Course
+                  </button>
+                </div>
+              </form>
+            </div>
+          </>
+        )}
+
+        {/* Add Subject Modal */}
+        {showAddSubjectModal && (
+          <>
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-45" onClick={() => setShowAddSubjectModal(false)} />
+            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-2xl shadow-2xl z-50 overflow-hidden">
+              <div className="p-6 border-b border-slate-100 dark:border-slate-900 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/30">
+                <h3 className="font-bold text-slate-900 dark:text-white text-base">Add Subject to Program Catalog</h3>
+                <button onClick={() => setShowAddSubjectModal(false)} className="p-1 text-slate-400 hover:bg-slate-100 rounded-lg">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateSubject} className="p-6 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Subject Name</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Data Structures & Algorithms"
+                      value={subjectName}
+                      onChange={(e) => setSubjectName(e.target.value)}
+                      className="w-full h-10 px-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-white dark:bg-slate-950"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Subject Code</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. CS-201"
+                      value={subjectCode}
+                      onChange={(e) => setSubjectCode(e.target.value)}
+                      className="w-full h-10 px-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-white dark:bg-slate-950 uppercase"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Target Program / Course</label>
+                    <select
+                      value={subjectCourseId}
+                      onChange={(e) => setSubjectCourseId(e.target.value)}
+                      className="w-full h-10 px-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-white dark:bg-slate-950"
+                    >
+                      {courses.map((c: any) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Credits / Weightage</label>
+                    <input
+                      type="number"
+                      value={subjectCredits}
+                      onChange={(e) => setSubjectCredits(Number(e.target.value))}
+                      className="w-full h-10 px-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs bg-white dark:bg-slate-950"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4 flex justify-end gap-2 border-t border-slate-100 dark:border-slate-900">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddSubjectModal(false)}
+                    className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md"
+                  >
+                    Add Subject
                   </button>
                 </div>
               </form>

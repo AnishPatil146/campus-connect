@@ -1640,6 +1640,33 @@ export const api = {
     return { success: false, data: null };
   },
 
+  async getAcademicGroups(collegeId?: string): Promise<{ success: boolean; data: any[] }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const query = collegeId ? `?collegeId=${collegeId}` : '';
+        const res = await fetch(`${API_BASE_URL}/education-groups/groups${query}`, {
+          headers: getHeaders(),
+        });
+        const resp = await res.json();
+        if (resp.data) {
+          return { success: true, data: resp.data };
+        }
+      } catch (err) {
+        console.warn('Failed to fetch academic groups:', err);
+      }
+    }
+    return {
+      success: true,
+      data: [
+        { id: 'grp-01', name: 'B.Sc Computer Science - Semester 1 - Division A', degree: 'B.Sc CS', semester: 'Semester 1', division: 'Division A', collegeId: 'college-c' },
+        { id: 'grp-02', name: 'B.Sc Computer Science - Semester 1 - Division B', degree: 'B.Sc CS', semester: 'Semester 1', division: 'Division B', collegeId: 'college-c' },
+        { id: 'grp-03', name: 'XI HSC Science - Semester 1 - Division A', degree: 'HSC Science', semester: 'Semester 1', division: 'Division A', collegeId: 'college-b' },
+        { id: 'grp-04', name: 'B.Com Women - Semester 3 - Division A', degree: 'B.Com', semester: 'Semester 3', division: 'Division A', collegeId: 'college-a' },
+      ],
+    };
+  },
+
   async getNotifications(): Promise<{ success: boolean; data: any[] }> {
     const isOnline = await pingAPI();
     if (isOnline) {
@@ -1797,6 +1824,24 @@ export const api = {
     return { success: true, data: [] };
   },
 
+  async createCourse(data: any): Promise<{ success: boolean; message?: string; data?: any }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/courses`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify(data),
+        });
+        const payload = await res.json();
+        return { success: payload.success, message: payload.message, data: payload.data };
+      } catch (err: any) {
+        return { success: false, message: err.message };
+      }
+    }
+    return { success: true, data: { id: `crs-${Date.now()}`, ...data } };
+  },
+
   async getSubjects(params?: { collegeId?: string }): Promise<{ success: boolean; data: any[] }> {
     const isOnline = await pingAPI();
     if (isOnline) {
@@ -1810,6 +1855,24 @@ export const api = {
       }
     }
     return { success: true, data: [] };
+  },
+
+  async createSubject(data: any): Promise<{ success: boolean; message?: string; data?: any }> {
+    const isOnline = await pingAPI();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/subjects`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify(data),
+        });
+        const payload = await res.json();
+        return { success: payload.success, message: payload.message, data: payload.data };
+      } catch (err: any) {
+        return { success: false, message: err.message };
+      }
+    }
+    return { success: true, data: { id: `sub-${Date.now()}`, ...data } };
   },
 
 

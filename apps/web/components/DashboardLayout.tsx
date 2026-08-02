@@ -52,6 +52,20 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
     if (user) {
       fetchNotifications();
     }
+
+    const handleCustomNotifUpdate = () => {
+      fetchNotifications();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('cc_notifications_updated', handleCustomNotifUpdate);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('cc_notifications_updated', handleCustomNotifUpdate);
+      }
+    };
   }, [user]);
 
   React.useEffect(() => {
@@ -122,16 +136,24 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
       };
 
       socket.on('TIMETABLE_UPDATED', handleTimetableUpdate);
+      socket.on('timetable:published', handleTimetableUpdate);
       socket.on('RESULT_PUBLISHED', handleResultPublished);
+      socket.on('result:published', handleResultPublished);
       socket.on('noteUploaded', handleNoteUploaded);
+      socket.on('notes:uploaded', handleNoteUploaded);
       socket.on('attendanceMarked', handleAttendanceMarked);
+      socket.on('attendance:updated', handleAttendanceMarked);
       socket.on('notification:new', handleNotificationNew);
 
       return () => {
         socket.off('TIMETABLE_UPDATED', handleTimetableUpdate);
+        socket.off('timetable:published', handleTimetableUpdate);
         socket.off('RESULT_PUBLISHED', handleResultPublished);
+        socket.off('result:published', handleResultPublished);
         socket.off('noteUploaded', handleNoteUploaded);
+        socket.off('notes:uploaded', handleNoteUploaded);
         socket.off('attendanceMarked', handleAttendanceMarked);
+        socket.off('attendance:updated', handleAttendanceMarked);
         socket.off('notification:new', handleNotificationNew);
       };
     }

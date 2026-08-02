@@ -2,10 +2,11 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { colors } from '../theme/colors';
 import { AdminHomeScreen } from '../screens/admin/AdminHomeScreen';
+import { AdminAcademicScreen } from '../screens/admin/AdminAcademicScreen';
 import { TeacherStudentsScreen } from '../screens/teacher/TeacherStudentsScreen';
 import { StudentNotificationsScreen } from '../screens/student/StudentNotificationsScreen';
 import { StudentProfileScreen } from '../screens/student/StudentProfileScreen';
-import { LayoutDashboard, Users, Bell, Activity, User } from 'lucide-react-native';
+import { LayoutDashboard, Layers, Users, Bell, User } from 'lucide-react-native';
 
 const Tab = createBottomTabNavigator();
 
@@ -40,6 +41,15 @@ export const AdminTabNavigator: React.FC = () => {
       />
 
       <Tab.Screen
+        name="Academic"
+        component={AdminAcademicScreen}
+        options={{
+          tabBarLabel: 'Catalog',
+          tabBarIcon: ({ color, size }) => <Layers color={color} size={size} />,
+        }}
+      />
+
+      <Tab.Screen
         name="Users"
         component={TeacherStudentsScreen}
         options={{
@@ -54,15 +64,6 @@ export const AdminTabNavigator: React.FC = () => {
         options={{
           tabBarLabel: 'Alerts',
           tabBarIcon: ({ color, size }) => <Bell color={color} size={size} />,
-        }}
-      />
-
-      <Tab.Screen
-        name="Health"
-        component={AdminHomeScreen}
-        options={{
-          tabBarLabel: 'Health',
-          tabBarIcon: ({ color, size }) => <Activity color={color} size={size} />,
         }}
       />
 

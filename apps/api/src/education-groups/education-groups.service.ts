@@ -145,4 +145,54 @@ export class EducationGroupsService {
 
     return { message: `Education group "${group.name}" deleted successfully` };
   }
+
+  async getAcademicGroups(collegeId?: string, role?: string, userId?: string) {
+    const whereClause: any = { deletedAt: null };
+    if (collegeId) {
+      whereClause.semester = {
+        academicSession: {
+          course: {
+            department: {
+              collegeId,
+            },
+          },
+        },
+      };
+    }
+
+    const divisions = await this.prisma.division.findMany({
+      where: whereClause,
+      include: {
+        semester: {
+          include: {
+            academicSession: {
+              include: {
+                course: {
+                  include: {
+                    department: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        _count: {
+          select: { students: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return divisions.map((div) => ({
+      id: div.id,
+      name: `${div.semester.academicSession.course.name} - ${div.semester.name} - ${div.name}`,
+      degree: div.semester.academicSession.course.name,
+      semester: div.semester.name,
+      division: div.name,
+      departmentId: div.semester.academicSession.course.department.id,
+      departmentName: div.semester.academicSession.course.department.name,
+      collegeId: div.semester.academicSession.course.department.collegeId,
+      studentsCount: div._count.students,
+    }));
+  }
 }

@@ -1,4 +1,4 @@
-﻿import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CoursesService } from './courses.service';
 import { CreateCourseDto, UpdateCourseDto } from './dto/course.dto';
@@ -30,8 +30,8 @@ export class CoursesController {
   @Roles(Role.ADMIN, Role.TEACHER)
   @Permissions('courses.read')
   @ApiOperation({ summary: 'Get all courses' })
-  async findAll(@Query() pagination: PaginationDto) {
-    const result = await this.coursesService.findAll(pagination);
+  async findAll(@Query() pagination: PaginationDto, @Query('collegeId') collegeId?: string) {
+    const result = await this.coursesService.findAll(pagination, collegeId);
     return { message: 'Courses retrieved successfully', data: result.data, meta: result.meta };
   }
 

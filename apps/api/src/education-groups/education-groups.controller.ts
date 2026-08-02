@@ -1,4 +1,4 @@
-﻿import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { EducationGroupsService } from './education-groups.service';
 import { CreateEducationGroupDto, UpdateEducationGroupDto } from './dto/education-group.dto';
@@ -16,6 +16,18 @@ import { Role } from '@prisma/client';
 @ApiBearerAuth()
 export class EducationGroupsController {
   constructor(private educationGroupsService: EducationGroupsService) {}
+
+  @Get('groups')
+  @Roles(Role.ADMIN, Role.TEACHER, Role.STUDENT)
+  @ApiOperation({ summary: 'Retrieve list of academic groups (Degree -> Semester -> Division)' })
+  async getGroups(@Query('collegeId') collegeId?: string, @Req() req?: any) {
+    const targetCollegeId = collegeId || req.user?.collegeId;
+    const data = await this.educationGroupsService.getAcademicGroups(targetCollegeId, req.user?.role, req.user?.id);
+    return {
+      message: 'Academic groups retrieved successfully',
+      data,
+    };
+  }
 
   @Get()
   @Roles(Role.ADMIN)

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { colors } from '../../theme/colors';
 import { borderRadius, spacing } from '../../theme/spacing';
 
-export type BadgeVariant = 'success' | 'warning' | 'danger' | 'info' | 'primary';
+export type BadgeVariant = 'success' | 'warning' | 'danger' | 'info' | 'primary' | 'admin';
 
 interface BadgeProps {
   label: string;
@@ -21,6 +21,8 @@ export const Badge: React.FC<BadgeProps> = ({ label, variant = 'info' }) => {
         return { bg: colors.dangerGlow, text: colors.danger, border: 'rgba(239, 68, 68, 0.4)' };
       case 'primary':
         return { bg: colors.primaryGlow, text: colors.primary, border: 'rgba(99, 102, 241, 0.4)' };
+      case 'admin':
+        return { bg: colors.admin.glow, text: colors.admin.primary, border: 'rgba(124, 58, 237, 0.4)' };
       default:
         return { bg: 'rgba(59, 130, 246, 0.2)', text: colors.info, border: 'rgba(59, 130, 246, 0.4)' };
     }

@@ -23,7 +23,7 @@ export const TeacherTabNavigator: React.FC = () => {
           paddingBottom: 8,
           paddingTop: 8,
         },
-        tabBarActiveTintColor: colors.tabActive,
+        tabBarActiveTintColor: colors.teacher.primary,
         tabBarInactiveTintColor: colors.tabInactive,
         tabBarLabelStyle: {
           fontSize: 11,

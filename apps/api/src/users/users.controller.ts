@@ -1,4 +1,4 @@
-﻿import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -162,15 +162,62 @@ export class UsersController {
     };
   }
 
+  @Get('users/:id/history')
+  @Roles(Role.ADMIN, Role.TEACHER, Role.STUDENT)
+  @ApiOperation({ summary: 'Get paginated activity history for a user' })
+  async getUserHistory(
+    @Param('id') id: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('module') module?: string,
+    @Query('action') action?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('search') search?: string,
+    @Req() req?: any,
+  ) {
+    const targetUserId = (id === 'me' || !id) ? req.user.id : id;
+
+    // RBAC: Non-admin users can only view their own activity history
+    if (req.user.role !== Role.ADMIN && targetUserId !== req.user.id && id !== 'all') {
+      const selfLogs = await this.auditService.getLogs(
+        { page: Number(page) || 1, limit: Number(limit) || 20 },
+        { userId: req.user.id, module, action, startDate, endDate, search },
+      );
+      return {
+        message: 'Activity history retrieved successfully',
+        data: selfLogs.data,
+        meta: selfLogs.meta,
+      };
+    }
+
+    const filters: any = { module, action, startDate, endDate, search };
+    if (targetUserId !== 'all') {
+      filters.userId = targetUserId;
+    }
+
+    const result = await this.auditService.getLogs(
+      { page: Number(page) || 1, limit: Number(limit) || 20 },
+      filters,
+    );
+
+    return {
+      message: 'Activity history retrieved successfully',
+      data: result.data,
+      meta: result.meta,
+    };
+  }
+
   @Get('audit-logs')
   @Roles(Role.ADMIN)
   @Permissions('audit.read')
   @ApiOperation({ summary: 'Retrieve list of all activity/audit logs' })
-  async getAuditLogs() {
-    const data = await this.auditService.getLogs();
+  async getAuditLogs(@Query() pagination?: any) {
+    const data = await this.auditService.getLogs(pagination);
     return {
       message: 'Audit logs retrieved successfully',
-      data,
+      data: data.data,
+      meta: data.meta,
     };
   }
 }

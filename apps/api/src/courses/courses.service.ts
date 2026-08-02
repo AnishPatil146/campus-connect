@@ -28,11 +28,15 @@ export class CoursesService {
       throw new BadRequestException(`Course "${dto.name}" already exists in this department`);
     }
 
+    const courseData: any = {
+      name: dto.name,
+      departmentId: dto.departmentId,
+    };
+    if (dto.code) courseData.code = dto.code;
+    if (dto.credits) courseData.credits = dto.credits;
+
     const course = await this.prisma.course.create({
-      data: {
-        name: dto.name,
-        departmentId: dto.departmentId,
-      },
+      data: courseData,
     });
 
     await this.audit.log(
@@ -49,16 +53,21 @@ export class CoursesService {
     return course;
   }
 
-  async findAll(pagination: PaginationDto) {
+  async findAll(pagination: PaginationDto, collegeId?: string) {
     const { page = 1, limit = 20, sortBy = 'createdAt', sortOrder = 'desc' } = pagination;
     const skip = (page - 1) * limit;
 
+    const whereClause: any = { deletedAt: null };
+    if (collegeId) {
+      whereClause.department = { collegeId };
+    }
+
     const [data, total] = await Promise.all([
       this.prisma.course.findMany({
-        where: { deletedAt: null },
+        where: whereClause,
         include: {
           department: {
-            select: { id: true, name: true },
+            select: { id: true, name: true, collegeId: true },
           },
           _count: {
             select: {
@@ -71,7 +80,7 @@ export class CoursesService {
         take: limit,
         orderBy: { [sortBy]: sortOrder },
       }),
-      this.prisma.course.count({ where: { deletedAt: null } }),
+      this.prisma.course.count({ where: whereClause }),
     ]);
 
     return {
