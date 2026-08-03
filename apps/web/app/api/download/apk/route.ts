@@ -3,9 +3,16 @@ import fs from 'fs';
 import path from 'path';
 
 export async function GET() {
-  const filePath = path.join(process.cwd(), 'public', 'downloads', 'CampusConnect.apk');
+  const possiblePaths = [
+    path.join(process.cwd(), 'apps', 'web', 'public', 'downloads', 'CampusConnect.apk'),
+    path.join(process.cwd(), 'public', 'downloads', 'CampusConnect.apk'),
+    path.join(process.cwd(), 'downloaded_test_app.apk'),
+    path.join(process.cwd(), 'apps', 'web', 'public', 'CampusConnect.apk'),
+  ];
+
+  const filePath = possiblePaths.find((p) => fs.existsSync(p));
   
-  if (!fs.existsSync(filePath)) {
+  if (!filePath) {
     return NextResponse.json({ success: false, message: 'APK file not found on server' }, { status: 404 });
   }
 

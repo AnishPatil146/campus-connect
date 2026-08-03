@@ -85,7 +85,7 @@ export default function DownloadAppPage() {
           </div>
 
           <a
-            href="/downloads/CampusConnect.apk"
+            href="/api/download/apk"
             download="CampusConnect.apk"
             className="w-full md:w-auto min-h-[44px] px-8 py-4 text-base font-bold rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-3 shrink-0 touch-manipulation"
           >
