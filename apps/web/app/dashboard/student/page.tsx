@@ -66,10 +66,34 @@ export default function StudentDashboard() {
       if (data && data.percentage !== undefined) {
         setAttendancePercent(data.percentage);
       }
+      fetchDashboard();
     };
+
+    const handleDashboardRefresh = (data: any) => {
+      console.log('⚡ Socket event received on Student Dashboard, refreshing live:', data);
+      fetchDashboard();
+    };
+
     socket.on('attendanceUpdate', handleAttendanceUpdate);
+    socket.on('attendance:updated', handleAttendanceUpdate);
+    socket.on('noteUploaded', handleDashboardRefresh);
+    socket.on('notes:uploaded', handleDashboardRefresh);
+    socket.on('TIMETABLE_UPDATED', handleDashboardRefresh);
+    socket.on('timetable:published', handleDashboardRefresh);
+    socket.on('result:published', handleDashboardRefresh);
+    socket.on('announcement:new', handleDashboardRefresh);
+    socket.on('event:new', handleDashboardRefresh);
+
     return () => {
       socket.off('attendanceUpdate', handleAttendanceUpdate);
+      socket.off('attendance:updated', handleAttendanceUpdate);
+      socket.off('noteUploaded', handleDashboardRefresh);
+      socket.off('notes:uploaded', handleDashboardRefresh);
+      socket.off('TIMETABLE_UPDATED', handleDashboardRefresh);
+      socket.off('timetable:published', handleDashboardRefresh);
+      socket.off('result:published', handleDashboardRefresh);
+      socket.off('announcement:new', handleDashboardRefresh);
+      socket.off('event:new', handleDashboardRefresh);
     };
   }, [socket]);
 

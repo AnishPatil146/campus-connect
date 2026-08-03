@@ -23,7 +23,7 @@ export class TimetableService {
         courseId: dto.courseId,
         semesterId: dto.semesterId,
         divisionId: dto.divisionId,
-        active: false,
+        active: true,
         slots: dto.slots ? {
           create: dto.slots.map((slot) => ({
             dayOfWeek: slot.dayOfWeek,

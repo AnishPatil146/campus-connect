@@ -996,6 +996,10 @@ export const api = {
     return { success: false, data: null, message: 'API is offline' };
   },
 
+
+
+
+
   async deleteAnnouncement(id: string): Promise<{ success: boolean; message?: string }> {
     const isOnline = await pingAPI();
     if (isOnline) {

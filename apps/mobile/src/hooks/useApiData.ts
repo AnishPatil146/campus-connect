@@ -1,4 +1,4 @@
-import { useQuery, UseQueryOptions } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../services/apiClient';
 import { useAuthStore } from '../store/useAuthStore';
 
@@ -32,7 +32,18 @@ export function useApiData<T = any>({
     },
     enabled,
     retry: 2,
-    staleTime: 1000 * 60 * 5,
+    // CRITICAL FIX: staleTime was 5 minutes (300_000ms), which meant that
+    // invalidateQueries() had no visible effect because TanStack Query only
+    // re-fetches STALE queries on invalidation. A 5min staleTime meant that
+    // any query fetched within the last 5min was still considered "fresh"
+    // and would NOT refetch even when invalidated — making all socket-driven
+    // dashboard updates completely invisible until the user navigated away
+    // and back. Setting staleTime to 0 means every query is immediately
+    // stale and any invalidation triggers an immediate background refetch.
+    staleTime: 0,
+    // Keep data in memory for 2 minutes so switching tabs doesn't flash a
+    // loading spinner — gcTime only affects garbage collection, not staleness.
+    gcTime: 1000 * 60 * 2,
   });
 
   const rawData = query.data;

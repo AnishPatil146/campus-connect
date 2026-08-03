@@ -42,3 +42,7 @@ Thumbs.db
 # Dynamically generated schema files
 apps/api/prisma/schema_merged.prisma
 
+# Build binaries
+*.apk
+
+

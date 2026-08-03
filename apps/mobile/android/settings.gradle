@@ -31,9 +31,14 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
 }
 expoAutolinking.useExpoModules()
 
+if (new File("C:/emc/android").exists()) {
+  findProject(':expo-modules-core')?.projectDir = new File("C:/emc/android")
+}
+
 rootProject.name = 'Campus Connect'
 
 expoAutolinking.useExpoVersionCatalog()
 
 include ':app'
 includeBuild(expoAutolinking.reactNativeGradlePlugin)
+

@@ -36,6 +36,7 @@ export const SignUpScreen: React.FC<Props> = ({ navigation, route }) => {
   const [tenantId, setTenantId] = useState<'college-a' | 'college-b'>(initialTenant);
   const [loading, setLoading] = useState(false);
   const [registeredNotice, setRegisteredNotice] = useState<string | null>(null);
+  const [duplicateNotice, setDuplicateNotice] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (route?.params?.selectedRole === 'ADMIN') {
@@ -70,6 +71,7 @@ export const SignUpScreen: React.FC<Props> = ({ navigation, route }) => {
 
     setLoading(true);
     setRegisteredNotice(null);
+    setDuplicateNotice(null);
 
     try {
       const response = await apiClient.post('/auth/register', {
@@ -99,7 +101,28 @@ export const SignUpScreen: React.FC<Props> = ({ navigation, route }) => {
       }
     } catch (err: any) {
       const errorMsg = err.response?.data?.message || err.message || 'Unable to register account. Please try again.';
-      Alert.alert('Registration Error', errorMsg);
+      const isDuplicate = /already registered|email.*exists|duplicate account|already in use/i.test(errorMsg);
+
+      if (isDuplicate) {
+        const cleanEmail = email.trim().toLowerCase();
+        setDuplicateNotice(`Email "${cleanEmail}" is already registered.`);
+        Alert.alert(
+          'Email Already Registered',
+          `An account with "${cleanEmail}" is already registered in Campus Connect.\n\nWould you like to log in with this email instead?`,
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+            {
+              text: 'Go to Login',
+              onPress: () => navigation.navigate('Login', { selectedRole: role, tenantId, email: cleanEmail, prefilledEmail: cleanEmail }),
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Registration Error', errorMsg);
+      }
     } finally {
       setLoading(false);
     }
@@ -137,6 +160,20 @@ export const SignUpScreen: React.FC<Props> = ({ navigation, route }) => {
             <GlassCard variant="outlined" style={styles.noticeCard}>
               <CheckCircle2 size={20} color="#10B981" />
               <Text style={styles.noticeText}>{registeredNotice}</Text>
+            </GlassCard>
+          )}
+
+          {duplicateNotice && (
+            <GlassCard variant="outlined" style={[styles.noticeCard, { borderColor: '#F59E0B' }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.noticeText, { color: '#F59E0B', fontWeight: 'bold' }]}>{duplicateNotice}</Text>
+                <TouchableOpacity
+                  style={{ marginTop: 8, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#F59E0B', borderRadius: 6, alignItems: 'center' }}
+                  onPress={() => navigation.navigate('Login', { selectedRole: role, tenantId, email: email.trim().toLowerCase(), prefilledEmail: email.trim().toLowerCase() })}
+                >
+                  <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 12 }}>Log In with {email.trim()} →</Text>
+                </TouchableOpacity>
+              </View>
             </GlassCard>
           )}
 

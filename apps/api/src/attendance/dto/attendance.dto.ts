@@ -23,9 +23,10 @@ export class CreateAttendanceSessionDto {
   @IsUUID()
   collegeId!: string;
 
-  @ApiProperty({ description: 'Academic session ID' })
+  @ApiPropertyOptional({ description: 'Academic session ID' })
+  @IsOptional()
   @IsUUID()
-  academicSessionId!: string;
+  academicSessionId?: string;
 
   @ApiProperty({ description: 'Subject ID' })
   @IsUUID()

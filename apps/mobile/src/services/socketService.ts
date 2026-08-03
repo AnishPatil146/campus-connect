@@ -65,23 +65,41 @@ class SocketService {
     });
 
     // Real-time events contract
+    // FIX: attendance:updated — invalidates student & teacher dashboards
     this.socket.on('attendance:updated', (data) => {
       console.log('⚡ [SOCKET EVENT] attendance:updated', data);
       if (this.queryClient) {
         this.queryClient.invalidateQueries({ queryKey: ['student', 'attendance'] });
         this.queryClient.invalidateQueries({ queryKey: ['student', 'dashboard'] });
         this.queryClient.invalidateQueries({ queryKey: ['teacher', 'dashboard'] });
+        this.queryClient.invalidateQueries({ queryKey: ['teacher', 'attendance'] });
         this.queryClient.invalidateQueries({ queryKey: ['attendance'] });
-        this.queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       }
     });
 
+    // FIX: notes:uploaded — now also invalidates STUDENT and TEACHER dashboards
+    // Previously only invalidated notes lists, so dashboard note-count widgets never updated.
     this.socket.on('notes:uploaded', (data) => {
       console.log('⚡ [SOCKET EVENT] notes:uploaded', data);
       if (this.queryClient) {
         this.queryClient.invalidateQueries({ queryKey: ['student', 'notes'] });
         this.queryClient.invalidateQueries({ queryKey: ['teacher', 'notes'] });
         this.queryClient.invalidateQueries({ queryKey: ['notes'] });
+        this.queryClient.invalidateQueries({ queryKey: ['student', 'dashboard'] });
+        this.queryClient.invalidateQueries({ queryKey: ['teacher', 'dashboard'] });
+        this.queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard'] });
+      }
+    });
+
+    // Also handle legacy event name emitted by some backend versions
+    this.socket.on('noteUploaded', (data) => {
+      console.log('⚡ [SOCKET EVENT] noteUploaded (legacy)', data);
+      if (this.queryClient) {
+        this.queryClient.invalidateQueries({ queryKey: ['student', 'notes'] });
+        this.queryClient.invalidateQueries({ queryKey: ['teacher', 'notes'] });
+        this.queryClient.invalidateQueries({ queryKey: ['student', 'dashboard'] });
+        this.queryClient.invalidateQueries({ queryKey: ['teacher', 'dashboard'] });
+        this.queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard'] });
       }
     });
 
@@ -94,11 +112,28 @@ class SocketService {
       }
     });
 
+    this.socket.on('TIMETABLE_UPDATED', (data) => {
+      console.log('⚡ [SOCKET EVENT] TIMETABLE_UPDATED', data);
+      if (this.queryClient) {
+        this.queryClient.invalidateQueries({ queryKey: ['student', 'timetable'] });
+        this.queryClient.invalidateQueries({ queryKey: ['teacher', 'timetable'] });
+        this.queryClient.invalidateQueries({ queryKey: ['timetable'] });
+        this.queryClient.invalidateQueries({ queryKey: ['student', 'dashboard'] });
+        this.queryClient.invalidateQueries({ queryKey: ['teacher', 'dashboard'] });
+        this.queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard'] });
+      }
+    });
+
+    // Keep legacy listener in case backend is updated to use this name
     this.socket.on('timetable:published', (data) => {
       console.log('⚡ [SOCKET EVENT] timetable:published', data);
       if (this.queryClient) {
         this.queryClient.invalidateQueries({ queryKey: ['student', 'timetable'] });
+        this.queryClient.invalidateQueries({ queryKey: ['teacher', 'timetable'] });
         this.queryClient.invalidateQueries({ queryKey: ['timetable'] });
+        this.queryClient.invalidateQueries({ queryKey: ['student', 'dashboard'] });
+        this.queryClient.invalidateQueries({ queryKey: ['teacher', 'dashboard'] });
+        this.queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard'] });
       }
     });
 
@@ -116,6 +151,16 @@ class SocketService {
       if (this.queryClient) {
         this.queryClient.invalidateQueries({ queryKey: ['announcements'] });
         this.queryClient.invalidateQueries({ queryKey: ['student', 'dashboard'] });
+        this.queryClient.invalidateQueries({ queryKey: ['teacher', 'dashboard'] });
+      }
+    });
+
+    this.socket.on('event:new', (data) => {
+      console.log('⚡ [SOCKET EVENT] event:new', data);
+      if (this.queryClient) {
+        this.queryClient.invalidateQueries({ queryKey: ['events'] });
+        this.queryClient.invalidateQueries({ queryKey: ['student', 'dashboard'] });
+        this.queryClient.invalidateQueries({ queryKey: ['teacher', 'dashboard'] });
       }
     });
   }

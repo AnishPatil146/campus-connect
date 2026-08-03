@@ -112,10 +112,20 @@ export class AttendanceService {
   }
 
   async createSession(dto: CreateAttendanceSessionDto, actorId: string, actorName: string, actorRole: string) {
+    let academicSessionId = dto.academicSessionId;
+    if (!academicSessionId || academicSessionId === 'academic-session-placeholder') {
+      const activeSession = await this.prisma.academicSession.findFirst({
+        where: { isActive: true },
+      }) || await this.prisma.academicSession.findFirst({});
+      if (activeSession) {
+        academicSessionId = activeSession.id;
+      }
+    }
+
     const attendanceSession = await this.prisma.attendanceSession.create({
       data: {
         collegeId: dto.collegeId,
-        academicSessionId: dto.academicSessionId,
+        academicSessionId: academicSessionId!,
         subjectId: dto.subjectId,
         teacherId: dto.teacherId,
         semesterId: dto.semesterId,

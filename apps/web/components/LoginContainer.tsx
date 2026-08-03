@@ -259,8 +259,25 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
   };
 
 
+  const handleRedirectToLogin = () => {
+    const targetEmail = signUpGmail;
+    const targetRole = signUpRole;
+    setEmail(targetEmail);
+    setRole(targetRole);
+    setError(`Email "${targetEmail}" is already registered. Please log in with your password.`);
+    setSignUpError(null);
+    setShowSignUp(false);
+  };
+
   const handleSignUpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // If already showing duplicate email error, submitting redirects directly to Login
+    if (signUpError && /already registered|email.*exists|duplicate account|already in use/i.test(signUpError)) {
+      handleRedirectToLogin();
+      return;
+    }
+
     setSignUpError(null);
     setSignUpSuccess(null);
 
@@ -818,10 +835,34 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
                 </div>
 
                 {signUpError && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-red-700 text-xs">
-                    <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-                    <span>{signUpError}</span>
-                  </div>
+                  /already registered|email.*exists|duplicate account|already in use/i.test(signUpError) ? (
+                    <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl space-y-3 text-amber-800 dark:text-amber-200 text-xs shadow-sm">
+                      <div className="flex items-start gap-2.5">
+                        <AlertCircle className="h-5 w-5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                        <div>
+                          <p className="font-bold text-sm text-amber-900 dark:text-amber-100">Account Already Exists</p>
+                          <p className="mt-1 text-xs text-amber-800/90 dark:text-amber-200/90">{signUpError}</p>
+                          <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
+                            An account with this email is already registered in the system. Click below to log in directly.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="pt-1">
+                        <Button
+                          type="button"
+                          onClick={handleRedirectToLogin}
+                          className="w-full h-10 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 active:scale-[0.99] text-white shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer border-transparent"
+                        >
+                          <span>Log In with {signUpGmail || 'this email'} →</span>
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-red-700 text-xs">
+                      <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                      <span>{signUpError}</span>
+                    </div>
+                  )
                 )}
 
                 {signUpSuccess && (

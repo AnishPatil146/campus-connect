@@ -40,9 +40,9 @@ export class CreateAnnouncementDto {
   @IsString()
   content!: string;
 
-  @ApiProperty({ example: 'Exam', enum: ['Notice', 'Result', 'Holiday', 'Warning', 'Exam', 'General'] })
+  @ApiProperty({ example: 'Exam', enum: ['Notice', 'Result', 'Holiday', 'Warning', 'Exam', 'General', 'ACADEMIC', 'SURPRISE_TEST', 'DEADLINE_REMINDER'] })
   @IsString()
-  @IsIn(['Notice', 'Result', 'Holiday', 'Warning', 'Exam', 'General'])
+  @IsIn(['Notice', 'Result', 'Holiday', 'Warning', 'Exam', 'General', 'ACADEMIC', 'SURPRISE_TEST', 'DEADLINE_REMINDER'])
   category!: string;
 
   @ApiPropertyOptional({ example: 'Entire College' })
@@ -56,10 +56,10 @@ export class CreateAnnouncementDto {
   @IsIn(['PUBLISHED', 'SCHEDULED', 'DRAFT'])
   status?: string;
 
-  @ApiPropertyOptional({ example: 'NORMAL', enum: ['HIGH', 'NORMAL', 'LOW'] })
+  @ApiPropertyOptional({ example: 'NORMAL', enum: ['HIGH', 'NORMAL', 'MEDIUM', 'LOW'] })
   @IsString()
   @IsOptional()
-  @IsIn(['HIGH', 'NORMAL', 'LOW'])
+  @IsIn(['HIGH', 'NORMAL', 'MEDIUM', 'LOW'])
   priority?: string;
 
   @ApiPropertyOptional({ example: '2026-07-10T10:00:00.000Z' })

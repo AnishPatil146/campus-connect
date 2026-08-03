@@ -27,17 +27,25 @@ interface Props {
 
 export const LoginScreen: React.FC<Props> = ({ navigation, route }) => {
   const selectedRole: 'STUDENT' | 'TEACHER' | 'ADMIN' = route?.params?.selectedRole || 'STUDENT';
-  const initialTenant: 'college-a' | 'college-b' = route?.params?.tenantId || 'college-a';
+  const initialTenant: 'college-a' | 'college-b' | 'college-c' = route?.params?.tenantId || 'college-a';
 
-  const [identifier, setIdentifier] = useState('');
+  const initialEmail = route?.params?.email || route?.params?.prefilledEmail || '';
+  const [identifier, setIdentifier] = useState(initialEmail);
   const [password, setPassword] = useState('');
-  const [tenantId, setTenantIdState] = useState<'college-a' | 'college-b'>(initialTenant);
+  const [tenantId, setTenantIdState] = useState<'college-a' | 'college-b' | 'college-c'>(initialTenant);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
   const { setAuth, setTenantId } = useAuthStore();
 
-  const handleTenantSelect = async (tenant: 'college-a' | 'college-b') => {
+  React.useEffect(() => {
+    const passedEmail = route?.params?.email || route?.params?.prefilledEmail;
+    if (passedEmail) {
+      setIdentifier(passedEmail);
+    }
+  }, [route?.params?.email, route?.params?.prefilledEmail]);
+
+  const handleTenantSelect = async (tenant: 'college-a' | 'college-b' | 'college-c') => {
     setTenantIdState(tenant);
     await setTenantId(tenant);
   };
@@ -194,7 +202,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation, route }) => {
                 style={[styles.tenantChip, tenantId === 'college-a' && styles.tenantChipActive]}
               >
                 <Text style={[styles.tenantChipText, tenantId === 'college-a' && styles.tenantChipTextActive]}>
-                  Pushpalata College
+                  Pushpalata
                 </Text>
               </TouchableOpacity>
 
@@ -204,7 +212,17 @@ export const LoginScreen: React.FC<Props> = ({ navigation, route }) => {
                 style={[styles.tenantChip, tenantId === 'college-b' && styles.tenantChipActive]}
               >
                 <Text style={[styles.tenantChipText, tenantId === 'college-b' && styles.tenantChipTextActive]}>
-                  Balasaheb College
+                  BMCS (Junior)
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => handleTenantSelect('college-c')}
+                style={[styles.tenantChip, tenantId === 'college-c' && styles.tenantChipActive]}
+              >
+                <Text style={[styles.tenantChipText, tenantId === 'college-c' && styles.tenantChipTextActive]}>
+                  BMCS (Senior)
                 </Text>
               </TouchableOpacity>
             </View>

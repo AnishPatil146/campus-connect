@@ -402,8 +402,12 @@ export class DashboardService {
     // 4. Latest Notes
     const latestNotes = await this.prisma.note.findMany({
       where: {
-        semesterId: student.semesterId,
-        divisionId: student.divisionId,
+        OR: [
+          { divisionId: student.divisionId },
+          { semesterId: student.semesterId },
+          { visibility: 'COLLEGE' },
+          { visibility: 'SEMESTER' },
+        ],
       },
       include: {
         subject: true,

@@ -210,24 +210,29 @@ export default function TeacherAttendancePage() {
 
       // 1. Create session if it doesn't exist
       if (!activeSessionId) {
-        // Fallback to subjects taught to find academicSessionId or use default placeholder
-        const academicSessionId = (user.teacherProfile as any).subjects?.[0]?.academicSessionId || 'academic-session-placeholder';
+        const teacherSub = (user.teacherProfile as any)?.subjects?.[0];
+        const academicSessionId = teacherSub?.academicSessionId;
         
-        const sessionRes = await api.createAttendanceSession({
+        const sessionPayload: any = {
           collegeId: user.collegeId,
-          academicSessionId,
           subjectId: selectedClass.subjectId,
           teacherId: user.teacherProfile.id,
           semesterId: selectedClass.semesterId,
           divisionId: selectedClass.divisionId,
           lectureNumber: selectedClass.slotNumber,
           attendanceDate: todayDateStr,
-        });
+        };
+
+        if (academicSessionId && academicSessionId !== 'academic-session-placeholder') {
+          sessionPayload.academicSessionId = academicSessionId;
+        }
+        
+        const sessionRes = await api.createAttendanceSession(sessionPayload);
 
         if (sessionRes.success && sessionRes.data) {
           activeSessionId = sessionRes.data.id;
         } else {
-          throw new Error('Failed to create attendance session on server.');
+          throw new Error((sessionRes as any).message || 'Failed to create attendance session on server.');
         }
       }
 

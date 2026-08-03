@@ -310,7 +310,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
           <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block" />
 
           {/* College Tag */}
-          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
+          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border hidden sm:inline-block max-w-[160px] md:max-w-none truncate ${
             user.role === 'TEACHER' 
               ? 'bg-role-surface/60 text-role-primary border-role-border/50 dark:bg-role-surface/20 dark:text-role-primary dark:border-role-border/40' 
               : getCollegeBgTag(user.collegeId)
