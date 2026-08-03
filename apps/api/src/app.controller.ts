@@ -20,7 +20,19 @@ export class AppController {
     };
   }
 
-  @Get(['CampusConnect.apk', 'download/apk', 'downloads/CampusConnect.apk', 'CampusConnect-debug.apk', 'downloads/CampusConnect-debug.apk'])
+  @Get([
+    'CampusConnect.apk',
+    'CampusConnect-debug.apk',
+    'downloads/CampusConnect.apk',
+    'downloads/CampusConnect-debug.apk',
+    'download/apk',
+    'api/download/apk',
+    'api/v1/CampusConnect.apk',
+    'api/v1/CampusConnect-debug.apk',
+    'api/v1/downloads/CampusConnect.apk',
+    'api/v1/downloads/CampusConnect-debug.apk',
+    'api/v1/download/apk',
+  ])
   @ApiOperation({ summary: 'Download CampusConnect APK Binary (Release or Debug)' })
   downloadApk(@Res() res: Response) {
     const isDebug = res.req.url?.includes('debug') || res.req.query?.type === 'debug';

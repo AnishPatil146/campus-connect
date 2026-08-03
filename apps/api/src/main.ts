@@ -67,7 +67,13 @@ async function bootstrap() {
       'api/v1/health/storage',
       'health/socket',
       'api/health/socket',
-      'api/v1/health/socket'
+      'api/v1/health/socket',
+      'CampusConnect.apk',
+      'CampusConnect-debug.apk',
+      'downloads/CampusConnect.apk',
+      'downloads/CampusConnect-debug.apk',
+      'download/apk',
+      'api/download/apk',
     ],
   });
 
