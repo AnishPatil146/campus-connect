@@ -228,7 +228,7 @@ export default function LearningCenter() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <a href={n.fileUrl || '#'} download className="p-2 text-slate-400 hover:text-emerald-600 inline-block">
+                      <a href={n.fileUrl || '/files/syllabus.pdf'} download={`${n.title || 'Study_Material'}.pdf`} className="p-2 text-slate-400 hover:text-emerald-600 inline-block" title="Download Material">
                         <Download className="h-4 w-4" />
                       </a>
                     </TableCell>

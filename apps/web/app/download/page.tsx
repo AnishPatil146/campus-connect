@@ -75,7 +75,7 @@ export default function DownloadAppPage() {
                 Package: <code className="font-mono text-slate-700 dark:text-slate-300">com.campusconnect.app</code>
               </p>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400 dark:text-slate-500 pt-1 font-semibold">
-                <span>Size: ~109.9 MB</span>
+                <span>Size: ~56.8 MB</span>
                 <span>•</span>
                 <span>Updated: 3 August 2026</span>
                 <span>•</span>

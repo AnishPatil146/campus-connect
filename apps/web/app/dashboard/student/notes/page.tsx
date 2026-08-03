@@ -279,9 +279,13 @@ export default function NotesPage() {
     loadNotes();
 
     // Trigger local client download
+    const targetUrl = note.pdfUrl || '/files/mock-pdf.pdf';
+    const rawFilename = targetUrl.split('/').pop() || `${note.title}.pdf`;
+    const cleanFilename = rawFilename.endsWith('.pdf') ? rawFilename : `${rawFilename}.pdf`;
+
     const link = document.createElement('a');
-    link.href = note.pdfUrl || '/files/mock-pdf.pdf';
-    link.setAttribute('download', note.pdfUrl.split('/').pop() || `${note.title}.pdf`);
+    link.href = targetUrl;
+    link.setAttribute('download', cleanFilename);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
