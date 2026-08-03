@@ -58,7 +58,7 @@ export default function DownloadAppPage() {
         </section>
 
         {/* APK Download Card */}
-        <section className="glass-card rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-xl bg-white dark:bg-slate-900/60 flex flex-col md:flex-row items-center justify-between gap-8">
+        <section className="glass-card rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-xl bg-white dark:bg-slate-900/60 flex flex-col lg:flex-row items-center justify-between gap-8">
           <div className="flex items-center gap-5">
             <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-lg shrink-0">
               <Smartphone size={40} />
@@ -75,23 +75,36 @@ export default function DownloadAppPage() {
                 Package: <code className="font-mono text-slate-700 dark:text-slate-300">com.campusconnect.app</code>
               </p>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400 dark:text-slate-500 pt-1 font-semibold">
-                <span>Size: ~56.8 MB</span>
+                <span>Release: <strong>~56.8 MB</strong></span>
                 <span>•</span>
-                <span>Updated: 3 August 2026</span>
+                <span>Debug: <strong>~109.9 MB</strong></span>
                 <span>•</span>
                 <span>Target: Android 7.0+ (API 24+)</span>
               </div>
             </div>
           </div>
 
-          <a
-            href="/api/download/apk"
-            download="CampusConnect.apk"
-            className="w-full md:w-auto min-h-[44px] px-8 py-4 text-base font-bold rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-3 shrink-0 touch-manipulation"
-          >
-            <Download size={20} />
-            <span>Download APK (v1.0.1)</span>
-          </a>
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+            <a
+              href="/api/download/apk"
+              download="CampusConnect.apk"
+              className="w-full sm:w-auto min-h-[44px] px-6 py-3.5 text-sm font-bold rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 shrink-0 touch-manipulation"
+              title="Download optimized 56.8 MB production release APK"
+            >
+              <Download size={18} />
+              <span>Download Release APK (56.8 MB)</span>
+            </a>
+
+            <a
+              href="/api/download/apk?type=debug"
+              download="CampusConnect-debug.apk"
+              className="w-full sm:w-auto min-h-[44px] px-6 py-3.5 text-sm font-bold rounded-2xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 active:scale-[0.98] text-slate-800 dark:text-slate-200 shadow-md transition-all duration-200 flex items-center justify-center gap-2 shrink-0 touch-manipulation border border-slate-300 dark:border-slate-700"
+              title="Download uncompressed 109.9 MB developer debug APK"
+            >
+              <Download size={18} />
+              <span>Download Debug APK (109.9 MB)</span>
+            </a>
+          </div>
         </section>
 
         {/* Sideloading Instructions */}

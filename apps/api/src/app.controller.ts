@@ -20,16 +20,37 @@ export class AppController {
     };
   }
 
-  @Get(['CampusConnect.apk', 'download/apk', 'downloads/CampusConnect.apk'])
-  @ApiOperation({ summary: 'Download CampusConnect Release APK' })
+  @Get(['CampusConnect.apk', 'download/apk', 'downloads/CampusConnect.apk', 'CampusConnect-debug.apk', 'downloads/CampusConnect-debug.apk'])
+  @ApiOperation({ summary: 'Download CampusConnect APK Binary (Release or Debug)' })
   downloadApk(@Res() res: Response) {
-    const apkPath = path.resolve(process.cwd(), 'downloaded_test_app.apk');
-    if (!fs.existsSync(apkPath)) {
-      throw new NotFoundException('CampusConnect.apk binary not found on server');
+    const isDebug = res.req.url?.includes('debug') || res.req.query?.type === 'debug';
+    const filename = isDebug ? 'CampusConnect-debug.apk' : 'CampusConnect.apk';
+    
+    const candidates = isDebug ? [
+      path.resolve(process.cwd(), 'CampusConnect-debug.apk'),
+      path.resolve(process.cwd(), 'apps/api/CampusConnect-debug.apk'),
+      path.resolve(process.cwd(), 'apps/web/public/downloads/CampusConnect-debug.apk'),
+      path.resolve(__dirname, '../CampusConnect-debug.apk'),
+      path.resolve(__dirname, '../../CampusConnect-debug.apk'),
+      path.resolve(__dirname, '../../../apps/web/public/downloads/CampusConnect-debug.apk'),
+    ] : [
+      path.resolve(process.cwd(), 'downloaded_test_app.apk'),
+      path.resolve(process.cwd(), 'CampusConnect.apk'),
+      path.resolve(process.cwd(), 'apps/api/CampusConnect.apk'),
+      path.resolve(process.cwd(), 'apps/web/public/downloads/CampusConnect.apk'),
+      path.resolve(__dirname, '../downloaded_test_app.apk'),
+      path.resolve(__dirname, '../../downloaded_test_app.apk'),
+      path.resolve(__dirname, '../../../downloaded_test_app.apk'),
+    ];
+
+    const apkPath = candidates.find(c => fs.existsSync(c));
+    if (!apkPath) {
+      throw new NotFoundException(`APK binary (${filename}) not found on server`);
     }
+
     const stat = fs.statSync(apkPath);
     res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-    res.setHeader('Content-Disposition', 'attachment; filename="CampusConnect.apk"');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Length', stat.size);
     fs.createReadStream(apkPath).pipe(res);
   }
