@@ -44,6 +44,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           'Content-Type': 'application/json',
           'x-college-id': collegeId
         },
+        // credentials:'include' ensures the backend's Set-Cookie header (httpOnly) is captured
+        credentials: 'include',
         body: JSON.stringify({ email, password: password || 'password123', role })
       });
       const payload = await res.json();
@@ -86,6 +88,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           'x-college-id': collegeId,
           'x-recaptcha-token': 'mock-recaptcha-token'
         },
+        // credentials:'include' captures the httpOnly cookie set by the backend
+        credentials: 'include',
         body: JSON.stringify({ token, collegeId, role })
       });
       const payload = await res.json();
@@ -120,9 +124,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    // Call backend to invalidate the session and clear the httpOnly cookie
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:10000/api/v1';
+    const token = typeof window !== 'undefined' ? localStorage.getItem('cc_token') : null;
+    fetch(`${apiBaseUrl}/auth/logout`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      credentials: 'include',
+    }).catch(() => { /* silent — local state cleared regardless */ });
     setUser(null);
     localStorage.removeItem('cc_user');
     localStorage.removeItem('cc_token');
+    localStorage.removeItem('cc_refresh_token');
   };
 
   return (

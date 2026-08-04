@@ -5,9 +5,13 @@ import { AppModule } from './app.module';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Enable cookie-parser middleware (required for httpOnly cookie JWT auth)
+  app.use(cookieParser());
 
   // Enable Helmet for security headers
   app.use(helmet({

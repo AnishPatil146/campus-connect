@@ -1,6 +1,6 @@
-import { Controller, Post, Get, Delete, Body, Req, Param, UseGuards, HttpCode } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Body, Req, Res, Param, UseGuards, HttpCode } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { SelectRoleDto } from './dto/select-role.dto';
@@ -40,7 +40,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(200)
   @ApiOperation({ summary: 'Login using email and password' })
-  async login(@Body() loginDto: LoginDto, @Req() req: Request) {
+  async login(@Body() loginDto: LoginDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const ipAddress = (req.headers['cf-connecting-ip'] as string) || 
                       (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || 
                       req.ip || 
@@ -51,6 +51,18 @@ export class AuthController {
 
     await this.authService.verifyRecaptcha(recaptchaToken);
     const result = await this.authService.login(loginDto, ipAddress, userAgent, collegeIdHeader);
+
+    // Set httpOnly cookie for web REST API authentication (XSS-safe)
+    if (!result.needsWorkspaceSelection && result.accessToken) {
+      const isProduction = process.env.NODE_ENV === 'production';
+      res.cookie('cc_access_token', result.accessToken, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'strict',
+        maxAge: 15 * 60 * 1000, // 15 minutes — matches JWT expiry
+        path: '/',
+      });
+    }
 
     return {
       message: result.needsWorkspaceSelection
@@ -63,7 +75,7 @@ export class AuthController {
   @Post('google')
   @HttpCode(200)
   @ApiOperation({ summary: 'Login or register using Google Sign-In token' })
-  async googleLogin(@Body() googleLoginDto: GoogleLoginDto, @Req() req: Request) {
+  async googleLogin(@Body() googleLoginDto: GoogleLoginDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const ipAddress = (req.headers['cf-connecting-ip'] as string) || 
                       (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || 
                       req.ip || 
@@ -73,6 +85,18 @@ export class AuthController {
 
     await this.authService.verifyRecaptcha(recaptchaToken);
     const result = await this.authService.googleLogin(googleLoginDto, ipAddress, userAgent);
+
+    // Set httpOnly cookie for web REST API authentication
+    if (result.accessToken) {
+      const isProduction = process.env.NODE_ENV === 'production';
+      res.cookie('cc_access_token', result.accessToken, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'strict',
+        maxAge: 15 * 60 * 1000,
+        path: '/',
+      });
+    }
 
     return {
       message: 'Google login successful',
@@ -107,11 +131,13 @@ export class AuthController {
   @Post('logout')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Logout currently active session' })
-  async logout(@Req() req: any) {
+  async logout(@Req() req: any, @Res({ passthrough: true }) res: Response) {
     const { id, name, role, sessionId } = req.user;
     if (sessionId) {
       await this.authService.logout(sessionId, id, name, role || 'UNKNOWN');
     }
+    // Clear the httpOnly authentication cookie
+    res.clearCookie('cc_access_token', { path: '/' });
     return {
       message: 'Logout successful',
       data: null,

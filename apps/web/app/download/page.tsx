@@ -85,8 +85,11 @@ export default function DownloadAppPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+            {/* Direct static file path — served from public/downloads/ without any server-side API route.
+                This eliminates the prior failure mode where /api/download/apk would load the entire
+                110 MB file into RAM, time out, or return 404 when the Next.js server was not running. */}
             <a
-              href="/api/download/apk"
+              href="/downloads/CampusConnect.apk"
               download="CampusConnect.apk"
               className="w-full sm:w-auto min-h-[44px] px-6 py-3.5 text-sm font-bold rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 shrink-0 touch-manipulation"
               title="Download optimized 56.8 MB production release APK"
@@ -96,7 +99,7 @@ export default function DownloadAppPage() {
             </a>
 
             <a
-              href="/api/download/apk?type=debug"
+              href="/downloads/CampusConnect-debug.apk"
               download="CampusConnect-debug.apk"
               className="w-full sm:w-auto min-h-[44px] px-6 py-3.5 text-sm font-bold rounded-2xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 active:scale-[0.98] text-slate-800 dark:text-slate-200 shadow-md transition-all duration-200 flex items-center justify-center gap-2 shrink-0 touch-manipulation border border-slate-300 dark:border-slate-700"
               title="Download uncompressed 109.9 MB developer debug APK"

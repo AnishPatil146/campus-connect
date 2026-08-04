@@ -79,7 +79,8 @@ function getHeaders() {
 // Fetch with automatic 401 token refresh retry
 export async function fetchWithRefresh(url: string, options: RequestInit = {}): Promise<Response> {
   const headers = { ...getHeaders(), ...(options.headers as Record<string, string> || {}) };
-  let response = await fetch(url, { ...options, headers });
+  // credentials:'include' sends the httpOnly cc_access_token cookie on every API request (XSS-safe)
+  let response = await fetch(url, { ...options, headers, credentials: 'include' });
 
   if (response.status === 401 && typeof window !== 'undefined') {
     const refreshToken = localStorage.getItem('cc_refresh_token');
@@ -89,6 +90,7 @@ export async function fetchWithRefresh(url: string, options: RequestInit = {}): 
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ refreshToken }),
+          credentials: 'include',
         });
         const refreshData = await refreshRes.json();
         if (refreshData.success && refreshData.data?.accessToken) {
@@ -97,7 +99,7 @@ export async function fetchWithRefresh(url: string, options: RequestInit = {}): 
             localStorage.setItem('cc_refresh_token', refreshData.data.refreshToken);
           }
           const newHeaders = { ...headers, Authorization: `Bearer ${refreshData.data.accessToken}` };
-          response = await fetch(url, { ...options, headers: newHeaders });
+          response = await fetch(url, { ...options, headers: newHeaders, credentials: 'include' });
         }
       } catch (e) {
         console.warn('[API Client] Auto token refresh failed:', e);

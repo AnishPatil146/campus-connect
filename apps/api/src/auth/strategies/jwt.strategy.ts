@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { Request } from 'express';
 import { PrismaService } from '../../prisma/prisma.service';
 import { collegeStorage } from '../../common/college-storage';
 import { RedisService } from '../../redis/redis.service';
@@ -12,7 +13,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private redis: RedisService,
   ) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      // Accept JWT from Authorization: Bearer header (mobile/Socket.IO)
+      // OR from the cc_access_token httpOnly cookie (web REST API)
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+        (req: Request) => {
+          return req?.cookies?.cc_access_token ?? null;
+        },
+      ]),
       ignoreExpiration: false,
       secretOrKey: (() => {
         const secret = process.env.JWT_SECRET;
@@ -21,6 +29,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         }
         return secret;
       })(),
+      passReqToCallback: false,
     });
   }
 
