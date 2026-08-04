@@ -10,7 +10,8 @@ const getBaseUrl = () => {
   if (__DEV__) {
     return Platform.OS === 'android' ? 'http://10.0.2.2:10000/api/v1' : 'http://localhost:10000/api/v1';
   }
-  return 'https://api.campusconnect.com/api/v1';
+  // Physical LAN device IP fallback for real physical phone testing + production URL fallback
+  return 'http://192.168.0.103:10000/api/v1';
 };
 
 export const apiClient = axios.create({

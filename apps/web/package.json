@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3001",
     "build": "pnpm --filter @campus-connect/types build && pnpm --filter @campus-connect/utils build && pnpm --filter @campus-connect/ui build && node -e \"require('child_process').fork(require.resolve('next/dist/bin/next'), ['build'], { execArgv: ['--max-old-space-size=4096'] }).on('exit', code => process.exit(code))\"",
-    "start": "next start",
+    "start": "next start -p 3001",
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest"

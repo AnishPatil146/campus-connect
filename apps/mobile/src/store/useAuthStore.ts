@@ -89,6 +89,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   loadSession: async () => {
+    // Safety fallback: Ensure isLoading becomes false within 1.5s max so the app never gets stuck on initialization
+    const safetyTimer = setTimeout(() => {
+      set((state) => (state.isLoading ? { isLoading: false } : state));
+    }, 1500);
+
     try {
       const [token, refreshToken, userJson, tenantId] = await Promise.all([
         AsyncStorage.getItem('cc_token'),
@@ -98,45 +103,55 @@ export const useAuthStore = create<AuthState>((set) => ({
       ]);
 
       if (token && userJson) {
-        const storedUser = JSON.parse(userJson);
-        set({
-          token,
-          refreshToken,
-          user: storedUser,
-          tenantId: tenantId || storedUser.collegeId || 'college-a',
-          isLoading: false,
-        });
-
-        // Background session revalidation against backend database
+        let storedUser: UserProfile | null = null;
         try {
-          const res = await apiClient.get('/auth/me');
-          if (res.data?.data) {
-            const liveUser = res.data.data;
-            const updatedProfile: UserProfile = {
-              id: liveUser.id,
-              email: liveUser.email,
-              name: liveUser.name,
-              role: liveUser.role,
-              collegeId: liveUser.collegeId || tenantId || 'college-a',
-              prn: liveUser.prn || storedUser.prn,
-              department: liveUser.department?.name || storedUser.department,
-              semester: liveUser.semester?.name || storedUser.semester,
-              employeeId: liveUser.employeeId || storedUser.employeeId,
-              avatarUrl: liveUser.avatarUrl || storedUser.avatarUrl,
-            };
-            await AsyncStorage.setItem('cc_user', JSON.stringify(updatedProfile));
-            set({ user: updatedProfile });
-          }
-        } catch (authErr: any) {
-          if (authErr?.response?.status === 401 || authErr?.response?.status === 403) {
-            await AsyncStorage.multiRemove(['cc_token', 'cc_refresh_token', 'cc_user']);
-            set({ token: null, refreshToken: null, user: null });
-          }
+          storedUser = JSON.parse(userJson);
+        } catch (_) {}
+
+        if (storedUser) {
+          set({
+            token,
+            refreshToken,
+            user: storedUser,
+            tenantId: tenantId || storedUser.collegeId || 'college-a',
+            isLoading: false,
+          });
+
+          // Async background revalidation (does not block UI loading)
+          apiClient.get('/auth/me').then(async (res) => {
+            if (res.data?.data) {
+              const liveUser = res.data.data;
+              const updatedProfile: UserProfile = {
+                id: liveUser.id,
+                email: liveUser.email,
+                name: liveUser.name,
+                role: liveUser.role,
+                collegeId: liveUser.collegeId || tenantId || 'college-a',
+                prn: liveUser.prn || storedUser?.prn,
+                department: liveUser.department?.name || storedUser?.department,
+                semester: liveUser.semester?.name || storedUser?.semester,
+                employeeId: liveUser.employeeId || storedUser?.employeeId,
+                avatarUrl: liveUser.avatarUrl || storedUser?.avatarUrl,
+              };
+              await AsyncStorage.setItem('cc_user', JSON.stringify(updatedProfile));
+              set({ user: updatedProfile });
+            }
+          }).catch(async (authErr) => {
+            if (authErr?.response?.status === 401 || authErr?.response?.status === 403) {
+              await AsyncStorage.multiRemove(['cc_token', 'cc_refresh_token', 'cc_user']);
+              set({ token: null, refreshToken: null, user: null });
+            }
+          });
+        } else {
+          set({ isLoading: false });
         }
       } else {
         set({ isLoading: false });
       }
     } catch (e) {
+      set({ isLoading: false });
+    } finally {
+      clearTimeout(safetyTimer);
       set({ isLoading: false });
     }
   },

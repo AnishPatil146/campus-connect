@@ -10,7 +10,8 @@ const getSocketUrl = () => {
   if (__DEV__) {
     return Platform.OS === 'android' ? 'http://10.0.2.2:10000/events' : 'http://localhost:10000/events';
   }
-  return 'https://api.campusconnect.com/events';
+  // Physical LAN device IP fallback for real physical phone testing + production URL fallback
+  return 'http://192.168.0.103:10000/events';
 };
 
 class SocketService {
