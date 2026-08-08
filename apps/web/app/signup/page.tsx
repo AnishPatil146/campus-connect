@@ -173,11 +173,15 @@ export default function SignupWizardPage() {
             {step === 4 && (
               <form onSubmit={handleSubmitRegistration} className="space-y-4">
                 {!otpSent ? (
-                  <Button type="button" onClick={handleSendOtp} className="w-full bg-blue-600">Send Email Verification Code</Button>
+                  <Button type="button" onClick={handleSendOtp} disabled={loading} className="w-full bg-blue-600">
+                    {loading ? 'Sending Code...' : 'Send Email Verification Code'}
+                  </Button>
                 ) : (
                   <>
                     <Input value={otpCode} onChange={(e) => setOtpCode(e.target.value)} placeholder="Enter 6-Digit OTP" className="text-center font-mono" />
-                    <Button type="submit" className="w-full bg-emerald-600">Verify OTP & Register</Button>
+                    <Button type="submit" disabled={loading} className="w-full bg-emerald-600">
+                      {loading ? 'Verifying...' : 'Verify OTP & Register'}
+                    </Button>
                   </>
                 )}
               </form>
