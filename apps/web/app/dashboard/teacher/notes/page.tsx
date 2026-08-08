@@ -140,7 +140,7 @@ export default function TeacherNotesPage() {
     }
   };
 
-  const totalDownloads = notes.reduce((acc, curr) => acc + (curr.downloadCount || 0), 0);
+  const totalDownloads = notes.reduce((acc: number, curr: any) => acc + (curr.downloadCount || 0), 0);
 
   return (
     <DashboardLayout title="Notes & Learning Hub" icon={<BookOpen className="h-6 w-6 text-emerald-500" />}>

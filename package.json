@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "description": "Campus Connect - Monorepo",
-  "packageManager": "pnpm@9.5.0",
+  "packageManager": "pnpm@10.0.0",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -18,11 +18,18 @@
     "start": "pnpm --filter @campus-connect/api run start:prod"
   },
   "devDependencies": {
+    "prisma": "^5.15.0",
     "turbo": "^2.0.14",
     "typescript": "^5.5.3"
   },
   "dependencies": {
     "firebase": "^12.15.0"
+  },
+  "overrides": {
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "@types/react": "18.3.18",
+    "@types/react-dom": "18.3.5"
   },
   "pnpm": {
     "overrides": {
@@ -31,11 +38,5 @@
       "@types/react": "18.3.18",
       "@types/react-dom": "18.3.5"
     }
-  },
-  "overrides": {
-    "react": "18.2.0",
-    "react-dom": "18.2.0",
-    "@types/react": "18.3.18",
-    "@types/react-dom": "18.3.5"
   }
 }

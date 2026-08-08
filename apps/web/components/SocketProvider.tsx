@@ -44,7 +44,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       auth: {
         token: token,
       },
-    });
+    } as any);
 
     s.on('connect', () => {
       setIsConnected(true);

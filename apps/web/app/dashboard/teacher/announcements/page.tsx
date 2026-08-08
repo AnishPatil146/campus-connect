@@ -139,7 +139,7 @@ export default function TeacherAnnouncementsPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {announcements.map((ann) => (
+                {announcements.map((ann: any) => (
                   <div key={ann.id} className="p-5 border border-slate-100 dark:border-slate-900 rounded-xl bg-slate-50/20 dark:bg-slate-900/5 flex flex-col md:flex-row justify-between items-start gap-4">
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center gap-2">

@@ -27,7 +27,7 @@ export const LoadingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   return (
     <LoadingContext.Provider value={{ startLoading, stopLoading, isLoading }}>
-      <Script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js" strategy="lazyOnload" />
+      {React.createElement(Script, { src: "https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js", strategy: "lazyOnload" } as any)}
       {children}
       {isLoading && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-2xl transition-all duration-300 pointer-events-auto select-none p-4">
