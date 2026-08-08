@@ -375,6 +375,12 @@ importers:
       lucide-react:
         specifier: ^0.475.0
         version: 0.475.0(react@18.2.0)
+      react:
+        specifier: 18.2.0
+        version: 18.2.0
+      react-dom:
+        specifier: 18.2.0
+        version: 18.2.0(react@18.2.0)
     devDependencies:
       '@types/react':
         specifier: 18.3.18
@@ -382,12 +388,6 @@ importers:
       '@types/react-dom':
         specifier: 18.3.5
         version: 18.3.5(@types/react@18.3.18)
-      react:
-        specifier: 18.2.0
-        version: 18.2.0
-      react-dom:
-        specifier: 18.2.0
-        version: 18.2.0(react@18.2.0)
       typescript:
         specifier: ^5.5.3
         version: 5.9.3
