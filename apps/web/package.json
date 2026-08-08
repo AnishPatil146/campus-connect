@@ -16,6 +16,8 @@
     "@campus-connect/utils": "*",
     "@hookform/resolvers": "^3.9.0",
     "@tanstack/react-query": "^5.51.1",
+    "firebase": "^10.12.0",
+    "idb": "^8.0.0",
     "lucide-react": "^0.475.0",
     "next": "^14.2.4",
     "react": "18.2.0",
