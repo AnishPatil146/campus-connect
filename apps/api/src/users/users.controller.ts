@@ -220,5 +220,16 @@ export class UsersController {
       meta: data.meta,
     };
   }
+
+  @Get('users/guardian-info/:studentProfileId')
+  @Roles(Role.ADMIN, Role.STUDENT)
+  @ApiOperation({ summary: 'Retrieve sensitive guardian info for student profile (Role Guard Restricted)' })
+  async getGuardianInfo(@Param('studentProfileId') studentProfileId: string) {
+    const data = await this.usersService.getGuardianInfo(studentProfileId);
+    return {
+      message: 'Guardian info retrieved successfully',
+      data,
+    };
+  }
 }
 

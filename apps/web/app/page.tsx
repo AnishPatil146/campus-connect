@@ -297,8 +297,16 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-20 border-t border-slate-200 dark:border-slate-800 py-8 px-6 text-center text-xs text-slate-400 font-mono">
-        &copy; 2026 Campus Connect. Built with Next.js, NestJS, and Expo React Native. All rights reserved.
+      <footer className="mt-20 border-t border-slate-200 dark:border-slate-800 py-8 px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500 dark:text-slate-400 font-mono max-w-6xl mx-auto">
+        <div>&copy; 2026 Campus Connect. Built with Next.js, NestJS, and Expo. All rights reserved.</div>
+        <div className="flex items-center gap-6">
+          <Link href="/privacy" className="hover:underline hover:text-blue-600 dark:hover:text-blue-400">
+            Privacy Policy
+          </Link>
+          <Link href="/privacy" className="hover:underline hover:text-blue-600 dark:hover:text-blue-400">
+            Terms of Service
+          </Link>
+        </div>
       </footer>
     </div>
   );

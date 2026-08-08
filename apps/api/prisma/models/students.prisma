@@ -68,26 +68,41 @@ model Student {
 
 
 model StudentProfile {
-  id             String   @id @default(uuid())
-  studentId      String   @unique @map("student_id")
-  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  firstName      String   @map("first_name")
-  middleName     String?  @map("middle_name")
-  lastName       String   @map("last_name")
-  gender         String
-  dob            DateTime
-  bloodGroup     String?  @map("blood_group")
-  religion       String?
-  nationality    String   @default("Indian")
-  aadharNumber   String?  @map("aadhar_number")
-  passportNumber String?  @map("passport_number")
-  photoUrl       String?  @map("photo_url")
-  email          String?
-  phone          String?
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id              String        @id @default(uuid())
+  studentId       String        @unique @map("student_id")
+  student         Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  firstName       String        @map("first_name")
+  middleName      String?       @map("middle_name")
+  lastName        String        @map("last_name")
+  gender          String
+  dob             DateTime
+  bloodGroup      String?       @map("blood_group")
+  religion        String?
+  nationality     String        @default("Indian")
+  aadharNumber    String?       @map("aadhar_number")
+  passportNumber  String?       @map("passport_number")
+  photoUrl        String?       @map("photo_url")
+  email           String?
+  phone           String?
+  parentalConsent Boolean       @default(false) @map("parental_consent")
+  guardianInfo    GuardianInfo?
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
 
   @@map("student_profiles")
+}
+
+model GuardianInfo {
+  id               String         @id @default(uuid())
+  studentProfileId String         @unique @map("student_profile_id")
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  fatherName       String?        @map("father_name")
+  motherName       String?        @map("mother_name")
+  parentContact    String?        @map("parent_contact")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  @@map("guardian_info")
 }
 
 model StudentGuardian {

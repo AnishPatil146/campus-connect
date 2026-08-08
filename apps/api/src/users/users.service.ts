@@ -444,4 +444,37 @@ export class UsersService {
       };
     });
   }
+
+  /**
+   * Get sensitive GuardianInfo for a student profile (restricted by RoleGuard)
+   */
+  async getGuardianInfo(studentProfileId: string) {
+    const guardian = await this.prisma.guardianInfo.findUnique({
+      where: { studentProfileId },
+    });
+    if (!guardian) {
+      throw new NotFoundException(`GuardianInfo for student profile ${studentProfileId} not found`);
+    }
+    return guardian;
+  }
+
+  /**
+   * Upsert GuardianInfo for a student profile
+   */
+  async upsertGuardianInfo(studentProfileId: string, data: { fatherName?: string; motherName?: string; parentContact?: string }) {
+    return this.prisma.guardianInfo.upsert({
+      where: { studentProfileId },
+      create: {
+        studentProfileId,
+        fatherName: data.fatherName,
+        motherName: data.motherName,
+        parentContact: data.parentContact,
+      },
+      update: {
+        fatherName: data.fatherName,
+        motherName: data.motherName,
+        parentContact: data.parentContact,
+      },
+    });
+  }
 }
