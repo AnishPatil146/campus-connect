@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@campus-connect/ui';
 import { Clock, BookOpen, AlertCircle, Save, RotateCcw, ChevronLeft, CheckCircle2 } from 'lucide-react';
@@ -73,7 +73,7 @@ export default function TeacherAttendancePage() {
   }, []);
 
   // Fetch classes and check their attendance status
-  const fetchClassesSchedule = async () => {
+  const fetchClassesSchedule = useCallback(async () => {
     if (!user?.teacherProfile?.id) return;
     setIsClassesLoading(true);
     const res = await api.getTeacherDashboard();
@@ -119,14 +119,14 @@ export default function TeacherAttendancePage() {
       setSecondsAgo(0);
     }
     setIsClassesLoading(false);
-  };
+  }, [user?.teacherProfile?.id]);
 
   // Load schedule on mount or user load
   useEffect(() => {
     if (user) {
       fetchClassesSchedule();
     }
-  }, [user]);
+  }, [user, fetchClassesSchedule]);
 
   // Real-time listener for socket events to update schedule
   useEffect(() => {
@@ -138,7 +138,7 @@ export default function TeacherAttendancePage() {
     return () => {
       socket.off('TIMETABLE_UPDATED', handleTimetableUpdate);
     };
-  }, [socket]);
+  }, [socket, fetchClassesSchedule]);
 
   // Select class and load roster
   const handleSelectClass = async (cls: ClassSession) => {

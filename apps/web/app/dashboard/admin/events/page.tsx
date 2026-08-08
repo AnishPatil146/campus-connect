@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, Table, TableHeader, TableBody, TableHead, TableRow, TableCell, Button, Badge } from '@campus-connect/ui';
 import { Plus, Users, MapPin, Sparkles, Download, X, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -27,7 +27,7 @@ export default function EventManagement() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     setIsLoading(true);
     try {
       const res = await api.getEvents({ collegeId: user?.collegeId });
@@ -39,13 +39,13 @@ export default function EventManagement() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.collegeId]);
 
   useEffect(() => {
     if (user) {
       fetchEvents();
     }
-  }, [user]);
+  }, [user, fetchEvents]);
 
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();

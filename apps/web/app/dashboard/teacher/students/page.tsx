@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, CardContent, Badge } from '@campus-connect/ui';
 import { useAuth } from '../../../../components/AuthProvider';
@@ -15,7 +15,7 @@ export default function TeacherStudentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async () => {
     setIsLoading(true);
     try {
       const res = await api.getStudents({ collegeId: user?.collegeId });
@@ -27,13 +27,13 @@ export default function TeacherStudentsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.collegeId]);
 
   useEffect(() => {
     if (user) {
       fetchStudents();
     }
-  }, [user]);
+  }, [user, fetchStudents]);
 
   useEffect(() => {
     if (!socket) return;
@@ -46,7 +46,7 @@ export default function TeacherStudentsPage() {
       socket.off('student:created', handleStudentCreated);
       socket.off('student.created', handleStudentCreated);
     };
-  }, [socket]);
+  }, [socket, fetchStudents]);
 
   const subjectsTaught = (user?.teacherProfile as any)?.subjects || [];
   const teacherSubjectName = subjectsTaught[0]?.subject?.name || 'Subject Performance';

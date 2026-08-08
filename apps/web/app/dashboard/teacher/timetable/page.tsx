@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@campus-connect/ui';
 import { useAuth } from '../../../../components/AuthProvider';
@@ -16,7 +16,7 @@ export default function TeacherTimetablePage() {
 
   const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-  const fetchTimetable = async () => {
+  const fetchTimetable = useCallback(async () => {
     if (!user?.teacherProfile?.id) {
       setIsLoading(false);
       return;
@@ -32,13 +32,13 @@ export default function TeacherTimetablePage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.teacherProfile?.id]);
 
   useEffect(() => {
     if (user) {
       fetchTimetable();
     }
-  }, [user]);
+  }, [user, fetchTimetable]);
 
   useEffect(() => {
     if (!socket) return;
@@ -51,7 +51,7 @@ export default function TeacherTimetablePage() {
       socket.off('TIMETABLE_UPDATED', handleUpdate);
       socket.off('timetable:published', handleUpdate);
     };
-  }, [socket]);
+  }, [socket, fetchTimetable]);
 
   return (
     <DashboardLayout title="Teacher Timetable & Class Schedule" icon={<Clock className="h-6 w-6 text-role-primary" />}>

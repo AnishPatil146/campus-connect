@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@campus-connect/ui';
 import { useAuth } from '../../../../components/AuthProvider';
@@ -28,7 +28,7 @@ export default function TeacherLeavePage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const fetchLeaves = async () => {
+  const fetchLeaves = useCallback(async () => {
     if (!user?.teacherProfile?.id) return;
     setIsLoading(true);
     try {
@@ -41,13 +41,13 @@ export default function TeacherLeavePage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.teacherProfile?.id]);
 
   useEffect(() => {
     if (user) {
       fetchLeaves();
     }
-  }, [user]);
+  }, [user, fetchLeaves]);
 
   useEffect(() => {
     if (!socket) return;
@@ -58,7 +58,7 @@ export default function TeacherLeavePage() {
       socket.off('teacher.leave_approved', handleUpdate);
       socket.off('teacher.leave_requested', handleUpdate);
     };
-  }, [socket]);
+  }, [socket, fetchLeaves]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, Table, TableHeader, TableBody, TableHead, TableRow, TableCell, Button } from '@campus-connect/ui';
 import { Plus, Layers, X, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -45,7 +45,7 @@ export default function AcademicManagement() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const fetchAcademicData = async () => {
+  const fetchAcademicData = useCallback(async () => {
     setIsLoading(true);
     try {
       const collegeParam = selectedCollegeFilter === 'all' ? undefined : selectedCollegeFilter;
@@ -65,11 +65,11 @@ export default function AcademicManagement() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedCollegeFilter]);
 
   useEffect(() => {
     fetchAcademicData();
-  }, [user, selectedCollegeFilter]);
+  }, [user, fetchAcademicData]);
 
   const handleCreateDepartment = async (e: React.FormEvent) => {
     e.preventDefault();

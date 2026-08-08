@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: campus-connect-api
+    env: node
+    region: oregon
+    plan: free
+    rootDir: apps/api
+    buildCommand: cd ../.. && pnpm install --no-frozen-lockfile && pnpm --filter @campus-connect/types build && pnpm --filter @campus-connect/utils build && pnpm --filter @campus-connect/api build
+    startCommand: node dist/main
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        value: postgresql://campus_connect_db_4xcn_user:V2hr1mK076GDtVis4s8PrFNsBF9qVCi7@dpg-d987qt28qa3s73f1nmlg-a.oregon-postgres.render.com/campus_connect_db_4xcn
+      - key: COLLEGE_A_DATABASE_URL
+        value: postgresql://campusconnectcollegea_user:fSaE69qLr0Tf8HOLOLYcfGF4tfB93JOt@dpg-d99lg0naqgkc738cauag-a.oregon-postgres.render.com/campusconnectcollegea
+      - key: COLLEGE_B_DATABASE_URL
+        value: postgresql://cumpass_database_b_user:6R0FF68t8ImrvgucZ46UQfMlofqirGJc@dpg-d99li8beo5us738mgtkg-a.oregon-postgres.render.com/cumpass_database_b
+      - key: COLLEGE_C_DATABASE_URL
+        value: postgresql://campus_database_c_user:lhoF66ubFkR77CAYEHuvoV6FdQDjcCeD@dpg-d99ljprtqb8s73ap27m0-a.oregon-postgres.render.com/campus_database_c
+      - key: JWT_SECRET
+        value: super-secret-jwt-key-for-campus-connect
+      - key: REDIS_URL
+        value: rediss://default:gQAAAAAAAXpJAAIgcDEzMDU0ZmY1NWEwZjc0ODdhYWJmMWI2NGY2YmU1NDE5OA@on-owl-96841.upstash.io:6379
+      - key: MULTI_DB_ENABLED
+        value: true
+      - key: CLOUDINARY_CLOUD_NAME
+        value: poqayuww
+      - key: CLOUDINARY_API_KEY
+        value: "636825337839938"
+      - key: CLOUDINARY_API_SECRET
+        value: 6H1RURbZ36cg028rqRz6O34XVKg
+      - key: CLOUDINARY_URL
+        value: cloudinary://636825337839938:6H1RURbZ36cg028rqRz6O34XVKg@poqayuww
+      - key: ENABLE_SWAGGER
+        value: true
+      - key: ALLOWED_ORIGINS
+        value: https://campus-connect-web-tau.vercel.app,http://localhost:3000,http://localhost:3001

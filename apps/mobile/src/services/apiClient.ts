@@ -2,16 +2,22 @@ import axios from 'axios';
 import { useAuthStore } from '../store/useAuthStore';
 import { Platform } from 'react-native';
 
-// For Android emulator vs Web/Device dev connection
+// Production API URL — set EXPO_PUBLIC_API_URL in .env to override this for any environment.
+// For Vercel/Railway/Fly.io deployments, update this constant or set the env var in EAS secrets.
+const PROD_API_URL = 'https://campus-connect-api.onrender.com/api/v1';
+
+// For Android emulator vs iOS Simulator vs physical device dev connection.
+// Expo ONLY reads EXPO_PUBLIC_* prefixed env vars — plain API_URL is silently ignored.
 const getBaseUrl = () => {
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
   }
   if (__DEV__) {
+    // Android emulator reaches host loopback via 10.0.2.2
+    // iOS Simulator and web dev server use localhost directly
     return Platform.OS === 'android' ? 'http://10.0.2.2:10000/api/v1' : 'http://localhost:10000/api/v1';
   }
-  // Physical LAN device IP fallback for real physical phone testing + production URL fallback
-  return 'http://192.168.0.103:10000/api/v1';
+  return PROD_API_URL;
 };
 
 export const apiClient = axios.create({

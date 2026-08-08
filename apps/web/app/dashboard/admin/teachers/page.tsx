@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, CardContent, Table, TableHeader, TableBody, TableHead, TableRow, TableCell, Button, Input, Badge } from '@campus-connect/ui';
 import { Search, Plus, UserX, UserCheck, Award, X, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -28,7 +28,7 @@ export default function TeacherManagement() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const fetchTeachers = async () => {
+  const fetchTeachers = useCallback(async () => {
     setIsLoading(true);
     try {
       const res = await api.getTeachers({ collegeId: user?.collegeId });
@@ -40,9 +40,9 @@ export default function TeacherManagement() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.collegeId]);
 
-  const fetchDepartments = async () => {
+  const fetchDepartments = useCallback(async () => {
     try {
       const res = await api.getDepartments({ collegeId: user?.collegeId });
       if (res.success && res.data) {
@@ -52,14 +52,14 @@ export default function TeacherManagement() {
     } catch (e) {
       console.error('Failed to fetch departments:', e);
     }
-  };
+  }, [user?.collegeId]);
 
   useEffect(() => {
     if (user) {
       fetchTeachers();
       fetchDepartments();
     }
-  }, [user]);
+  }, [user, fetchTeachers, fetchDepartments]);
 
   const handleCreateTeacher = async (e: React.FormEvent) => {
     e.preventDefault();

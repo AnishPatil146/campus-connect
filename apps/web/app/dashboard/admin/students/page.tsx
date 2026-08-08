@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { 
   Table, 
@@ -98,7 +98,7 @@ export default function StudentsDirectory() {
   const [isPromoting, setIsPromoting] = useState(false);
 
   // Fetch students function
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async () => {
     setIsLoading(true);
     setErrorMessage(null);
     try {
@@ -118,11 +118,11 @@ export default function StudentsDirectory() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [search, collegeFilter, deptFilter, courseFilter, semFilter, divFilter, statusFilter]);
 
   useEffect(() => {
     fetchStudents();
-  }, [search, collegeFilter, deptFilter, courseFilter, semFilter, divFilter, statusFilter]);
+  }, [fetchStudents]);
 
   // Handle Add Student modal trigger
   const handleOpenAdd = () => {

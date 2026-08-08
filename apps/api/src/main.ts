@@ -30,7 +30,9 @@ async function bootstrap() {
   const defaultAllowedOrigins = [
     'http://localhost:3000',
     'http://localhost:3001',
+    'http://localhost:10000',
     'https://campus-connect.vercel.app',
+    'https://campus-connect-web-tau.vercel.app',  // Production frontend
   ];
   app.enableCors({
     origin: (origin, callback) => {

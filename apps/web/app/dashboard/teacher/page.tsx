@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '../../../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@campus-connect/ui';
 import { useAuth } from '../../../components/AuthProvider';
@@ -76,7 +76,7 @@ export default function TeacherDashboard() {
   const [isTasksLoading, setIsTasksLoading] = useState(true);
 
   // Load Dashboard Stats & Today Classes
-  const fetchDashboardStats = async () => {
+  const fetchDashboardStats = useCallback(async () => {
     const res = await api.getTeacherDashboard();
     if (res.success && res.data) {
       setStats({
@@ -88,10 +88,10 @@ export default function TeacherDashboard() {
       });
       setTodayClasses(res.data.todayClasses || []);
     }
-  };
+  }, []);
 
   // Load Students in Active Division
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async () => {
     if (!activeSubject?.division?.id) return;
     setIsStudentsLoading(true);
     const res = await api.getStudents({ divisionId: activeSubject.division.id });
@@ -102,10 +102,10 @@ export default function TeacherDashboard() {
       }
     }
     setIsStudentsLoading(false);
-  };
+  }, [activeSubject?.division?.id]);
 
   // Load Assignments for active Subject
-  const fetchAssignments = async () => {
+  const fetchAssignments = useCallback(async () => {
     if (!activeSubject?.subject?.id) return;
     const res = await api.getAssignments({
       subjectId: activeSubject.subject.id,
@@ -119,10 +119,10 @@ export default function TeacherDashboard() {
         setSelectedAssignmentId('');
       }
     }
-  };
+  }, [activeSubject?.subject?.id, activeSubject?.division?.id]);
 
   // Load Submissions for selected Assignment
-  const fetchSubmissions = async () => {
+  const fetchSubmissions = useCallback(async () => {
     if (!selectedAssignmentId) {
       setSubmissions([]);
       return;
@@ -131,10 +131,10 @@ export default function TeacherDashboard() {
     if (res.success && res.data) {
       setSubmissions(res.data.submissions || []);
     }
-  };
+  }, [selectedAssignmentId]);
 
   // Load Admin-assigned tasks
-  const fetchAssignedTasks = async () => {
+  const fetchAssignedTasks = useCallback(async () => {
     setIsTasksLoading(true);
     try {
       const resp = await api.getAssignedTasks();
@@ -144,9 +144,9 @@ export default function TeacherDashboard() {
     } finally {
       setIsTasksLoading(false);
     }
-  };
+  }, []);
 
-  const fetchActivityLogs = async () => {
+  const fetchActivityLogs = useCallback(async () => {
     setIsLogsLoading(true);
     try {
       const res = await api.getAuditLogs();
@@ -162,7 +162,7 @@ export default function TeacherDashboard() {
     } finally {
       setIsLogsLoading(false);
     }
-  };
+  }, [user?.name]);
 
   // Toggle checklist status
   const handleToggleTask = async (task: TaskRecord) => {
@@ -293,7 +293,7 @@ export default function TeacherDashboard() {
         setTimeout(() => stopLoading(), 400);
       });
     }
-  }, [user]);
+  }, [user, fetchDashboardStats, fetchAssignedTasks, fetchActivityLogs, startLoading, stopLoading]);
 
   // Load students/assignments when subject changes
   useEffect(() => {
@@ -301,12 +301,12 @@ export default function TeacherDashboard() {
       fetchStudents();
       fetchAssignments();
     }
-  }, [activeSubjectIndex, user]);
+  }, [activeSubjectIndex, user, activeSubject, fetchStudents, fetchAssignments]);
 
   // Load submissions when active assignment changes
   useEffect(() => {
     fetchSubmissions();
-  }, [selectedAssignmentId]);
+  }, [fetchSubmissions]);
 
   // Real-time socket events setup & 30s fallback poll
   useEffect(() => {
@@ -352,7 +352,7 @@ export default function TeacherDashboard() {
     return () => {
       clearInterval(fallbackPollTimer);
     };
-  }, [socket]);
+  }, [socket, fetchDashboardStats]);
 
   // Filter Tasks counts
   const pendingTasks = assignedTasks.filter(t => t.status === 'PENDING');

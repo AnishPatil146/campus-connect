@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, Badge, Tabs, TabsList, TabsTrigger, TabsContent } from '@campus-connect/ui';
 import { Clock, MapPin, User, BookOpen } from 'lucide-react';
@@ -27,7 +27,7 @@ export default function TimetablePage() {
     }
   }, [user]);
 
-  const loadTimetable = async () => {
+  const loadTimetable = useCallback(async () => {
     setLoading(true);
     try {
       const list = await api.getTimetable(selectedCourse, selectedDivision);
@@ -37,12 +37,11 @@ export default function TimetablePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedCourse, selectedDivision]);
 
   useEffect(() => {
     loadTimetable();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, selectedCourse, selectedDivision]);
+  }, [user, loadTimetable]);
 
   useEffect(() => {
     if (!socket) return;
@@ -53,7 +52,7 @@ export default function TimetablePage() {
     return () => {
       socket.off('TIMETABLE_UPDATED', handleTimetableUpdate);
     };
-  }, [socket]);
+  }, [socket, loadTimetable]);
 
   const days = [
     { value: 'monday', label: 'Mon' },

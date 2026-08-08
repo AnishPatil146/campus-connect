@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@campus-connect/ui';
 import { useAuth } from '../../../../components/AuthProvider';
@@ -44,7 +44,7 @@ export default function TeacherNotesPage() {
   const subjectsTaught = userSubjects.length > 0 ? userSubjects : fallbackSubjects;
   const activeSubject = subjectsTaught[selectedSubjectIdx] || subjectsTaught[0];
 
-  const fetchNotes = async () => {
+  const fetchNotes = useCallback(async () => {
     if (!user?.teacherProfile?.id) return;
     setIsLoading(true);
     try {
@@ -57,13 +57,13 @@ export default function TeacherNotesPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.teacherProfile?.id]);
 
   useEffect(() => {
     if (user) {
       fetchNotes();
     }
-  }, [user]);
+  }, [user, fetchNotes]);
 
   // Handle Note Deletion
   const handleDeleteNote = async (noteId: string) => {

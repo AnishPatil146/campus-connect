@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
 import { Card, Table, TableHeader, TableBody, TableHead, TableRow, TableCell, Badge } from '@campus-connect/ui';
 import { BookOpen, FileText, Download, CheckCircle, XCircle, UploadCloud, AlertCircle, Sparkles } from 'lucide-react';
@@ -37,7 +37,7 @@ export default function LearningCenter() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
       const [notesRes, deptRes] = await Promise.all([
@@ -51,13 +51,13 @@ export default function LearningCenter() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.collegeId]);
 
   useEffect(() => {
     if (user) {
       fetchData();
     }
-  }, [user]);
+  }, [user, fetchData]);
 
   const handleSimulateSyllabusUpload = async (e: React.FormEvent) => {
     e.preventDefault();
