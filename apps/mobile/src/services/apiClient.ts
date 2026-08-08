@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 
 // Production API URL — set EXPO_PUBLIC_API_URL in .env to override this for any environment.
 // For Vercel/Railway/Fly.io deployments, update this constant or set the env var in EAS secrets.
-const PROD_API_URL = 'https://campus-connect-api.onrender.com/api/v1';
+const PROD_API_URL = 'https://campus-connect-tyz7.onrender.com/api/v1';
 
 // For Android emulator vs iOS Simulator vs physical device dev connection.
 // Expo ONLY reads EXPO_PUBLIC_* prefixed env vars — plain API_URL is silently ignored.
