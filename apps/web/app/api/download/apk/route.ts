@@ -26,7 +26,9 @@ export async function GET(req: NextRequest) {
   const filePath = possiblePaths.find((p) => fs.existsSync(p));
   
   if (!filePath) {
-    return NextResponse.json({ success: false, message: `APK file (${filename}) not found on server` }, { status: 404 });
+    // Fallback: Redirect to static asset served directly by Next.js / Vercel CDN
+    const targetUrl = new URL('/downloads/CampusConnect.apk', req.url);
+    return NextResponse.redirect(targetUrl, 307);
   }
 
   const stat = fs.statSync(filePath);

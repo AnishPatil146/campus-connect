@@ -167,16 +167,14 @@ export default function Home() {
               </div>
               <div className="mt-8 flex flex-col gap-3">
                 <div className="text-xs text-slate-400 dark:text-slate-500 font-mono">Target: Play Console Distribution</div>
-                <a 
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    alert("Play Store beta track listing is currently undergoing Google verification.");
-                  }}
-                  className="w-full text-center py-2.5 text-sm font-semibold rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 transition-colors"
+                <button 
+                  type="button"
+                  disabled
+                  aria-disabled="true"
+                  className="w-full text-center py-2.5 text-sm font-semibold rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed transition-colors"
                 >
-                  View Play Store
-                </a>
+                  Play Store (Under Google Review)
+                </button>
               </div>
             </div>
 
@@ -206,14 +204,14 @@ export default function Home() {
                 <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 flex items-center gap-3">
                   <div className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center"><Smartphone size={16} /></div>
                   <div>
-                    <h4 className="font-semibold text-sm">Flutter Android Client</h4>
+                    <h4 className="font-semibold text-sm">Expo React Native Android Client</h4>
                     <p className="text-xs text-slate-400">APK & Google Play Bundle</p>
                   </div>
                 </div>
                 <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 flex items-center gap-3">
                   <div className="h-8 w-8 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center"><Smartphone size={16} /></div>
                   <div>
-                    <h4 className="font-semibold text-sm">Flutter iOS Client</h4>
+                    <h4 className="font-semibold text-sm">Expo React Native iOS Client</h4>
                     <p className="text-xs text-slate-400">App Store IPA (Future)</p>
                   </div>
                 </div>
@@ -300,7 +298,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="mt-20 border-t border-slate-200 dark:border-slate-800 py-8 px-6 text-center text-xs text-slate-400 font-mono">
-        &copy; 2026 Campus Connect. Built with Next.js, NestJS, and Flutter. All rights reserved.
+        &copy; 2026 Campus Connect. Built with Next.js, NestJS, and Expo React Native. All rights reserved.
       </footer>
     </div>
   );

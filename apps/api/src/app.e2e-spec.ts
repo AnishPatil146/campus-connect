@@ -35,6 +35,8 @@ describe('Auth API (e2e)', () => {
   const mockPrisma = {
     user: {
       findUnique: jest.fn(),
+      findFirst: jest.fn().mockResolvedValue(null),
+      findMany: jest.fn().mockResolvedValue([]),
       update: jest.fn().mockResolvedValue({}),
     },
     loginHistory: { create: jest.fn().mockResolvedValue({}) },
@@ -115,6 +117,12 @@ describe('Auth API (e2e)', () => {
     mockPrisma.refreshToken.update.mockResolvedValue({});
     mockAudit.log.mockResolvedValue(undefined);
     mockRedis.setSession.mockResolvedValue(undefined);
+    mockRedis.deleteSession.mockResolvedValue(undefined);
+    mockRedis.get.mockResolvedValue(undefined);
+    mockRedis.ping.mockResolvedValue({ status: 'UP', latencyMs: 1 });
+    mockRedis.incrementAndGet.mockReset().mockResolvedValue(1);
+    mockPrisma.user.findUnique.mockResolvedValue(activeUser);
+    mockPrisma.user.findFirst.mockResolvedValue(null);
     mockPrisma.student.findUnique.mockResolvedValue({ id: 'student-uuid', userId: 'user-uuid' });
     mockPrisma.teacher.findUnique.mockResolvedValue({ id: 'teacher-uuid', userId: 'user-uuid' });
   });
@@ -165,6 +173,7 @@ describe('Auth API (e2e)', () => {
 
     it('AUTH_NEG_002: should return 401 for non-existent email', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.user.findFirst.mockResolvedValue(null);
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
@@ -208,11 +217,14 @@ describe('Auth API (e2e)', () => {
       expect(response.body.success).toBe(false);
     });
 
-    it('AUTH_NEG_006: should return 400 for invalid email format', async () => {
+    it('AUTH_NEG_006: should return 401 for non-existent identifier format', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.user.findFirst.mockResolvedValue(null);
+
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
         .send({ email: 'not-an-email', password: 'Password@123' })
-        .expect(400);
+        .expect(401);
 
       expect(response.body.success).toBe(false);
     });
@@ -284,7 +296,7 @@ describe('Auth API (e2e)', () => {
     });
 
     it('should reject requests on role-specific rate limits', async () => {
-      mockRedis.incrementAndGet.mockResolvedValue(10); // Exceeds threshold
+      mockRedis.incrementAndGet.mockResolvedValueOnce(10).mockResolvedValueOnce(10); // Exceeds threshold for email & ip
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/login')

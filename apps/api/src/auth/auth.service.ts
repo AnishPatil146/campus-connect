@@ -40,6 +40,9 @@ export class AuthService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
+    if (process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID) {
+      return;
+    }
     // Run pre-warming in the background after a short delay to let the server start and prisma warm up
     setTimeout(() => {
       this.preWarmTestCache().catch(err => console.error('[AuthService] Pre-warm failed:', err));

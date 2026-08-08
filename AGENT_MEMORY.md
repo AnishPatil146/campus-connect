@@ -45,7 +45,7 @@ to confirm the login screen loads correctly.
 - Ran `pnpm install --frozen-lockfile` — PASSED with 0 lockfile changes.
 
 ### 2. Cause Analysis & Verification (Steps 3A & 3B)
-- **API URL Configuration**: Confirmed `apiClient.ts` and `socketService.ts` read `EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_SOCKET_URL`. In production (`__DEV__ === false`), fallback URLs point to HTTPS `https://api.campusconnect.com/api/v1` and `https://api.campusconnect.com/events`. `eas.json` production profile specifies both variables.
+- **API URL Configuration**: Confirmed `apiClient.ts` and `socketService.ts` read `EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_SOCKET_URL`. In production (`__DEV__ === false`), fallback URLs point to HTTPS API base URL. `eas.json` production profile specifies both variables.
 - **Firebase Dependency**: Confirmed zero references/imports to `firebase` or `initializeApp` anywhere under `apps/mobile/src`.
 
 ### 3. Bundle Inspection & APK Root Cause (Step 3C & 4)

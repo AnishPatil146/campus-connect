@@ -99,7 +99,7 @@ export default function DownloadAppPage() {
             </a>
 
             <a
-              href="/downloads/CampusConnect-debug.apk"
+              href="/downloads/CampusConnect.apk"
               download="CampusConnect-debug.apk"
               className="w-full sm:w-auto min-h-[44px] px-6 py-3.5 text-sm font-bold rounded-2xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 active:scale-[0.98] text-slate-800 dark:text-slate-200 shadow-md transition-all duration-200 flex items-center justify-center gap-2 shrink-0 touch-manipulation border border-slate-300 dark:border-slate-700"
               title="Download uncompressed 109.9 MB developer debug APK"
@@ -157,7 +157,7 @@ export default function DownloadAppPage() {
             <div>
               <p className="font-bold text-slate-900 dark:text-white">Verified Production Signing</p>
               <p className="text-slate-500 dark:text-slate-400 mt-0.5">
-                This APK is signed with production release keys and connects directly to the official Campus Connect backend API (`https://api.campusconnect.com`).
+                This APK is signed with production release keys and connects directly to the official Campus Connect NestJS backend API.
               </p>
             </div>
           </div>

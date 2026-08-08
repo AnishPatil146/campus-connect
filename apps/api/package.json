@@ -11,7 +11,7 @@
     "prisma:generate": "node prisma/merge-schemas.js && prisma generate --schema=prisma/schema_merged.prisma",
     "prisma:seed": "ts-node prisma/seed.ts",
     "prisma:setup-multi-db": "ts-node prisma/setup-multi-db.ts",
-    "test": "jest",
+    "test": "jest --runInBand",
     "test:cov": "jest --coverage"
   },
   "dependencies": {

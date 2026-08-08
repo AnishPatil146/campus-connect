@@ -9,6 +9,9 @@ import { RedisService } from './redis.service';
   imports: [
     CacheModule.registerAsync({
       useFactory: async () => {
+        if (process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID) {
+          return { store: {} };
+        }
         const isProduction = process.env.NODE_ENV === 'production';
         let client: Redis;
         const commonOptions = {

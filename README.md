@@ -11,7 +11,7 @@ campus-connect/
 ├── apps/
 │   ├── web/          # Next.js Website & Admin Portal
 │   ├── api/          # NestJS Backend API
-│   └── mobile/       # Flutter Mobile Application
+│   └── mobile/       # Expo React Native Mobile Application
 │
 ├── packages/
 │   ├── ui/           # Shared React UI Component Library
@@ -43,32 +43,22 @@ campus-connect/
    pnpm lint
    ```
 
-## Mobile Application (Flutter)
+## Mobile Application (Expo React Native)
 
 Inside the `apps/mobile` directory:
 
-1. **Install dependencies**:
+1. **Start dev server**:
    ```bash
-   flutter pub get
+   pnpm --filter @campus-connect/mobile start
    ```
 
-2. **Analyze code**:
+2. **Typecheck & lint**:
    ```bash
-   flutter analyze
+   pnpm --filter @campus-connect/mobile lint
    ```
 
-3. **Run unit & widget tests**:
+3. **Generate Android APK / App Bundle**:
    ```bash
-   flutter test
-   ```
-
-4. **Generate standalone Release APK**:
-   ```bash
-   flutter build apk --release
-   ```
-
-5. **Generate Google Play App Bundle (AAB)**:
-   ```bash
-   flutter build appbundle --release
+   eas build --platform android --profile production
    ```
 
