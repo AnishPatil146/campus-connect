@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button, Input, Card, CardContent, CardHeader, CardTitle } from '@campus-connect/ui';
-import { ShieldCheck, ArrowRight, ArrowLeft, CheckCircle2, Building2, User, BookOpen, KeyRound, AlertCircle } from 'lucide-react';
 
 export default function SignupWizardPage() {
   const router = useRouter();
