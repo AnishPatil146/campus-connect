@@ -14,6 +14,7 @@
     "lint": "turbo lint",
     "clean": "turbo clean",
     "test": "turbo test",
+    "postinstall": "pnpm --filter @campus-connect/api prisma:generate",
     "start": "pnpm --filter @campus-connect/api run start:prod"
   },
   "devDependencies": {
