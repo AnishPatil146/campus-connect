@@ -46,7 +46,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   async onModuleInit() {
-    if (process.env.SINGLE_DB_MODE === 'true' || !process.env.MULTI_DB_ENABLED) {
+    if (process.env.SINGLE_DB_MODE === 'true' || !process.env.MULTI_DB_ENABLED || process.env.MULTI_DB_ENABLED === 'false') {
       console.log('🚀 Prisma running in Single Database Mode (connecting in background).');
       this.$connect()
         .then(() => {
@@ -125,7 +125,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   public getClient(): PrismaClient {
-    if (process.env.SINGLE_DB_MODE === 'true' || !process.env.MULTI_DB_ENABLED) {
+    if (process.env.SINGLE_DB_MODE === 'true' || !process.env.MULTI_DB_ENABLED || process.env.MULTI_DB_ENABLED === 'false') {
       return this;
     }
     const store = collegeStorage.getStore();

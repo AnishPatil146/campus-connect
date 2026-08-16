@@ -34,8 +34,10 @@ export class StudentsController {
   ) {
     const user = req.user;
     
-    // Restrict College Admin to their own college
-    const scopedCollegeId = user.role === Role.ADMIN ? user.collegeId : collegeId;
+    // Restrict College Admin and Teachers to their own college
+    const scopedCollegeId = (user.role === Role.ADMIN || user.role === Role.TEACHER)
+      ? user.collegeId
+      : collegeId;
 
     const data = await this.studentsService.findAll(scopedCollegeId, {
       search,
