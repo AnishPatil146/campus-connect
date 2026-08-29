@@ -42,8 +42,27 @@ function getDatabaseUrl(collegeId: string): string {
 }
 
 async function createDatabaseIfNotExists(dbName: string) {
-  // Since we are using production/explicit environment database URLs, the database is already created.
-  console.log(`ℹ️ Skipping CREATE DATABASE for ${dbName} (explicit DB url is configured in environment).`);
+  const masterUrl = process.env.DATABASE_URL || 'postgresql://postgres:postgrespassword@localhost:5444/postgres';
+  try {
+    const parsed = new URL(masterUrl);
+    parsed.pathname = '/postgres';
+    const prisma = new PrismaClient({
+      datasources: { db: { url: parsed.toString() } },
+    });
+    await prisma.$connect();
+    const result: any[] = await prisma.$queryRawUnsafe(
+      `SELECT 1 FROM pg_database WHERE datname = '${dbName}'`
+    );
+    if (result.length === 0) {
+      await prisma.$executeRawUnsafe(`CREATE DATABASE "${dbName}"`);
+      console.log(`✅ Created database ${dbName}`);
+    } else {
+      console.log(`ℹ️ Database ${dbName} already exists.`);
+    }
+    await prisma.$disconnect();
+  } catch (err: any) {
+    console.warn(`ℹ️ Notice for database '${dbName}': ${err.message}`);
+  }
 }
 
 async function seedCollegeDatabase(collegeId: string, url: string) {

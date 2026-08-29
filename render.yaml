@@ -14,13 +14,13 @@ services:
       - key: PORT
         value: 10000
       - key: DATABASE_URL
-        value: postgresql://campus_connect_db_4xcn_user:V2hr1mK076GDtVis4s8PrFNsBF9qVCi7@dpg-d987qt28qa3s73f1nmlg-a.oregon-postgres.render.com/campus_connect_db_4xcn
+        value: postgresql://neondb_owner:npg_CqAk4MXOsy5v@ep-quiet-bonus-au6m8rwv.c-10.us-east-1.aws.neon.tech/neondb?sslmode=require&connect_timeout=15
       - key: COLLEGE_A_DATABASE_URL
-        value: postgresql://campusconnectcollegea_user:fSaE69qLr0Tf8HOLOLYcfGF4tfB93JOt@dpg-d99lg0naqgkc738cauag-a.oregon-postgres.render.com/campusconnectcollegea
+        value: postgresql://neondb_owner:npg_CqAk4MXOsy5v@ep-quiet-bonus-au6m8rwv.c-10.us-east-1.aws.neon.tech/campus_connect_db_a?sslmode=require&connect_timeout=15
       - key: COLLEGE_B_DATABASE_URL
-        value: postgresql://cumpass_database_b_user:6R0FF68t8ImrvgucZ46UQfMlofqirGJc@dpg-d99li8beo5us738mgtkg-a.oregon-postgres.render.com/cumpass_database_b
+        value: postgresql://neondb_owner:npg_CqAk4MXOsy5v@ep-quiet-bonus-au6m8rwv.c-10.us-east-1.aws.neon.tech/campus_connect_db_b?sslmode=require&connect_timeout=15
       - key: COLLEGE_C_DATABASE_URL
-        value: postgresql://campus_database_c_user:lhoF66ubFkR77CAYEHuvoV6FdQDjcCeD@dpg-d99ljprtqb8s73ap27m0-a.oregon-postgres.render.com/campus_database_c
+        value: postgresql://neondb_owner:npg_CqAk4MXOsy5v@ep-quiet-bonus-au6m8rwv.c-10.us-east-1.aws.neon.tech/campus_connect_db_c?sslmode=require&connect_timeout=15
       - key: JWT_SECRET
         value: super-secret-jwt-key-for-campus-connect
       - key: REDIS_URL
