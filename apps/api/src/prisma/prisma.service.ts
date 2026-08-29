@@ -16,7 +16,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       },
     });
     // Return a Proxy of the PrismaService instance so that accesses to models 
-    // and administrative operations are dynamically routed to the active client.
+    // and administrative operations are dynamically routed to the active client with auto-reconnect resilience.
     return new Proxy(this, {
       get: (target, prop) => {
         const selfKeys = [
@@ -26,7 +26,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           'defaultUrl', 
           'getDatabaseUrl', 
           'getClient',
-          'getEnvCaseInsensitive'
+          'getEnvCaseInsensitive',
+          'createClientInstance',
+          'resetClient'
         ];
         
         // If the property is a wrapper-specific method or field, return it directly.
@@ -38,8 +40,50 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         const client = target.getClient();
         const value = (client as any)[prop];
         if (typeof value === 'function') {
-          return value.bind(client);
+          return async (...args: any[]) => {
+            try {
+              return await value.apply(client, args);
+            } catch (err: any) {
+              if (target.isConnectionClosedError(err)) {
+                console.warn(`[PrismaService] Connection closed during operation '${String(prop)}', reconnecting and retrying...`);
+                const refreshedClient = target.resetClient();
+                const refreshedFn = (refreshedClient as any)[prop];
+                if (typeof refreshedFn === 'function') {
+                  return await refreshedFn.apply(refreshedClient, args);
+                }
+              }
+              throw err;
+            }
+          };
         }
+
+        // If the property is a model delegate (e.g. prisma.user, prisma.student), wrap its methods
+        if (value && typeof value === 'object') {
+          return new Proxy(value, {
+            get: (modelTarget, modelProp) => {
+              const originalMethod = modelTarget[modelProp];
+              if (typeof originalMethod === 'function') {
+                return async (...args: any[]) => {
+                  try {
+                    return await originalMethod.apply(modelTarget, args);
+                  } catch (err: any) {
+                    if (target.isConnectionClosedError(err)) {
+                      console.warn(`[PrismaService] Connection closed during model query '${String(prop)}.${String(modelProp)}', reconnecting and retrying...`);
+                      const refreshedClient = target.resetClient();
+                      const refreshedModel = (refreshedClient as any)[prop];
+                      if (refreshedModel && typeof refreshedModel[modelProp] === 'function') {
+                        return await refreshedModel[modelProp].apply(refreshedModel, args);
+                      }
+                    }
+                    throw err;
+                  }
+                };
+              }
+              return originalMethod;
+            }
+          });
+        }
+
         return value;
       },
     });
@@ -124,6 +168,50 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     return undefined;
   }
 
+  public isConnectionClosedError(err: any): boolean {
+    if (!err || !err.message) return false;
+    const msg = err.message.toLowerCase();
+    return (
+      msg.includes('server has closed the connection') ||
+      msg.includes('connection closed') ||
+      msg.includes('connection terminated') ||
+      msg.includes('can\'t reach database server') ||
+      msg.includes('closed the connection') ||
+      msg.includes('socket has been ended') ||
+      msg.includes('econnreset') ||
+      msg.includes('epipe')
+    );
+  }
+
+  public createClientInstance(collegeId: string): PrismaClient {
+    const url = this.getDatabaseUrl(collegeId);
+    return new PrismaClient({
+      datasources: {
+        db: {
+          url,
+        },
+      },
+    });
+  }
+
+  public resetClient(): PrismaClient {
+    if (process.env.SINGLE_DB_MODE === 'true' || !process.env.MULTI_DB_ENABLED || process.env.MULTI_DB_ENABLED === 'false') {
+      this.$disconnect().catch(() => {});
+      this.$connect().catch(() => {});
+      return this;
+    }
+    const store = collegeStorage.getStore();
+    const collegeId = store?.collegeId || 'college-a';
+    const oldClient = this.clients.get(collegeId);
+    if (oldClient) {
+      oldClient.$disconnect().catch(() => {});
+      this.clients.delete(collegeId);
+    }
+    const newClient = this.createClientInstance(collegeId);
+    this.clients.set(collegeId, newClient);
+    return newClient;
+  }
+
   public getClient(): PrismaClient {
     if (process.env.SINGLE_DB_MODE === 'true' || !process.env.MULTI_DB_ENABLED || process.env.MULTI_DB_ENABLED === 'false') {
       return this;
@@ -132,14 +220,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     const collegeId = store?.collegeId || 'college-a';
     let client = this.clients.get(collegeId);
     if (!client) {
-      const url = this.getDatabaseUrl(collegeId);
-      client = new PrismaClient({
-        datasources: {
-          db: {
-            url,
-          },
-        },
-      });
+      client = this.createClientInstance(collegeId);
       this.clients.set(collegeId, client);
     }
     return client;
