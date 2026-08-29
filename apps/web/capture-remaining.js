@@ -57,7 +57,6 @@ const SCREENS = [
   { category: '01_public', filename: '05_teacher_login.png', path: '/teacher/login', role: null },
   { category: '01_public', filename: '06_admin_login.png', path: '/admin/login', role: null },
   { category: '01_public', filename: '07_app_download.png', path: '/download', role: null },
-  { category: '01_public', filename: '08_public_timetable.png', path: '/timetable', role: null },
   { category: '01_public', filename: '09_privacy_policy.png', path: '/privacy', role: null },
 
   // --- 02. STUDENT PORTAL ---
@@ -132,24 +131,32 @@ async function captureScreen(page, screen) {
   }
 
   // Navigate to target route
-  await page.goto(`http://localhost:3001${screen.path}`, {
-    waitUntil: 'domcontentloaded',
-    timeout: 30000
-  });
+  try {
+    await page.goto(`http://localhost:3001${screen.path}`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 15000
+    });
+  } catch (navErr) {
+    // If redirect happened, continue
+  }
 
   // Brief delay to allow React hooks and animations to settle
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(1500);
 
   // Capture screenshot without font-lock hanging
-  await page.screenshot({
-    path: docsOutPath,
-    fullPage: false,
-    animations: 'disabled',
-    timeout: 10000
-  });
+  try {
+    await page.screenshot({
+      path: docsOutPath,
+      fullPage: false,
+      animations: 'disabled',
+      timeout: 8000
+    });
 
-  fs.copyFileSync(docsOutPath, artifactCatPath);
-  fs.copyFileSync(docsOutPath, artifactFlatPath);
+    fs.copyFileSync(docsOutPath, artifactCatPath);
+    fs.copyFileSync(docsOutPath, artifactFlatPath);
+  } catch (ssErr) {
+    console.warn(`   Screenshot warning for ${screen.filename}: ${ssErr.message}`);
+  }
 }
 
 async function captureAllRemainingScreens() {
