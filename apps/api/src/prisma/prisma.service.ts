@@ -7,18 +7,20 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   private readonly logger = new Logger(PrismaService.name);
   private clients = new Map<string, PrismaClient>();
   private singleClient: PrismaClient | null = null;
-  private defaultUrl =
-    process.env.DATABASE_URL ||
-    process.env.MASTER_DATABASE_URL ||
-    process.env.DATABASE_MASTER_URL ||
+
+  public static readonly MASTER_NEON_URL =
     'postgresql://neondb_owner:npg_Lth9w8nWeZlg@ep-delicate-fog-aebcogwo.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&connect_timeout=30';
 
+  private defaultUrl: string;
+
   constructor() {
-    const activeUrl =
+    const rawUrl =
       process.env.DATABASE_URL ||
       process.env.MASTER_DATABASE_URL ||
       process.env.DATABASE_MASTER_URL ||
-      'postgresql://neondb_owner:npg_Lth9w8nWeZlg@ep-delicate-fog-aebcogwo.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&connect_timeout=30';
+      PrismaService.MASTER_NEON_URL;
+
+    const activeUrl = PrismaService.sanitizeUrl(rawUrl);
 
     super({
       datasources: {
@@ -27,6 +29,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         },
       },
     });
+
+    this.defaultUrl = activeUrl;
 
     // Return a dynamic Proxy so that every model operation has built-in auto-reconnect & retry resilience
     return new Proxy(this, {
@@ -45,6 +49,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           'resetClient',
           'isConnectionClosedError',
           'executeWithRetry',
+          'sanitizeUrl',
         ];
 
         // Direct method access for wrapper-specific members
@@ -98,6 +103,55 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   /**
+   * Sanitizes database connection strings by eliminating channel_binding and broken poolers
+   * that cause "Server has closed the connection" on Neon PostgreSQL.
+   */
+  public static sanitizeUrl(rawUrl?: string): string {
+    if (!rawUrl || rawUrl.trim() === '') {
+      return PrismaService.MASTER_NEON_URL;
+    }
+
+    let url = rawUrl.trim();
+
+    // Preserve local PostgreSQL during tests and local Docker
+    if (url.includes('localhost') || url.includes('127.0.0.1')) {
+      return url;
+    }
+
+    // If URL points to old deleted Neon hosts or old Render PostgreSQL databases, route to active Neon
+    if (
+      url.includes('ep-quiet-bonus') ||
+      url.includes('ep-gentle-water') ||
+      url.includes('dpg-') ||
+      url.includes('oregon-postgres.render.com') ||
+      url.includes('frankfurt-postgres.render.com')
+    ) {
+      return PrismaService.MASTER_NEON_URL;
+    }
+
+    // Remove channel_binding=require which causes socket drop in Prisma's Rust TLS engine
+    url = url.replace(/([?&])channel_binding=[^&]*(&|$)/g, '$1');
+
+    // Remove -pooler suffix from Neon host to ensure direct rock-solid TCP connection
+    if (url.includes('-pooler') && !url.includes('pgbouncer=true')) {
+      url = url.replace('-pooler', '');
+    }
+
+    // Clean up dangling & or ?
+    url = url.replace(/[?&]+$/, '');
+
+    // Ensure sslmode=require and connection timeouts
+    if (!url.includes('sslmode=')) {
+      url += (url.includes('?') ? '&' : '?') + 'sslmode=require';
+    }
+    if (!url.includes('connect_timeout=')) {
+      url += '&connect_timeout=30';
+    }
+
+    return url;
+  }
+
+  /**
    * Automatically retries an operation up to 3 times if a transient connection closure occurs
    */
   public async executeWithRetry<T>(operation: (client: PrismaClient) => Promise<T>): Promise<T> {
@@ -111,9 +165,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       } catch (err: any) {
         lastError = err;
         if (this.isConnectionClosedError(err) && attempt < maxRetries) {
-          const delayMs = attempt * 200;
+          const delayMs = attempt * 250;
           this.logger.warn(
-            `[PrismaService] Transient DB connection error detected (attempt ${attempt}/${maxRetries}): ${err.message || err}. Reconnecting in ${delayMs}ms...`
+            `[PrismaService] DB connection closed (attempt ${attempt}/${maxRetries}): ${err.message || err}. Reconnecting in ${delayMs}ms...`
           );
           await this.resetClient();
           await new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -143,7 +197,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       return;
     }
 
-    // Pre-warm the connections for all colleges in multi-tenant mode
+    // Pre-warm connections for all colleges in multi-tenant mode
     const colleges = ['college-a', 'college-b', 'college-c'];
     Promise.all(
       colleges.map(async (collegeId) => {
@@ -184,11 +238,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     for (const key of keys) {
       const url = this.getEnvCaseInsensitive(key);
       if (url) {
-        return url;
+        return PrismaService.sanitizeUrl(url);
       }
     }
 
-    // Fallback to defaultUrl
     return this.defaultUrl;
   }
 
@@ -228,7 +281,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     return new PrismaClient({
       datasources: {
         db: {
-          url,
+          url: PrismaService.sanitizeUrl(url),
         },
       },
     });
