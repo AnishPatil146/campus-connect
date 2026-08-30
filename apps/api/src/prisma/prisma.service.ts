@@ -5,13 +5,13 @@ import { collegeStorage } from '../common/college-storage';
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   private clients = new Map<string, PrismaClient>();
-  private defaultUrl = process.env.DATABASE_URL || process.env.MASTER_DATABASE_URL || process.env.DATABASE_MASTER_URL || 'postgresql://postgres:postgrespassword@localhost:5444/campus-connect?schema=public';
+  private defaultUrl = process.env.DATABASE_URL || process.env.MASTER_DATABASE_URL || process.env.DATABASE_MASTER_URL || 'postgresql://neondb_owner:npg_Lth9w8nWeZlg@ep-delicate-fog-aebcogwo-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
 
   constructor() {
     super({
       datasources: {
         db: {
-          url: process.env.DATABASE_URL || process.env.MASTER_DATABASE_URL || process.env.DATABASE_MASTER_URL || 'postgresql://postgres:postgrespassword@localhost:5444/campus-connect?schema=public',
+          url: process.env.DATABASE_URL || process.env.MASTER_DATABASE_URL || process.env.DATABASE_MASTER_URL || 'postgresql://neondb_owner:npg_Lth9w8nWeZlg@ep-delicate-fog-aebcogwo-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require',
         },
       },
     });
