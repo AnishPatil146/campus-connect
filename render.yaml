@@ -14,19 +14,17 @@ services:
       - key: PORT
         value: 10000
       - key: DATABASE_URL
-        value: postgresql://neondb_owner:npg_CqAk4MXOsy5v@ep-quiet-bonus-au6m8rwv.c-10.us-east-1.aws.neon.tech/neondb?sslmode=require&connect_timeout=15
-      - key: COLLEGE_A_DATABASE_URL
-        value: postgresql://neondb_owner:npg_CqAk4MXOsy5v@ep-quiet-bonus-au6m8rwv.c-10.us-east-1.aws.neon.tech/campus_connect_db_a?sslmode=require&connect_timeout=15
-      - key: COLLEGE_B_DATABASE_URL
-        value: postgresql://neondb_owner:npg_CqAk4MXOsy5v@ep-quiet-bonus-au6m8rwv.c-10.us-east-1.aws.neon.tech/campus_connect_db_b?sslmode=require&connect_timeout=15
-      - key: COLLEGE_C_DATABASE_URL
-        value: postgresql://neondb_owner:npg_CqAk4MXOsy5v@ep-quiet-bonus-au6m8rwv.c-10.us-east-1.aws.neon.tech/campus_connect_db_c?sslmode=require&connect_timeout=15
+        value: postgresql://neondb_owner:npg_Lth9w8nWeZlg@ep-delicate-fog-aebcogwo.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&connect_timeout=30
+      - key: MULTI_DB_ENABLED
+        value: "false"
+      - key: SINGLE_DB_MODE
+        value: "true"
+      - key: ALLOWED_ADMIN_EMAILS
+        value: anish@college.edu,teacher@college.edu,admin@collegea.edu,admin@collegeb.edu,super@campusconnect.com
       - key: JWT_SECRET
         value: super-secret-jwt-key-for-campus-connect
       - key: REDIS_URL
         value: rediss://default:gQAAAAAAAXpJAAIgcDEzMDU0ZmY1NWEwZjc0ODdhYWJmMWI2NGY2YmU1NDE5OA@on-owl-96841.upstash.io:6379
-      - key: MULTI_DB_ENABLED
-        value: true
       - key: CLOUDINARY_CLOUD_NAME
         value: poqayuww
       - key: CLOUDINARY_API_KEY
@@ -36,6 +34,12 @@ services:
       - key: CLOUDINARY_URL
         value: cloudinary://636825337839938:6H1RURbZ36cg028rqRz6O34XVKg@poqayuww
       - key: ENABLE_SWAGGER
-        value: true
+        value: "true"
       - key: ALLOWED_ORIGINS
         value: https://campus-connect-web-tau.vercel.app,http://localhost:3000,http://localhost:3001
+      - key: MONGODB_ENABLED
+        value: "true"
+      - key: MONGODB_URI
+        value: mongodb://campusconnect:anishsantoshpatil123@ac-g7ss8v3-shard-00-00.hjyjapj.mongodb.net:27017,ac-g7ss8v3-shard-00-01.hjyjapj.mongodb.net:27017,ac-g7ss8v3-shard-00-02.hjyjapj.mongodb.net:27017/?ssl=true&replicaSet=atlas-abo4jb-shard-0&authSource=admin&appName=Cluster0
+      - key: MONGODB_DB_NAME
+        value: campus_connect_aux
