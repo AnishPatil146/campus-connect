@@ -12,8 +12,6 @@ import { SystemTelemetry, SystemTelemetrySchema } from './schemas/system-telemet
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      retryAttempts: process.env.NODE_ENV === 'test' || process.env.MONGODB_ENABLED === 'false' ? 0 : 3,
-      retryDelay: process.env.NODE_ENV === 'test' || process.env.MONGODB_ENABLED === 'false' ? 0 : 1000,
       useFactory: async (configService: ConfigService) => {
         const isTest = process.env.NODE_ENV === 'test';
         const isEnabled = configService.get('MONGODB_ENABLED') ?? (process.env.MONGODB_ENABLED === 'true');
