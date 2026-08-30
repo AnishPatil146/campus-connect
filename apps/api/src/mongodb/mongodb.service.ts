@@ -17,6 +17,7 @@ export class MongoDbService implements OnModuleInit {
   ) {}
 
   onModuleInit() {
+    if (!this.connection || typeof this.connection.on !== 'function') return;
     this.connection.on('connected', () => {
       this.logger.log('🍃 MongoDB connected successfully.');
     });

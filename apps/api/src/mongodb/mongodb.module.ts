@@ -12,6 +12,8 @@ import { SystemTelemetry, SystemTelemetrySchema } from './schemas/system-telemet
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
+      retryAttempts: process.env.NODE_ENV === 'test' || process.env.MONGODB_ENABLED === 'false' ? 0 : 3,
+      retryDelay: process.env.NODE_ENV === 'test' || process.env.MONGODB_ENABLED === 'false' ? 0 : 1000,
       useFactory: async (configService: ConfigService) => {
         const isTest = process.env.NODE_ENV === 'test';
         const isEnabled = configService.get('MONGODB_ENABLED') ?? (process.env.MONGODB_ENABLED === 'true');
@@ -32,7 +34,6 @@ import { SystemTelemetry, SystemTelemetrySchema } from './schemas/system-telemet
           );
         }
 
-        // In test mode or when disabled, use fast timeout and disable buffering to prevent hanging
         const timeoutMs = isTest || !isEnabled ? 500 : 5000;
 
         return {
@@ -40,10 +41,12 @@ import { SystemTelemetry, SystemTelemetrySchema } from './schemas/system-telemet
           dbName,
           serverSelectionTimeoutMS: timeoutMs,
           connectTimeoutMS: timeoutMs,
+          retryAttempts: isTest || !isEnabled ? 0 : 3,
+          retryDelay: isTest || !isEnabled ? 0 : 1000,
           retryWrites: true,
           w: 'majority' as const,
           autoIndex: !isTest,
-          bufferCommands: !isTest,
+          bufferCommands: false,
         };
       },
     }),
