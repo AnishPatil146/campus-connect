@@ -34,7 +34,7 @@ function getDatabaseUrl(collegeId: string): string {
   }
 
   // Fallback
-  const defaultUrl = process.env.DATABASE_URL || process.env.MASTER_DATABASE_URL || process.env.DATABASE_MASTER_URL || 'postgresql://neondb_owner:npg_Lth9w8nWeZlg@ep-delicate-fog-aebcogwo-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+  const defaultUrl = process.env.DATABASE_URL || process.env.MASTER_DATABASE_URL || process.env.DATABASE_MASTER_URL || 'postgresql://neondb_owner:npg_Lth9w8nWeZlg@ep-delicate-fog-aebcogwo.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&connect_timeout=30';
   const parsed = new URL(defaultUrl);
   const dbName = `campus_connect_${collegeId.replace(/-/g, '_')}`;
   parsed.pathname = `/${dbName}`;
@@ -42,7 +42,7 @@ function getDatabaseUrl(collegeId: string): string {
 }
 
 async function createDatabaseIfNotExists(dbName: string) {
-  const masterUrl = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_Lth9w8nWeZlg@ep-delicate-fog-aebcogwo-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+  const masterUrl = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_Lth9w8nWeZlg@ep-delicate-fog-aebcogwo.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&connect_timeout=30';
   try {
     const parsed = new URL(masterUrl);
     parsed.pathname = '/postgres';
