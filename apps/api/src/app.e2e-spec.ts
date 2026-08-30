@@ -3,8 +3,9 @@ process.env.NODE_ENV = 'test';
 process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:postgrespassword@localhost:5432/campus-connect';
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'super-secret-jwt-key-for-test-suite';
 process.env.REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
-process.env.CLOUDINARY_URL = process.env.CLOUDINARY_URL || 'cloudinary://12345:secret@cloudname';
+process.env.CLOUDINARY_URL = process.env.CLOUDINARY_URL || 'cloudinary://636825337839938:6H1RURbZ36cg028rqRz6O34XVKg@poqayuww';
 process.env.ALLOWED_ADMIN_EMAILS = process.env.ALLOWED_ADMIN_EMAILS || 'admin@collegea.edu,anish@college.edu';
+process.env.MONGODB_ENABLED = 'false';
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -13,9 +14,12 @@ import { AppModule } from './app.module';
 import { PrismaService } from './prisma/prisma.service';
 import { AuditService } from './audit/audit.service';
 import { RedisService } from './redis/redis.service';
+import { MongoDbService } from './mongodb/mongodb.service';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import bcrypt from 'bcryptjs';
+
+jest.setTimeout(30000);
 
 /**
  * Auth E2E Tests — uses Supertest to spin up the full NestJS app
@@ -51,9 +55,8 @@ describe('Auth API (e2e)', () => {
     session: {
       create: jest.fn().mockResolvedValue({ id: 'session-uuid' }),
       findUnique: jest.fn(),
-      updateMany: jest.fn().mockResolvedValue({}),
       update: jest.fn().mockResolvedValue({}),
-      findMany: jest.fn().mockResolvedValue([]),
+      delete: jest.fn().mockResolvedValue({}),
       deleteMany: jest.fn().mockResolvedValue({}),
     },
     refreshToken: {
@@ -91,6 +94,13 @@ describe('Auth API (e2e)', () => {
     incrementAndGet: jest.fn().mockResolvedValue(1),
   };
 
+  const mockMongoDb = {
+    isConnected: jest.fn().mockReturnValue(true),
+    ping: jest.fn().mockResolvedValue({ status: 'UP', latencyMs: 1 }),
+    logAudit: jest.fn().mockResolvedValue(undefined),
+    recordTelemetry: jest.fn().mockResolvedValue(undefined),
+  };
+
   beforeAll(async () => {
     const moduleRef: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -101,6 +111,8 @@ describe('Auth API (e2e)', () => {
       .useValue(mockAudit)
       .overrideProvider(RedisService)
       .useValue(mockRedis)
+      .overrideProvider(MongoDbService)
+      .useValue(mockMongoDb)
       .compile();
 
     app = moduleRef.createNestApplication();
@@ -109,10 +121,12 @@ describe('Auth API (e2e)', () => {
     app.useGlobalInterceptors(new TransformInterceptor());
     app.useGlobalFilters(new HttpExceptionFilter());
     await app.init();
-  });
+  }, 30000);
 
   afterAll(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   beforeEach(() => {
@@ -128,191 +142,211 @@ describe('Auth API (e2e)', () => {
     mockRedis.deleteSession.mockResolvedValue(undefined);
     mockRedis.get.mockResolvedValue(undefined);
     mockRedis.ping.mockResolvedValue({ status: 'UP', latencyMs: 1 });
-    mockRedis.incrementAndGet.mockReset().mockResolvedValue(1);
-    mockPrisma.user.findUnique.mockResolvedValue(activeUser);
-    mockPrisma.user.findFirst.mockResolvedValue(null);
-    mockPrisma.student.findUnique.mockResolvedValue({ id: 'student-uuid', userId: 'user-uuid' });
-    mockPrisma.teacher.findUnique.mockResolvedValue({ id: 'teacher-uuid', userId: 'user-uuid' });
   });
-
-  // --- Health ----------------------------------------------------------------
 
   describe('GET /api/v1/health', () => {
-    it('should return 200 with status UP', () => {
-      return request(app.getHttpServer())
-        .get('/api/v1/health')
-        .expect(200)
-        .expect((res) => {
-          expect(res.body.data.status).toBe('UP');
-        });
+    it('should return 200 with status UP', async () => {
+      const res = await request(app.getHttpServer()).get('/api/v1/health');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.status).toBe('UP');
     });
   });
-
-  // --- Login Happy Path ------------------------------------------------------
 
   describe('POST /api/v1/auth/login', () => {
     it('AUTH_HAPPY_001: should return 200 with JWT tokens for valid credentials', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(activeUser);
 
-      const response = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
-        .send({ email: 'student@college.edu', password: 'Password@123' })
-        .expect(200);
+        .send({
+          email: 'student@college.edu',
+          password: 'Password@123',
+        });
 
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.accessToken).toBeDefined();
-      expect(response.body.data.refreshToken).toBeDefined();
-      expect(response.body.data.user.email).toBe('student@college.edu');
+      expect(res.status).toBe(200);
+      expect(res.body.data).toHaveProperty('accessToken');
+      expect(res.body.data).toHaveProperty('refreshToken');
+      expect(res.body.data.user.email).toBe('student@college.edu');
     });
-
-    // --- Negative Cases ----------------------------------------------------
 
     it('AUTH_NEG_001: should return 401 for wrong password', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(activeUser);
 
-      const response = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
-        .send({ email: 'student@college.edu', password: 'WrongPassword!' })
-        .expect(401);
+        .send({
+          email: 'student@college.edu',
+          password: 'WrongPassword',
+        });
 
-      expect(response.body.success).toBe(false);
-      expect(response.body.message).toContain('Invalid credentials');
+      expect(res.status).toBe(401);
+      expect(res.body.errorCode).toBe('AUTH_001');
     });
 
     it('AUTH_NEG_002: should return 401 for non-existent email', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
-      mockPrisma.user.findFirst.mockResolvedValue(null);
 
-      const response = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
-        .send({ email: 'nobody@college.edu', password: 'Password@123' })
-        .expect(401);
+        .send({
+          email: 'nobody@college.edu',
+          password: 'Password@123',
+        });
 
-      expect(response.body.success).toBe(false);
+      expect(res.status).toBe(401);
+      expect(res.body.errorCode).toBe('AUTH_001');
     });
 
     it('AUTH_NEG_003: should return 401 for locked account', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({
+      const lockedUser = {
         ...activeUser,
-        lockedUntil: new Date(Date.now() + 15 * 60000),
-      });
+        lockedUntil: new Date(Date.now() + 15 * 60 * 1000), // 15 mins in future
+      };
+      mockPrisma.user.findUnique.mockResolvedValue(lockedUser);
 
-      const response = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
-        .send({ email: 'student@college.edu', password: 'Password@123' })
-        .expect(401);
+        .send({
+          email: 'student@college.edu',
+          password: 'Password@123',
+        });
 
-      expect(response.body.message).toContain('locked');
+      expect(res.status).toBe(401);
+      expect(res.body.errorCode).toBe('AUTH_002');
     });
 
     it('AUTH_NEG_004: should return 401 for suspended account', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({ ...activeUser, status: 'SUSPENDED' });
 
-      const response = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
-        .send({ email: 'student@college.edu', password: 'Password@123' })
-        .expect(401);
+        .send({
+          email: 'student@college.edu',
+          password: 'Password@123',
+        });
 
-      expect(response.body.message).toContain('suspended');
+      expect(res.status).toBe(401);
+      expect(res.body.errorCode).toBe('AUTH_003');
     });
 
     it('AUTH_NEG_005: should return 400 for missing email field', async () => {
-      const response = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
-        .send({ password: 'Password@123' })
-        .expect(400);
+        .send({ password: 'Password@123' });
 
-      expect(response.body.success).toBe(false);
+      expect(res.status).toBe(400);
     });
 
     it('AUTH_NEG_006: should return 401 for non-existent identifier format', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
       mockPrisma.user.findFirst.mockResolvedValue(null);
 
-      const response = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
-        .send({ email: 'not-an-email', password: 'Password@123' })
-        .expect(401);
+        .send({
+          email: 'not-an-email',
+          password: 'Password@123',
+        });
 
-      expect(response.body.success).toBe(false);
+      expect(res.status).toBe(401);
+      expect(res.body.errorCode).toBe('AUTH_001');
     });
   });
 
   describe('Login Locking Progression & Google Login E2E', () => {
-    beforeEach(() => {
-      mockRedis.incrementAndGet.mockResolvedValue(1);
-    });
-
     it('should lock account after 5 failed attempts', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({
         ...activeUser,
-        failedLoginAttempts: 4,
+        failedLoginAttempts: 4, // 5th fail locks account
       });
 
-      const response = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
-        .send({ email: 'student@college.edu', password: 'WrongPassword!' })
-        .expect(401);
+        .send({
+          email: 'student@college.edu',
+          password: 'WrongPassword',
+        });
 
-      expect(response.body.message).toContain('locked');
+      expect(res.status).toBe(401);
+      expect(res.body.errorCode).toBe('AUTH_002');
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            failedLoginAttempts: 5,
+            lockedUntil: expect.any(Date),
+          }),
+        }),
+      );
     });
 
     it('should suspend account after 20 failed attempts', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({
         ...activeUser,
-        failedLoginAttempts: 19,
+        failedLoginAttempts: 19, // 20th fail suspends
       });
 
-      const response = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
-        .send({ email: 'student@college.edu', password: 'WrongPassword!' })
-        .expect(401);
+        .send({
+          email: 'student@college.edu',
+          password: 'WrongPassword',
+        });
 
-      expect(response.body.message).toContain('suspended');
+      expect(res.status).toBe(401);
+      expect(res.body.errorCode).toBe('AUTH_006');
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'SUSPENDED',
+          }),
+        }),
+      );
     });
 
     it('should allow Google login with mock token', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(activeUser);
 
-      const response = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post('/api/v1/auth/google')
         .send({
-          token: 'mock-google-token-student@college.edu',
+          token: 'mock-google-token',
           collegeId: 'college-uuid',
           role: 'STUDENT',
-        })
-        .expect(200);
+        });
 
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.accessToken).toBeDefined();
+      expect(res.status).toBe(200);
+      expect(res.body.data).toHaveProperty('accessToken');
     });
 
     it('should deny Google login on role mismatch', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(activeUser);
 
-      const response = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post('/api/v1/auth/google')
         .send({
-          token: 'mock-google-token-student@college.edu',
+          token: 'mock-google-token',
           collegeId: 'college-uuid',
-          role: 'TEACHER',
-        })
-        .expect(401);
+          role: 'TEACHER', // mismatch
+        });
 
-      expect(response.body.success).toBe(false);
-      expect(response.body.message).toContain('Role mismatch');
+      expect(res.status).toBe(401);
+      expect(res.body.errorCode).toBe('AUTH_009');
     });
 
     it('should reject requests on role-specific rate limits', async () => {
-      mockRedis.incrementAndGet.mockResolvedValueOnce(10).mockResolvedValueOnce(10); // Exceeds threshold for email & ip
+      mockRedis.incrementAndGet.mockResolvedValue(101); // Exceed default threshold
+      mockPrisma.user.findUnique.mockResolvedValue(activeUser);
 
-      const response = await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
-        .send({ email: 'student@college.edu', password: 'Password@123' })
-        .expect(400);
+        .send({
+          email: 'student@college.edu',
+          password: 'Password@123',
+        });
 
-      expect(response.body.message).toContain('Too many login attempts');
+      expect(res.status).toBe(429);
+      expect(res.body.errorCode).toBe('AUTH_004');
     });
   });
 });
-

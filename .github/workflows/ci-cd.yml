@@ -77,6 +77,7 @@ jobs:
           REDIS_PASSWORD: redispassword
           CLOUDINARY_URL: cloudinary://636825337839938:6H1RURbZ36cg028rqRz6O34XVKg@poqayuww
           ALLOWED_ADMIN_EMAILS: anish@college.edu,admin@collegea.edu,super@campusconnect.com
+          MONGODB_ENABLED: "false"
           NODE_ENV: test
         run: pnpm run test
 

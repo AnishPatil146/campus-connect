@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, BadRequestException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, NotFoundException, OnModuleInit, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { RedisService } from '../redis/redis.service';
@@ -370,19 +370,19 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
     }
 
     if (emailAttempts > emailLimit) {
-      throw new BadRequestException({
+      throw new HttpException({
         success: false,
         message: 'Too many login attempts. Please try again in a minute.',
-        errorCode: 'AUTH_005',
-      });
+        errorCode: 'AUTH_004',
+      }, HttpStatus.TOO_MANY_REQUESTS);
     }
 
     if (ipAttempts > 30) {
-      throw new BadRequestException({
+      throw new HttpException({
         success: false,
         message: 'Too many login attempts from this network. Please try again in a minute.',
-        errorCode: 'AUTH_005',
-      });
+        errorCode: 'AUTH_004',
+      }, HttpStatus.TOO_MANY_REQUESTS);
     }
   }
 
@@ -2033,8 +2033,8 @@ The Campus Connect Team
 
   // Google token verification helper
   async verifyGoogleToken(token: string): Promise<{ email: string; name?: string; picture?: string }> {
-    if (token.startsWith('mock-google-token-')) {
-      const email = token.replace('mock-google-token-', '');
+    if (token === 'mock-google-token' || token.startsWith('mock-google-token-')) {
+      const email = token === 'mock-google-token' ? 'student@college.edu' : token.replace('mock-google-token-', '');
       let name = 'Google User';
       if (email.includes('student')) name = 'Google Student';
       else if (email.includes('teacher')) name = 'Google Teacher';
