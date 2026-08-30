@@ -503,8 +503,9 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
       userFound = true;
 
       // Tenant Validation (College validation)
-      const hasExplicitTenant = !!(loginDto.collegeId || collegeIdHeader);
-      if (hasExplicitTenant && user.collegeId !== resolvedCollegeId) {
+      const isMultiDb = process.env.MULTI_DB_ENABLED === 'true';
+      const hasExplicitTenant = isMultiDb && !!(loginDto.collegeId || collegeIdHeader);
+      if (hasExplicitTenant && user.collegeId && user.collegeId !== resolvedCollegeId) {
         collegeMatch = false;
         rootCause = 'Tenant Mismatch';
         // Log failed attempt to login history in background
@@ -1953,7 +1954,8 @@ The Campus Connect Team
     }
 
     // 5. Tenant Validation (College validation)
-    if (user.collegeId !== collegeId && emailLower !== 'rnagarkar001@gmail.com') {
+    const isMultiDb = process.env.MULTI_DB_ENABLED === 'true';
+    if (isMultiDb && user.collegeId && user.collegeId !== collegeId && emailLower !== 'rnagarkar001@gmail.com') {
       throw new UnauthorizedException({
         message: 'Tenant mismatch: Your account belongs to another college.',
         errorCode: 'AUTH_008',
