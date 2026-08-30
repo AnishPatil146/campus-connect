@@ -78,6 +78,13 @@ export const envSchema = z.object({
 export type EnvConfig = z.infer<typeof envSchema>;
 
 export function validateEnv() {
+  if (process.env.NODE_ENV === 'test') {
+    process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:postgrespassword@localhost:5432/campus-connect';
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'super-secret-jwt-key-for-test-suite';
+    process.env.REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+    process.env.CLOUDINARY_URL = process.env.CLOUDINARY_URL || 'cloudinary://636825337839938:6H1RURbZ36cg028rqRz6O34XVKg@poqayuww';
+  }
+
   const result = envSchema.safeParse(process.env);
   if (!result.success) {
     console.error('❌ Invalid environment configuration:');

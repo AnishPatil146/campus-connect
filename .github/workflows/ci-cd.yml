@@ -72,7 +72,12 @@ jobs:
       - name: Run Unit & Integration Tests
         env:
           DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/campus-connect
+          JWT_SECRET: super-secret-jwt-key-for-test-suite
+          REDIS_URL: redis://localhost:6379
           REDIS_PASSWORD: redispassword
+          CLOUDINARY_URL: cloudinary://636825337839938:6H1RURbZ36cg028rqRz6O34XVKg@poqayuww
+          ALLOWED_ADMIN_EMAILS: anish@college.edu,admin@collegea.edu,super@campusconnect.com
+          NODE_ENV: test
         run: pnpm run test
 
   build-codebases:

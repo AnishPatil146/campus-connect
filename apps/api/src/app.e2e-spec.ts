@@ -1,3 +1,11 @@
+// Ensure test environment variables exist before ConfigModule validation runs
+process.env.NODE_ENV = 'test';
+process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:postgrespassword@localhost:5432/campus-connect';
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'super-secret-jwt-key-for-test-suite';
+process.env.REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+process.env.CLOUDINARY_URL = process.env.CLOUDINARY_URL || 'cloudinary://12345:secret@cloudname';
+process.env.ALLOWED_ADMIN_EMAILS = process.env.ALLOWED_ADMIN_EMAILS || 'admin@collegea.edu,anish@college.edu';
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
