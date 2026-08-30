@@ -1,86 +1,94 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { collegeStorage } from '../common/college-storage';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(PrismaService.name);
   private clients = new Map<string, PrismaClient>();
-  private defaultUrl = process.env.DATABASE_URL || process.env.MASTER_DATABASE_URL || process.env.DATABASE_MASTER_URL || 'postgresql://neondb_owner:npg_Lth9w8nWeZlg@ep-delicate-fog-aebcogwo-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+  private singleClient: PrismaClient | null = null;
+  private defaultUrl =
+    process.env.DATABASE_URL ||
+    process.env.MASTER_DATABASE_URL ||
+    process.env.DATABASE_MASTER_URL ||
+    'postgresql://neondb_owner:npg_Lth9w8nWeZlg@ep-delicate-fog-aebcogwo.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&connect_timeout=30';
 
   constructor() {
+    const activeUrl =
+      process.env.DATABASE_URL ||
+      process.env.MASTER_DATABASE_URL ||
+      process.env.DATABASE_MASTER_URL ||
+      'postgresql://neondb_owner:npg_Lth9w8nWeZlg@ep-delicate-fog-aebcogwo.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&connect_timeout=30';
+
     super({
       datasources: {
         db: {
-          url: process.env.DATABASE_URL || process.env.MASTER_DATABASE_URL || process.env.DATABASE_MASTER_URL || 'postgresql://neondb_owner:npg_Lth9w8nWeZlg@ep-delicate-fog-aebcogwo-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require',
+          url: activeUrl,
         },
       },
     });
-    // Return a Proxy of the PrismaService instance so that accesses to models 
-    // and administrative operations are dynamically routed to the active client with auto-reconnect resilience.
+
+    // Return a dynamic Proxy so that every model operation has built-in auto-reconnect & retry resilience
     return new Proxy(this, {
       get: (target, prop) => {
         const selfKeys = [
-          'onModuleInit', 
-          'onModuleDestroy', 
-          'clients', 
-          'defaultUrl', 
-          'getDatabaseUrl', 
+          'onModuleInit',
+          'onModuleDestroy',
+          'clients',
+          'singleClient',
+          'defaultUrl',
+          'logger',
+          'getDatabaseUrl',
           'getClient',
           'getEnvCaseInsensitive',
           'createClientInstance',
-          'resetClient'
+          'resetClient',
+          'isConnectionClosedError',
+          'executeWithRetry',
         ];
-        
-        // If the property is a wrapper-specific method or field, return it directly.
+
+        // Direct method access for wrapper-specific members
         if (selfKeys.includes(prop as string)) {
           return (target as any)[prop];
         }
 
-        // Delegate everything else to the request-specific PrismaClient instance.
+        // Methods on PrismaClient instance itself (e.g. $queryRaw, $executeRaw, $transaction)
         const client = target.getClient();
         const value = (client as any)[prop];
+
         if (typeof value === 'function') {
-          return async (...args: any[]) => {
-            try {
-              return await value.apply(client, args);
-            } catch (err: any) {
-              if (target.isConnectionClosedError(err)) {
-                console.warn(`[PrismaService] Connection closed during operation '${String(prop)}', reconnecting and retrying...`);
-                const refreshedClient = target.resetClient();
-                const refreshedFn = (refreshedClient as any)[prop];
-                if (typeof refreshedFn === 'function') {
-                  return await refreshedFn.apply(refreshedClient, args);
-                }
+          return (...args: any[]) => {
+            return target.executeWithRetry(async (activeClient) => {
+              const fn = (activeClient as any)[prop];
+              if (typeof fn === 'function') {
+                return fn.apply(activeClient, args);
               }
-              throw err;
-            }
+              return fn;
+            });
           };
         }
 
-        // If the property is a model delegate (e.g. prisma.user, prisma.student), wrap its methods
+        // Model delegates (e.g. prisma.user, prisma.student, prisma.college, etc.)
         if (value && typeof value === 'object') {
           return new Proxy(value, {
-            get: (modelTarget, modelProp) => {
-              const originalMethod = modelTarget[modelProp];
-              if (typeof originalMethod === 'function') {
-                return async (...args: any[]) => {
-                  try {
-                    return await originalMethod.apply(modelTarget, args);
-                  } catch (err: any) {
-                    if (target.isConnectionClosedError(err)) {
-                      console.warn(`[PrismaService] Connection closed during model query '${String(prop)}.${String(modelProp)}', reconnecting and retrying...`);
-                      const refreshedClient = target.resetClient();
-                      const refreshedModel = (refreshedClient as any)[prop];
-                      if (refreshedModel && typeof refreshedModel[modelProp] === 'function') {
-                        return await refreshedModel[modelProp].apply(refreshedModel, args);
-                      }
-                    }
-                    throw err;
+            get: (_modelTarget, modelProp) => {
+              const propName = prop as string;
+              const methodKey = modelProp as string;
+
+              return (...args: any[]) => {
+                return target.executeWithRetry(async (activeClient) => {
+                  const modelDelegate = (activeClient as any)[propName];
+                  if (!modelDelegate) {
+                    throw new Error(`Prisma model '${propName}' not found on active client`);
                   }
-                };
-              }
-              return originalMethod;
-            }
+                  const method = modelDelegate[methodKey];
+                  if (typeof method === 'function') {
+                    return method.apply(modelDelegate, args);
+                  }
+                  return method;
+                });
+              };
+            },
           });
         }
 
@@ -89,48 +97,77 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     });
   }
 
+  /**
+   * Automatically retries an operation up to 3 times if a transient connection closure occurs
+   */
+  public async executeWithRetry<T>(operation: (client: PrismaClient) => Promise<T>): Promise<T> {
+    const maxRetries = 3;
+    let lastError: any = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const client = this.getClient();
+        return await operation(client);
+      } catch (err: any) {
+        lastError = err;
+        if (this.isConnectionClosedError(err) && attempt < maxRetries) {
+          const delayMs = attempt * 200;
+          this.logger.warn(
+            `[PrismaService] Transient DB connection error detected (attempt ${attempt}/${maxRetries}): ${err.message || err}. Reconnecting in ${delayMs}ms...`
+          );
+          await this.resetClient();
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    throw lastError;
+  }
+
   async onModuleInit() {
-    if (process.env.SINGLE_DB_MODE === 'true' || !process.env.MULTI_DB_ENABLED || process.env.MULTI_DB_ENABLED === 'false') {
-      console.log('🚀 Prisma running in Single Database Mode (connecting in background).');
-      this.$connect()
-        .then(() => {
-          console.log('✅ Connected to database successfully.');
-        })
-        .catch((err: any) => {
-          console.error(`❌ Failed to connect to database: ${err.message || err}`);
-        });
+    if (
+      process.env.SINGLE_DB_MODE === 'true' ||
+      !process.env.MULTI_DB_ENABLED ||
+      process.env.MULTI_DB_ENABLED === 'false'
+    ) {
+      this.logger.log('🚀 Prisma initialized in Single Cloud Database Mode (Neon PostgreSQL).');
+      try {
+        const client = this.getClient();
+        await client.$connect();
+        this.logger.log('✅ Connected to Neon database successfully.');
+      } catch (err: any) {
+        this.logger.error(`❌ Initial database connection error: ${err.message || err}`);
+      }
       return;
     }
 
-    // Pre-warm the connections for all colleges in the background
+    // Pre-warm the connections for all colleges in multi-tenant mode
     const colleges = ['college-a', 'college-b', 'college-c'];
     Promise.all(
       colleges.map(async (collegeId) => {
         try {
-          const url = this.getDatabaseUrl(collegeId);
-          const client = new PrismaClient({
-            datasources: {
-              db: {
-                url,
-              },
-            },
-          });
+          const client = this.createClientInstance(collegeId);
           await client.$connect();
           this.clients.set(collegeId, client);
         } catch (err: any) {
-          console.error(`❌ Failed to connect to database for college ${collegeId}: ${err.message || err}`);
+          this.logger.error(`❌ Failed to connect to database for college ${collegeId}: ${err.message || err}`);
         }
       })
     ).then(() => {
-      console.log('⚡ Prisma dynamic multi-tenant connection pool pre-warmed.');
+      this.logger.log('⚡ Prisma dynamic multi-tenant connection pool pre-warmed.');
     });
   }
 
   async onModuleDestroy() {
-    for (const client of this.clients.values()) {
-      await client.$disconnect();
+    if (this.singleClient) {
+      await this.singleClient.$disconnect().catch(() => {});
     }
-    await this.$disconnect();
+    for (const client of this.clients.values()) {
+      await client.$disconnect().catch(() => {});
+    }
+    await this.$disconnect().catch(() => {});
   }
 
   private getDatabaseUrl(collegeId: string): string {
@@ -151,11 +188,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       }
     }
 
-    // Dynamic fallback
-    const parsed = new URL(this.defaultUrl);
-    const dbName = `campus_connect_${collegeId.replace(/-/g, '_')}`;
-    parsed.pathname = `/${dbName}`;
-    return parsed.toString();
+    // Fallback to defaultUrl
+    return this.defaultUrl;
   }
 
   private getEnvCaseInsensitive(key: string): string | undefined {
@@ -170,21 +204,27 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   public isConnectionClosedError(err: any): boolean {
     if (!err || !err.message) return false;
-    const msg = err.message.toLowerCase();
+    const msg = String(err.message).toLowerCase();
     return (
       msg.includes('server has closed the connection') ||
       msg.includes('connection closed') ||
       msg.includes('connection terminated') ||
-      msg.includes('can\'t reach database server') ||
+      msg.includes("can't reach database server") ||
       msg.includes('closed the connection') ||
       msg.includes('socket has been ended') ||
       msg.includes('econnreset') ||
-      msg.includes('epipe')
+      msg.includes('econnrefused') ||
+      msg.includes('epipe') ||
+      msg.includes('terminating connection') ||
+      msg.includes('error in postgresql connection') ||
+      msg.includes('prepared statement') ||
+      msg.includes('p1001') ||
+      msg.includes('p1017')
     );
   }
 
-  public createClientInstance(collegeId: string): PrismaClient {
-    const url = this.getDatabaseUrl(collegeId);
+  public createClientInstance(collegeId?: string): PrismaClient {
+    const url = collegeId ? this.getDatabaseUrl(collegeId) : this.defaultUrl;
     return new PrismaClient({
       datasources: {
         db: {
@@ -194,28 +234,45 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     });
   }
 
-  public resetClient(): PrismaClient {
-    if (process.env.SINGLE_DB_MODE === 'true' || !process.env.MULTI_DB_ENABLED || process.env.MULTI_DB_ENABLED === 'false') {
-      this.$disconnect().catch(() => {});
-      this.$connect().catch(() => {});
-      return this;
+  public async resetClient(): Promise<PrismaClient> {
+    if (
+      process.env.SINGLE_DB_MODE === 'true' ||
+      !process.env.MULTI_DB_ENABLED ||
+      process.env.MULTI_DB_ENABLED === 'false'
+    ) {
+      if (this.singleClient) {
+        await this.singleClient.$disconnect().catch(() => {});
+      }
+      this.singleClient = this.createClientInstance();
+      await this.singleClient.$connect().catch(() => {});
+      return this.singleClient;
     }
+
     const store = collegeStorage.getStore();
     const collegeId = store?.collegeId || 'college-a';
     const oldClient = this.clients.get(collegeId);
     if (oldClient) {
-      oldClient.$disconnect().catch(() => {});
+      await oldClient.$disconnect().catch(() => {});
       this.clients.delete(collegeId);
     }
     const newClient = this.createClientInstance(collegeId);
+    await newClient.$connect().catch(() => {});
     this.clients.set(collegeId, newClient);
     return newClient;
   }
 
   public getClient(): PrismaClient {
-    if (process.env.SINGLE_DB_MODE === 'true' || !process.env.MULTI_DB_ENABLED || process.env.MULTI_DB_ENABLED === 'false') {
-      return this;
+    if (
+      process.env.SINGLE_DB_MODE === 'true' ||
+      !process.env.MULTI_DB_ENABLED ||
+      process.env.MULTI_DB_ENABLED === 'false'
+    ) {
+      if (!this.singleClient) {
+        this.singleClient = this.createClientInstance();
+      }
+      return this.singleClient;
     }
+
     const store = collegeStorage.getStore();
     const collegeId = store?.collegeId || 'college-a';
     let client = this.clients.get(collegeId);
