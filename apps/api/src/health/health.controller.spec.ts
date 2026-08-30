@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { HealthController } from './health.controller';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { MongoDbService } from '../mongodb/mongodb.service';
 
 jest.mock('@prisma/client', () => {
   return {
@@ -36,6 +37,11 @@ describe('HealthController', () => {
     ping: jest.fn(),
   };
 
+  const mockMongoDbService = {
+    isConnected: jest.fn().mockReturnValue(true),
+    ping: jest.fn().mockResolvedValue({ status: 'UP', latencyMs: 5, database: 'campus_connect_aux' }),
+  };
+
   beforeEach(async () => {
     process.env.COLLEGE_A_DATABASE_URL = 'postgresql://localhost:5432/mock';
     process.env.COLLEGE_B_DATABASE_URL = 'postgresql://localhost:5432/mock';
@@ -46,6 +52,7 @@ describe('HealthController', () => {
       providers: [
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: RedisService, useValue: mockRedisService },
+        { provide: MongoDbService, useValue: mockMongoDbService },
       ],
     }).compile();
 
@@ -63,6 +70,7 @@ describe('HealthController', () => {
     it('should return status UP with api service', async () => {
       mockRedisService.ping.mockResolvedValue({ status: 'UP', latencyMs: 1 });
       mockPrismaService.$queryRaw.mockResolvedValue([{ '?column?': 1 }]);
+      mockMongoDbService.isConnected.mockReturnValue(true);
       const result = await controller.getGeneralHealth();
       expect(result.success).toBe(true);
       expect(result.data.status).toBe('UP');
@@ -87,6 +95,26 @@ describe('HealthController', () => {
       expect(result.status).toBe('DOWN');
       expect((result as any).database).toBe('DISCONNECTED');
       expect((result as any).error).toBe('Connection refused');
+    });
+  });
+
+  // --- MongoDB Health ------------------------------------------------------
+
+  describe('GET /health/mongodb', () => {
+    it('should return CONNECTED when Mongo ping succeeds', async () => {
+      mockMongoDbService.ping.mockResolvedValue({ status: 'UP', latencyMs: 4, database: 'campus_connect_aux' });
+      const result = await controller.getMongoDbHealth();
+      expect(result.status).toBe('UP');
+      expect(result.database).toBe('CONNECTED');
+      expect(result.latencyMs).toBe(4);
+    });
+
+    it('should return DISCONNECTED when Mongo ping fails', async () => {
+      mockMongoDbService.ping.mockResolvedValue({ status: 'DOWN', error: 'Connection timeout' });
+      const result = await controller.getMongoDbHealth();
+      expect(result.status).toBe('DOWN');
+      expect(result.database).toBe('DISCONNECTED');
+      expect(result.error).toBe('Connection timeout');
     });
   });
 
