@@ -1,0 +1,17 @@
+node_modules
+**/node_modules
+.pnpm-store
+**/dist
+**/.next
+**/out
+.turbo
+**/.turbo
+.git
+coverage
+**/coverage
+*.log
+.env
+.env.local
+.env.*.local
+android_build
+.expo
