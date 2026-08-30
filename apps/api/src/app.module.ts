@@ -33,6 +33,7 @@ import { ReportsModule } from './reports/reports.module';
 import { FilesModule } from './files/files.module';
 import { HealthModule } from './health/health.module';
 import { RedisModule } from './redis/redis.module';
+import { MongoDatabaseModule } from './mongodb/mongodb.module';
 import { ConfigModule } from './config/config.module';
 import { AiModule } from './ai/ai.module';
 import { AppController } from './app.controller';
@@ -49,6 +50,7 @@ import { AppController } from './app.controller';
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     RedisModule,
+    MongoDatabaseModule,
     
     // Application feature modules
     PrismaModule,

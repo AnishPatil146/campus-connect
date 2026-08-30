@@ -107,6 +107,28 @@ async function checkConnections() {
     }
   }
 
+  // Verify MongoDB Connection (Auxiliary Database)
+  const mongoUri = process.env.MONGODB_URI;
+  if (mongoUri && !mongoUri.includes('<db_username>') && !mongoUri.includes('<db_password>')) {
+    console.log('\n📡 Starting MongoDB Connection Verification...');
+    try {
+      console.log('🔌 Connecting to MongoDB Atlas cluster...');
+      const mongoose = await import('mongoose');
+      await mongoose.default.connect(mongoUri, {
+        dbName: process.env.MONGODB_DB_NAME || 'campus_connect_aux',
+        serverSelectionTimeoutMS: 8000,
+      });
+      if (mongoose.default.connection.db) {
+        await mongoose.default.connection.db.admin().ping();
+        console.log('✅ [MongoDB Atlas] Connected and pinged successfully!');
+      }
+      await mongoose.default.disconnect();
+    } catch (e: any) {
+      console.error(`❌ [MongoDB Atlas] Failed to connect:`, e.message || e);
+      hasErrors = true;
+    }
+  }
+
   console.log('\n-----------------------------------------');
   if (hasErrors) {
     console.error('💥 Connection verification failed with errors!');

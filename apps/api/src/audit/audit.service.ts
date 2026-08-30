@@ -1,7 +1,8 @@
-import { Injectable, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Inject, Optional, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { EventsGateway } from '../events/events.gateway';
+import { MongoDbService } from '../mongodb/mongodb.service';
 
 @Injectable()
 export class AuditService {
@@ -9,6 +10,8 @@ export class AuditService {
     private prisma: PrismaService,
     @Inject(forwardRef(() => EventsGateway))
     private eventsGateway: EventsGateway,
+    @Optional()
+    private mongoDbService?: MongoDbService,
   ) {}
 
   /**
@@ -43,6 +46,23 @@ export class AuditService {
 
       if (logEntry) {
         this.eventsGateway.broadcast('audit:log', logEntry);
+      }
+
+      // Asynchronously archive to MongoDB auxiliary document store
+      if (this.mongoDbService) {
+        this.mongoDbService.logAudit({
+          userId,
+          userName,
+          role,
+          action,
+          details,
+          module,
+          entityType,
+          entityId,
+          ipAddress,
+        }).catch((err) => {
+          console.warn('[MongoDB Audit Archive Warning]:', err.message);
+        });
       }
 
       return logEntry;

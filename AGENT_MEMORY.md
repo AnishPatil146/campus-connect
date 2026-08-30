@@ -95,4 +95,23 @@ to confirm the login screen loads correctly.
   - **Frontend `AuthProvider.tsx`**: Login/Google-login fetch calls now include `credentials: 'include'`. Logout now calls `POST /auth/logout` (with Bearer token) to also clear the server-side cookie before clearing localStorage.
 - **Socket.IO**: Continues using `localStorage` bearer token (industry standard — WebSocket upgrade request cannot carry `httpOnly` cookies the same way).
 - **Verification**: `npx tsc --noEmit` on API: **0 errors**. `pnpm --filter @campus-connect/web build`: **54/54 static pages, 0 errors**.
+---
+## SESSION LOG — 2026-08-30
+
+### MongoDB Auxiliary Database Integration (COMPLETED & VERIFIED)
+- **Objective**: Integrated MongoDB Atlas as an auxiliary document store alongside primary PostgreSQL + Prisma database.
+- **Dependencies**: Added `@nestjs/mongoose` and `mongoose` to `apps/api`.
+- **Configuration**: Added `MONGODB_URI`, `MONGODB_DB_NAME`, and `MONGODB_ENABLED` in `.env` and `src/config/env.validation.ts`.
+- **Modules & Services**:
+  - `apps/api/src/mongodb/mongodb.module.ts`: Global module with resilient configuration and timeout management.
+  - `apps/api/src/mongodb/mongodb.service.ts`: Ping, connection diagnostics, audit logging, and telemetry recording.
+  - `apps/api/src/mongodb/schemas/audit-log.schema.ts`: Mongoose schema for high-throughput activity logs.
+  - `apps/api/src/mongodb/schemas/system-telemetry.schema.ts`: Schema with 30-day TTL index for node diagnostic telemetry.
+- **Integrations**:
+  - `AuditService`: Asynchronously archives audit entries to MongoDB.
+  - `HealthController`: Added `GET /health/mongodb` and included `mongodb` status in general health response.
+  - `apps/api/prisma/test-mongodb.ts` & `test-connections.ts`: Unified diagnostic scripts.
+- **Live Verification**:
+  - Connected to live MongoDB Atlas cluster (`campus_connect_aux`) with latency of **210ms** and ping `{ ok: 1 }`.
+  - Both `apps/api` and `apps/web` compile with **0 errors** (55/55 static pages generated).
 

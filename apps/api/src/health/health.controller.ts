@@ -3,6 +3,7 @@ import { Request } from 'express';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { MongoDbService } from '../mongodb/mongodb.service';
 import { v2 as cloudinary } from 'cloudinary';
 
 @ApiTags('Health Check')
@@ -11,6 +12,7 @@ export class HealthController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redisService: RedisService,
+    private readonly mongoDbService: MongoDbService,
   ) {}
 
   @Get(['health', 'api/health', 'api/v1/health'])
@@ -21,9 +23,9 @@ export class HealthController {
     console.log(`[Health Probe] GET ${urlPath} requested at: ${timestamp}`);
 
     const uptime = process.uptime();
+    const mongoStatus = this.mongoDbService.isConnected() ? 'UP' : 'STANDBY';
 
     // Fast, immediately returning status object.
-    // Avoids waiting for database, Redis, Cloudinary, socket.io or background tenant setup.
     const result = {
       status: 'UP',
       apiVersion: '1.0',
@@ -36,6 +38,7 @@ export class HealthController {
         collegeBDatabase: 'UP',
         collegeCDatabase: 'UP',
         redis: 'UP',
+        mongodb: mongoStatus,
         cloudinary: 'UP',
         socketIo: 'UP',
         queueWorkers: 'UP',
@@ -69,6 +72,21 @@ export class HealthController {
         error: err.message || String(err),
       };
     }
+  }
+
+  @Get(['health/mongodb', 'api/health/mongodb', 'api/v1/health/mongodb'])
+  @ApiOperation({ summary: 'MongoDB Auxiliary database health check' })
+  async getMongoDbHealth(@Req() req?: Request) {
+    const urlPath = req?.originalUrl || req?.url || '/health/mongodb';
+    console.log(`[Health Probe] GET ${urlPath} requested at: ${new Date().toISOString()}`);
+    const pingResult = await this.mongoDbService.ping();
+    return {
+      status: pingResult.status,
+      database: pingResult.status === 'UP' ? 'CONNECTED' : 'DISCONNECTED',
+      latencyMs: pingResult.latencyMs,
+      targetDatabase: pingResult.database,
+      error: pingResult.error,
+    };
   }
 
   @Get(['health/redis', 'api/health/redis', 'api/v1/health/redis'])
@@ -123,3 +141,4 @@ export class HealthController {
     };
   }
 }
+

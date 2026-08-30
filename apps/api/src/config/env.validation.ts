@@ -45,6 +45,9 @@ export const envSchema = z.object({
   OLLAMA_HOST: z.string().optional(),
   OLLAMA_MODEL: z.string().optional(),
   ENABLE_SWAGGER: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false),
+  MONGODB_URI: z.string().optional(),
+  MONGODB_DB_NAME: z.string().default('campus_connect_aux'),
+  MONGODB_ENABLED: z.coerce.boolean().default(false),
 }).refine(
   (data) => {
     // If CLOUDINARY_URL is not set, we require cloud_name, api_key, and api_secret
