@@ -2,17 +2,11 @@ import axios from 'axios';
 import { useAuthStore } from '../store/useAuthStore';
 import { Platform } from 'react-native';
 
-const PROD_API_URL = 'https://campus-connect-tyz7.onrender.com/api/v1';
-
 export const getBaseUrl = () => {
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
   }
-  if (__DEV__) {
-    // Android emulator reaches host loopback via 10.0.2.2
-    return Platform.OS === 'android' ? 'http://10.0.2.2:10000/api/v1' : 'http://localhost:10000/api/v1';
-  }
-  return PROD_API_URL;
+  return Platform.OS === 'android' ? 'http://10.0.2.2:10000/api/v1' : 'http://localhost:10000/api/v1';
 };
 
 export const apiClient = axios.create({

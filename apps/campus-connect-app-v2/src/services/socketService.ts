@@ -7,10 +7,7 @@ const getSocketUrl = () => {
   if (process.env.EXPO_PUBLIC_SOCKET_URL) {
     return process.env.EXPO_PUBLIC_SOCKET_URL;
   }
-  if (__DEV__) {
-    return Platform.OS === 'android' ? 'http://10.0.2.2:10000' : 'http://localhost:10000';
-  }
-  return 'https://campus-connect-tyz7.onrender.com';
+  return Platform.OS === 'android' ? 'http://10.0.2.2:10000' : 'http://localhost:10000';
 };
 
 class SocketService {
