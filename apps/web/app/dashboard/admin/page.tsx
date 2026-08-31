@@ -62,23 +62,23 @@ export default function AdminDashboard() {
   });
 
   const loadDashboard = useCallback(async () => {
-    // Load dashboard stats from real API
     try {
-      const res = await api.getAdminDashboard();
-      if (res.success && res.data) {
-        setStats(res.data);
-      }
-    } catch (err) {
-      console.error('Failed to load admin dashboard:', err);
-    } finally {
-      setStatsLoading(false);
-    }
+      // Execute all 4 API queries concurrently in parallel
+      const [dashboardResult, logsResult, timetableResult, announcementsResult] = await Promise.allSettled([
+        api.getAdminDashboard(),
+        api.getAuditLogs(),
+        api.getAdminTimetable(),
+        api.getAnnouncements(),
+      ]);
 
-    // Load audit logs from real API
-    try {
-      const logsRes = await api.getAuditLogs();
-      if (logsRes.success && logsRes.data.length > 0) {
-        const mapped = logsRes.data.slice(0, 6).map((l: any) => {
+      // 1. Process Dashboard Stats
+      if (dashboardResult.status === 'fulfilled' && dashboardResult.value.success && dashboardResult.value.data) {
+        setStats(dashboardResult.value.data);
+      }
+
+      // 2. Process Audit Logs
+      if (logsResult.status === 'fulfilled' && logsResult.value.success && logsResult.value.data?.length > 0) {
+        const mapped = logsResult.value.data.slice(0, 6).map((l: any) => {
           let timeStr = 'Just now';
           try {
             timeStr = new Date(l.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -91,14 +91,9 @@ export default function AdminDashboard() {
         });
         setLogs(mapped);
       }
-    } catch (err) {
-      console.error('Failed to load logs:', err);
-    }
 
-    // Load today's timetable from real API
-    try {
-      const ttRes = await api.getAdminTimetable();
-      if (ttRes.success && ttRes.data.length > 0) {
+      // 3. Process Today's Timetable
+      if (timetableResult.status === 'fulfilled' && timetableResult.value.success && timetableResult.value.data?.length > 0) {
         const todayNum = new Date().getDay(); // 0=Sun
         const dayOfWeekIndexMap: Record<number, number> = {
           0: 6, // Sunday -> 6
@@ -110,7 +105,7 @@ export default function AdminDashboard() {
           6: 5, // Saturday -> 5
         };
         const dbDayInt = dayOfWeekIndexMap[todayNum];
-        const todaySlots = ttRes.data
+        const todaySlots = timetableResult.value.data
           .filter((s: any) => s.dayOfWeek === dbDayInt)
           .slice(0, 4)
           .map((s: any) => ({
@@ -121,15 +116,10 @@ export default function AdminDashboard() {
           }));
         if (todaySlots.length > 0) setClasses(todaySlots);
       }
-    } catch (err) {
-      console.error('Failed to load timetable:', err);
-    }
 
-    // Load announcements from real API
-    try {
-      const annRes = await api.getAnnouncements();
-      if (annRes.success && annRes.data.length > 0) {
-        const mapped = annRes.data.slice(0, 3).map((a: any) => ({
+      // 4. Process Announcements
+      if (announcementsResult.status === 'fulfilled' && announcementsResult.value.success && announcementsResult.value.data?.length > 0) {
+        const mapped = announcementsResult.value.data.slice(0, 3).map((a: any) => ({
           title: a.title,
           date: new Date(a.createdAt || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
           category: a.category || 'General',
@@ -137,7 +127,9 @@ export default function AdminDashboard() {
         setAnnouncements(mapped);
       }
     } catch (err) {
-      console.error('Failed to load announcements:', err);
+      console.error('Error loading dashboard:', err);
+    } finally {
+      setStatsLoading(false);
     }
   }, []);
 

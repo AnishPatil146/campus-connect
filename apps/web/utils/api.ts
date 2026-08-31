@@ -109,27 +109,34 @@ export async function fetchWithRefresh(url: string, options: RequestInit = {}): 
   return response;
 }
 
-// Check if API is responsive
+// Fast in-memory cached API availability check (avoids blocking each request with redundant 5s health pings)
+let lastPingResult = true;
+let lastPingTimestamp = 0;
+
 async function pingAPI(): Promise<boolean> {
-  if (typeof window === 'undefined' && process.env.NODE_ENV === 'production') {
-    return false;
+  const now = Date.now();
+  // Cache result for 2 minutes
+  if (now - lastPingTimestamp < 120_000) {
+    return lastPingResult;
   }
+
   try {
-    const res = await fetch(`${API_BASE_URL}/health`, { 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1500);
+    const res = await fetch(`${API_BASE_URL}/health`, {
       method: 'GET',
       headers: getHeaders(),
-      signal: AbortSignal.timeout(5000)
+      signal: controller.signal,
     }).catch(() => null);
-    if (res && res.ok) return true;
-    
-    const fallbackRes = await fetch(`${API_BASE_URL}/auth/health`, {
-      method: 'GET',
-      headers: getHeaders(),
-      signal: AbortSignal.timeout(5000)
-    }).catch(() => null);
-    return Boolean(fallbackRes && fallbackRes.ok);
+    clearTimeout(timeoutId);
+
+    lastPingResult = Boolean(res && res.ok);
+    lastPingTimestamp = now;
+    return lastPingResult;
   } catch (e) {
-    return false;
+    lastPingResult = true; // Optimistic fallback to avoid blocking valid queries
+    lastPingTimestamp = now;
+    return true;
   }
 }
 
