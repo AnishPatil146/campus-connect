@@ -100,23 +100,23 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
             {/* Format 1: Web App */}
-            <div className="glass-card rounded-2xl p-6 flex flex-col justify-between shadow-hover border border-slate-200 dark:border-slate-800">
+            <div className="rounded-2xl p-6 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1 bg-white dark:bg-slate-900/80 border border-blue-500/20 hover:border-blue-500/50 shadow-lg hover:shadow-blue-500/10">
               <div className="flex flex-col gap-4">
-                <div className="h-10 w-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                  <Globe size={22} />
+                <div className="h-12 w-12 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-500/20">
+                  <Globe size={24} />
                 </div>
                 <div>
-                  <h3 className="font-display font-bold text-lg mb-1">Web Platform</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                  <h3 className="font-display font-bold text-xl mb-1 text-slate-900 dark:text-white">Web Platform</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
                     Production dashboard accessible directly via browser. Deployed continuously on Vercel infrastructure.
                   </p>
                 </div>
               </div>
               <div className="mt-8 flex flex-col gap-3">
-                <div className="text-xs text-slate-400 dark:text-slate-500 font-mono">Target: Vercel Cloud Hosting</div>
+                <div className="text-xs text-blue-600 dark:text-blue-400 font-mono font-semibold">Target: Vercel Cloud Hosting</div>
                 <Link 
                   href="/login"
-                  className="w-full text-center py-2.5 text-sm font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:hover:bg-slate-200 dark:text-slate-950 transition-colors"
+                  className="w-full text-center py-3 text-sm font-bold rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-500/25 transition-all"
                 >
                   Access Web Portal
                 </Link>
@@ -124,57 +124,54 @@ export default function Home() {
             </div>
 
             {/* Format 2: Direct APK */}
-            <div className="glass-card rounded-2xl p-6 flex flex-col justify-between shadow-hover border border-slate-200 dark:border-slate-800 relative overflow-hidden">
-              <div className="absolute top-0 right-0 px-3 py-1 text-[10px] font-mono font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 rounded-bl-xl border-l border-b border-emerald-200 dark:border-emerald-900">
+            <div className="rounded-2xl p-6 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1 bg-white dark:bg-slate-900/80 border border-emerald-500/20 hover:border-emerald-500/50 shadow-lg hover:shadow-emerald-500/10 relative overflow-hidden">
+              <div className="absolute top-0 right-0 px-3 py-1 text-[10px] font-mono font-bold bg-emerald-500 text-white rounded-bl-xl shadow-sm">
                 Recommended
               </div>
               
               <div className="flex flex-col gap-4">
-                <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                  <Smartphone size={22} />
+                <div className="h-12 w-12 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20">
+                  <Smartphone size={24} />
                 </div>
                 <div>
-                  <h3 className="font-display font-bold text-lg mb-1">Android APK (Direct)</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                  <h3 className="font-display font-bold text-xl mb-1 text-slate-900 dark:text-white">Android APK (Direct)</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
                     Standalone installer package for quick testing, side-loading, and private distribution.
                   </p>
                 </div>
               </div>
               <div className="mt-8 flex flex-col gap-3">
-                <div className="text-xs text-slate-400 dark:text-slate-500 font-mono">Target: Standalone release binary</div>
-                <a 
-                  href="/api/download/apk"
-                  download="CampusConnect.apk"
-                  className="w-full text-center py-2.5 text-sm font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-sm flex items-center justify-center gap-2 transition-all duration-200"
+                <div className="text-xs text-emerald-600 dark:text-emerald-400 font-mono font-semibold">Target: Android Devices</div>
+                <Link 
+                  href="/download"
+                  className="w-full text-center py-3 text-sm font-bold rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md shadow-emerald-500/25 transition-all"
                 >
-                  <Download size={16} /> Download APK (Direct)
-                </a>
+                  Download APK
+                </Link>
               </div>
             </div>
 
-            {/* Format 3: Google Play Bundle */}
-            <div className="glass-card rounded-2xl p-6 flex flex-col justify-between shadow-hover border border-slate-200 dark:border-slate-800">
+            {/* Format 3: Google Play AAB */}
+            <div className="rounded-2xl p-6 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1 bg-white dark:bg-slate-900/80 border border-purple-500/20 hover:border-purple-500/50 shadow-lg hover:shadow-purple-500/10">
               <div className="flex flex-col gap-4">
-                <div className="h-10 w-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-                  <Layers size={22} />
+                <div className="h-12 w-12 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center border border-purple-500/20">
+                  <Layers size={24} />
                 </div>
                 <div>
-                  <h3 className="font-display font-bold text-lg mb-1">Google Play Bundle (AAB)</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                  <h3 className="font-display font-bold text-xl mb-1 text-slate-900 dark:text-white">Google Play Bundle (AAB)</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
                     Signed production app bundle configured with key signing for Google Play Store upload.
                   </p>
                 </div>
               </div>
               <div className="mt-8 flex flex-col gap-3">
-                <div className="text-xs text-slate-400 dark:text-slate-500 font-mono">Target: Play Console Distribution</div>
-                <button 
-                  type="button"
-                  disabled
-                  aria-disabled="true"
-                  className="w-full text-center py-2.5 text-sm font-semibold rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed transition-colors"
+                <div className="text-xs text-purple-600 dark:text-purple-400 font-mono font-semibold">Target: Google Play Console</div>
+                <Link 
+                  href="/download"
+                  className="w-full text-center py-3 text-sm font-bold rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white shadow-md shadow-purple-500/25 transition-all"
                 >
-                  Play Store (Under Google Review)
-                </button>
+                  Release Information
+                </Link>
               </div>
             </div>
 

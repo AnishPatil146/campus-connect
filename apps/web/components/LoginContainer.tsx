@@ -448,31 +448,34 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
       role: 'STUDENT' as UserRole,
       label: 'Student',
       icon: GraduationCap,
-      colorClass: 'text-blue-500 dark:text-blue-400',
-      selectedBorderClass: 'border-blue-500 dark:border-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.2)]',
-      selectedBgClass: 'bg-blue-500/5 dark:bg-blue-950/20',
+      colorClass: 'text-blue-500',
+      activeColor: 'from-blue-600 to-indigo-600',
+      selectedBorderClass: 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-500/30 shadow-[0_0_25px_rgba(59,130,246,0.35)]',
+      selectedBgClass: 'bg-blue-50 dark:bg-blue-950/50',
       selectedIconClass: 'text-blue-600 dark:text-blue-400',
-      selectedLabelClass: 'text-blue-600 dark:text-blue-400'
+      selectedLabelClass: 'text-blue-600 dark:text-blue-400 font-extrabold'
     },
     {
       role: 'TEACHER' as UserRole,
       label: 'Teacher',
       icon: UserIcon,
-      colorClass: 'text-emerald-500 dark:text-emerald-400',
-      selectedBorderClass: 'border-emerald-500 dark:border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.2)]',
-      selectedBgClass: 'bg-emerald-500/5 dark:bg-emerald-950/20',
+      colorClass: 'text-emerald-500',
+      activeColor: 'from-emerald-600 to-teal-600',
+      selectedBorderClass: 'border-emerald-500 dark:border-emerald-400 ring-2 ring-emerald-500/30 shadow-[0_0_25px_rgba(16,185,129,0.35)]',
+      selectedBgClass: 'bg-emerald-50 dark:bg-emerald-950/50',
       selectedIconClass: 'text-emerald-600 dark:text-emerald-400',
-      selectedLabelClass: 'text-emerald-600 dark:text-emerald-400'
+      selectedLabelClass: 'text-emerald-600 dark:text-emerald-400 font-extrabold'
     },
     {
       role: 'ADMIN' as UserRole,
       label: 'Admin',
       icon: Shield,
-      colorClass: 'text-purple-500 dark:text-purple-400',
-      selectedBorderClass: 'border-purple-500 dark:border-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.2)]',
-      selectedBgClass: 'bg-purple-500/5 dark:bg-purple-950/20',
+      colorClass: 'text-purple-500',
+      activeColor: 'from-purple-600 to-violet-600',
+      selectedBorderClass: 'border-purple-500 dark:border-purple-400 ring-2 ring-purple-500/30 shadow-[0_0_25px_rgba(168,85,247,0.35)]',
+      selectedBgClass: 'bg-purple-50 dark:bg-purple-950/50',
       selectedIconClass: 'text-purple-600 dark:text-purple-400',
-      selectedLabelClass: 'text-purple-600 dark:text-purple-400'
+      selectedLabelClass: 'text-purple-600 dark:text-purple-400 font-extrabold'
     }
   ];
 
@@ -1380,13 +1383,29 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
                     </div>
                   </div>
 
-                  <Button
+                  <button
                     type="submit"
-                    isLoading={isLoading || isGoogleLoading}
-                    className="w-full h-11 rounded-xl text-xs font-semibold shadow-md bg-role-primary hover:bg-role-secondary text-white border-transparent transition-all mt-4 cursor-pointer"
+                    disabled={isLoading || isGoogleLoading}
+                    className={`w-full h-12 rounded-xl text-sm font-bold shadow-lg text-white transition-all duration-200 mt-4 cursor-pointer flex items-center justify-center gap-2 active:scale-[0.98] ${
+                      role === 'STUDENT'
+                        ? 'bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-500/30'
+                        : role === 'TEACHER'
+                        ? 'bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-500/30'
+                        : 'bg-gradient-to-r from-purple-600 via-purple-700 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-purple-500/30'
+                    }`}
                   >
-                    Login
-                  </Button>
+                    {isLoading ? (
+                      <span className="inline-flex items-center gap-2">
+                        <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Signing in...
+                      </span>
+                    ) : (
+                      `Login as ${role === 'STUDENT' ? 'Student' : role === 'TEACHER' ? 'Teacher' : 'Administrator'}`
+                    )}
+                  </button>
 
                   <div className="relative flex items-center justify-center my-3.5">
                     <div className="absolute inset-0 flex items-center">
