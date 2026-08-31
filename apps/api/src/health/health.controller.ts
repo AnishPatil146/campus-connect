@@ -59,6 +59,41 @@ export class HealthController {
   async getDatabaseHealth(@Req() req?: Request) {
     const urlPath = req?.originalUrl || req?.url || '/health/database';
     console.log(`[Health Probe] GET ${urlPath} requested at: ${new Date().toISOString()}`);
+
+    // Expose which DB URL host the server is using (credentials masked)
+    const rawEnvUrl = process.env.DATABASE_URL || '(not set)';
+    let envHost = '(parse error)';
+    let activeHost = '(parse error)';
+    try { envHost = new URL(rawEnvUrl).host; } catch {}
+    try { activeHost = new URL((this.prisma as any).defaultUrl || rawEnvUrl).host; } catch {}
+
+    const hasPooler = activeHost.includes('-pooler');
+
+    try {
+      await this.prisma.$queryRawUnsafe('SELECT 1 as ping');
+      return { success: true, message: 'Operation successful', data: {
+        status: 'UP', database: 'CONNECTED',
+        envHost, activeHost, hasPooler,
+      }};
+    } catch (err: any) {
+      // Retry once with a fresh client
+      try {
+        await (this.prisma as any).resetClient();
+        await this.prisma.$queryRawUnsafe('SELECT 1 as ping');
+        return { success: true, message: 'Operation successful', data: {
+          status: 'UP', database: 'CONNECTED (after retry)',
+          envHost, activeHost, hasPooler,
+        }};
+      } catch (err2: any) {
+        return { success: true, message: 'Operation successful', data: {
+          status: 'DOWN', database: 'DISCONNECTED',
+          envHost, activeHost, hasPooler,
+          error: err2.message || String(err2),
+        }};
+      }
+    }
+  }
+
     try {
       await this.prisma.$queryRaw`SELECT 1`;
       return {
