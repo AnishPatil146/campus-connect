@@ -10,7 +10,6 @@ import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import jwt from 'jsonwebtoken';
 import { PrismaService } from '../prisma/prisma.service';
-import { RedisService } from '../redis/redis.service';
 import { Interval } from '@nestjs/schedule';
 
 const getAllowedOrigins = (): string[] => {
@@ -47,10 +46,7 @@ export class EventsGateway
 
   private readonly logger = new Logger(EventsGateway.name);
 
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly redisService: RedisService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   afterInit(server: Server) {
     server.use((socket, next) => {
@@ -66,7 +62,7 @@ export class EventsGateway
         const decoded = jwt.verify(token, secret);
         (socket as any).user = decoded;
         next();
-      } catch (err) {
+      } catch {
         return next(new Error('Authentication error: Invalid token'));
       }
     });
@@ -75,7 +71,7 @@ export class EventsGateway
 
   handleConnection(client: Socket) {
     const user = (client as any).user;
-    this.logger.log(`Client authenticated successfully: ${client.id} (user ID: ${user?.sub})`);
+    this.logger.log(`Client authenticated: ${client.id} (user: ${user?.sub})`);
   }
 
   handleDisconnect(client: Socket) {
@@ -86,7 +82,7 @@ export class EventsGateway
   handleJoinRoom(client: Socket, userId: string) {
     const user = (client as any).user;
     if (!user || user.sub !== userId) {
-      this.logger.warn(`Room Join Blocked: User ${user?.sub || 'anonymous'} is not authorized to join room ${userId}`);
+      this.logger.warn(`Room Join Blocked: User ${user?.sub || 'anonymous'} tried to join room ${userId}`);
       return;
     }
     client.join(userId);
@@ -96,54 +92,32 @@ export class EventsGateway
   broadcast(event: string, data: any) {
     if (this.server) {
       this.server.emit(event, data);
-      this.logger.log(`Broadcasted event "${event}" to clients`);
-    } else {
-      this.logger.warn(`Server not initialized, could not broadcast event "${event}"`);
     }
   }
 
   broadcastToUser(userId: string, event: string, data: any) {
     if (this.server) {
       this.server.to(userId).emit(event, data);
-      this.logger.log(`Sent event "${event}" to user room "${userId}"`);
-    } else {
-      this.logger.warn(`Server not initialized, could not send event "${event}" to user "${userId}"`);
     }
   }
 
-  @Interval(5000)
+  @Interval(10000)
   async broadcastSystemHealth() {
     let dbStatus = 'UP';
-    let redisStatus = 'UP';
-
     try {
       await this.prisma.$queryRaw`SELECT 1`;
-    } catch (e) {
+    } catch {
       dbStatus = 'DOWN';
     }
 
-    try {
-      const redisPing = await this.redisService.ping();
-      if (redisPing.status !== 'UP') {
-        redisStatus = 'DOWN';
-      }
-    } catch (e) {
-      redisStatus = 'DOWN';
-    }
-
-    const payload = {
+    this.broadcast('system:health', {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       services: {
         api: 'UP',
         database: dbStatus,
-        redis: redisStatus,
         socketIo: 'UP',
-        storage: 'UP',
       },
-    };
-
-    this.broadcast('system:health', payload);
+    });
   }
 }
-

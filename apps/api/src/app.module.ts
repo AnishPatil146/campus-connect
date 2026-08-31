@@ -16,7 +16,6 @@ import { AnnouncementsModule } from './announcements/announcements.module';
 import { RolesModule } from './roles/roles.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { EducationGroupsModule } from './education-groups/education-groups.module';
-import { CollegeMiddleware } from './common/college.middleware';
 import { DepartmentsModule } from './departments/departments.module';
 import { CoursesModule } from './courses/courses.module';
 import { AcademicSessionsModule } from './academic-sessions/academic-sessions.module';
@@ -32,27 +31,23 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { ReportsModule } from './reports/reports.module';
 import { FilesModule } from './files/files.module';
 import { HealthModule } from './health/health.module';
-import { RedisModule } from './redis/redis.module';
-import { MongoDatabaseModule } from './mongodb/mongodb.module';
 import { ConfigModule } from './config/config.module';
 import { AiModule } from './ai/ai.module';
 import { AppController } from './app.controller';
 
 @Module({
   imports: [
+    // Core infrastructure
     AiModule,
-    // Core infrastructure modules
     ConfigModule,
     ThrottlerModule.forRoot([{
       ttl: 60000,
-      limit: 100, // 100 requests per minute per IP
+      limit: 100,
     }]),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
-    RedisModule,
-    MongoDatabaseModule,
-    
-    // Application feature modules
+
+    // Feature modules
     PrismaModule,
     AuditModule,
     AuthModule,
@@ -90,9 +85,7 @@ import { AppController } from './app.controller';
   ],
 })
 export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(CollegeMiddleware)
-      .forRoutes('*');
+  configure(_consumer: MiddlewareConsumer) {
+    // No middleware needed — single-tenant mode
   }
 }

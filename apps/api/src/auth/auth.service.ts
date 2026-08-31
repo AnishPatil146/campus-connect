@@ -1,7 +1,6 @@
 import { Injectable, UnauthorizedException, BadRequestException, NotFoundException, OnModuleInit, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { RedisService } from '../redis/redis.service';
 import { MailService } from '../common/mail.service';
 import { EventsGateway } from '../events/events.gateway';
 import { LoginDto } from './dto/login.dto';
@@ -17,7 +16,6 @@ import { Role, UserStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
-import { collegeStorage } from '../common/college-storage';
 
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -31,180 +29,24 @@ export class AuthService implements OnModuleInit {
     return secret;
   })();
 
+  // In-memory rate limiter: key -> { count, resetAt }
+  private readonly loginAttempts = new Map<string, { count: number; resetAt: number }>();
+
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
-    private redis: RedisService,
     private mailService: MailService,
     private eventsGateway: EventsGateway,
   ) {}
 
   async onModuleInit() {
-    if (process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID) {
-      return;
-    }
-    // Run pre-warming in the background after a short delay to let the server start and prisma warm up
-    setTimeout(() => {
-      this.preWarmTestCache().catch(err => console.error('[AuthService] Pre-warm failed:', err));
-    }, 5000);
+    // No pre-warming needed â€” reading directly from Neon PostgreSQL
   }
 
-  async preWarmTestCache() {
-    console.log('🔥 Pre-warming Redis cache for test accounts...');
-    const testEmails = [
-      'student@collegea.edu',
-      'teacher@collegea.edu',
-      'student@collegec.edu',
-      'teacher@collegec.edu',
-      'admin@collegec.edu',
-      'student@collegeb.edu',
-      'teacher@collegeb.edu',
-      'admin@collegeb.edu',
-      'admin@collegea.edu',
-    ];
 
-    for (const email of testEmails) {
-      try {
-        let collegeId = 'college-a';
-        if (email.includes('collegeb')) collegeId = 'college-b';
-        if (email.includes('collegec')) collegeId = 'college-c';
 
-        console.log(`[Pre-warm] Starting for ${email} in ${collegeId}...`);
-        await collegeStorage.run({ collegeId }, async () => {
-          const emailLower = email.toLowerCase().trim();
-          
-          const user = await this.prisma.user.findUnique({
-            where: { email: emailLower },
-            include: {
-              userRoles: {
-                include: {
-                  role: {
-                    include: {
-                      rolePermissions: {
-                        include: {
-                          permission: true,
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-              teacherProfile: true,
-              studentProfile: {
-                include: {
-                  profile: true,
-                  guardians: true,
-                  addresses: true,
-                  medical: true,
-                },
-              },
-            },
-          });
-
-          if (user) {
-            console.log(`[Pre-warm] Found user ${emailLower}, caching auth details...`);
-            const userCacheKey = `user:auth:${emailLower}`;
-            await this.redis.set(userCacheKey, user, 3600);
-
-            const userRolesList = user.userRoles.map((ur: any) => ur.role.name);
-            console.log(`[Pre-warm] User roles: ${userRolesList.join(', ')}`);
-            for (const role of userRolesList) {
-              console.log(`[Pre-warm] Building profile for role ${role}...`);
-              let studentProfile: any = null;
-              let profileCompletionPercentage = 100;
-
-              if (role === 'STUDENT') {
-                const student = await this.prisma.student.findUnique({
-                  where: { userId: user.id },
-                  include: {
-                    profile: true,
-                    guardians: true,
-                    addresses: true,
-                    medical: true,
-                    division: {
-                      include: {
-                        semester: {
-                          include: {
-                            academicSession: {
-                              include: {
-                                course: {
-                                  include: {
-                                    department: true,
-                                  },
-                                },
-                              },
-                            },
-                          },
-                        },
-                      },
-                    },
-                  },
-                });
-                if (student) {
-                  studentProfile = student;
-                  profileCompletionPercentage = this.calculateStudentProfileCompletion({
-                    ...student,
-                    user: { name: user.name },
-                  });
-                }
-              }
-
-              let teacherProfile: any = null;
-              if (role === 'TEACHER') {
-                const teacher = await this.prisma.teacher.findUnique({
-                  where: { userId: user.id },
-                  include: {
-                    profile: true,
-                    department: true,
-                    addresses: true,
-                    subjects: {
-                      include: {
-                        subject: true,
-                        division: true,
-                      },
-                    },
-                  },
-                });
-                if (teacher) {
-                  teacherProfile = teacher;
-                }
-              }
-
-              const profileData = {
-                id: user.id,
-                email: user.email,
-                name: user.name,
-                role: role,
-                collegeId: user.collegeId,
-                studentProfile,
-                teacherProfile,
-                profileCompletionPercentage,
-              };
-
-              const profileKey = `user:profile:${user.id}:${role}`;
-              await this.redis.set(profileKey, profileData, 3600);
-              console.log(`[Pre-warm] Cached profile for ${emailLower} - ${role}`);
-            }
-          } else {
-            console.log(`[Pre-warm] User not found: ${emailLower}`);
-          }
-        });
-      } catch (err: any) {
-        console.error(`[Pre-warm] Failed for ${email}:`, err.message || err);
-      }
-    }
-    console.log('✅ Redis cache pre-warming for test accounts completed!');
-  }
-
-  async invalidateUserCache(userId: string, email: string) {
-    const emailLower = email.toLowerCase().trim();
-    await Promise.all([
-      this.redis.del(`user:auth:${emailLower}`),
-      this.redis.del(`user:profile:${userId}:STUDENT`),
-      this.redis.del(`user:profile:${userId}:TEACHER`),
-      this.redis.del(`user:profile:${userId}:ADMIN`),
-      this.redis.del(`user:profile:${userId}:SUPER_ADMIN`),
-    ]).catch((err) => console.error('[AuthService] Invalidate cache failed:', err));
+  invalidateUserCache(_userId: string, _email: string) {
+    // No-op: Redis removed. Cache invalidation not needed.
   }
 
   // Password Validation helper matching example password requirements
@@ -329,54 +171,32 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
 
   // Rate Limiting on Login / Google Login
   async checkLoginRateLimit(email: string, ipAddress?: string) {
-    const emailLower = email.toLowerCase().trim();
-    const clientIp = ipAddress || '127.0.0.1';
+    const now = Date.now();
+    const windowMs = 60_000;
 
-    const emailKey = `rate-limit:login:email:${emailLower}`;
-    const ipKey = `rate-limit:login:ip:${clientIp}`;
+    const emailKey = `email:${email.toLowerCase().trim()}`;
+    const ipKey = `ip:${ipAddress || '127.0.0.1'}`;
 
-    // Perform Redis increments in parallel to halve the latency
-    const [emailAttempts, ipAttempts] = await Promise.all([
-      this.redis.incrementAndGet(emailKey, 60),
-      this.redis.incrementAndGet(ipKey, 60),
-    ]);
-
-    // Fast check: if attempts <= 3, the user is safe regardless of role.
-    // If attempts > 5, the user is blocked regardless of role.
-    // We only perform the database lookup when attempts are 4 or 5 and the user
-    // might be an admin (which has a lower limit of 3).
-    let emailLimit = 5;
-    if (emailAttempts > 3) {
-      if (emailLower === 'super@campusconnect.com') {
-        emailLimit = 3;
-      } else {
-        const user = await this.prisma.user.findUnique({
-          where: { email: emailLower },
-          include: {
-            userRoles: {
-              include: {
-                role: true,
-              },
-            },
-          },
-        });
-        if (user) {
-          const roles = user.userRoles.map((ur) => ur.role.name);
-          if (roles.includes('ADMIN')) {
-            emailLimit = 3;
-          }
-        }
+    const bump = (key: string): number => {
+      const entry = this.loginAttempts.get(key);
+      if (!entry || now > entry.resetAt) {
+        this.loginAttempts.set(key, { count: 1, resetAt: now + windowMs });
+        return 1;
       }
-    }
+      entry.count++;
+      return entry.count;
+    };
 
-    if (emailAttempts > emailLimit) {
+    const emailAttempts = bump(emailKey);
+    const ipAttempts = bump(ipKey);
+
+    if (emailAttempts > 5) {
       throw new HttpException({
         success: false,
         message: 'Too many login attempts. Please try again in a minute.',
         errorCode: 'AUTH_004',
       }, HttpStatus.TOO_MANY_REQUESTS);
     }
-
     if (ipAttempts > 30) {
       throw new HttpException({
         success: false,
@@ -402,16 +222,11 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
 
     try {
       const emailLower = email.toLowerCase().trim();
-      const userCacheKey = `user:auth:${emailLower}`;
 
       // 1. Parallelize checking rate limits and fetching user/profiles
       await this.checkLoginRateLimit(email, ipAddress);
       
       const userPromise = (async () => {
-        const cachedUser = await this.redis.get<any>(userCacheKey).catch(() => null);
-        if (cachedUser) {
-          return cachedUser;
-        }
         let dbUser: any = await this.prisma.user.findUnique({
           where: { email: emailLower },
           include: {
@@ -476,11 +291,6 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
           });
         }
 
-        if (dbUser) {
-          await this.redis.set(userCacheKey, dbUser, 600).catch((err) =>
-            console.error('[AuthService] Failed to cache user auth:', err)
-          );
-        }
         return dbUser;
       })();
 
@@ -991,7 +801,7 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
     role: string,
     ipAddress?: string,
     userAgent?: string,
-    permissions: string[] = [],
+    _permissions: string[] = [],
   ) {
     const userId = user.id;
     const { browser, device } = this.parseUserAgent(userAgent || '');
@@ -1069,20 +879,7 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
         role,
         'Logged In',
         `Session created. Browser: ${browser}, Device: ${device}.`,
-      ),
-      this.redis.setSession(userId, sessionId, {
-        id: userId,
-        email: user.email,
-        name: user.name,
-        role,
-        permissions,
-        collegeId: user.collegeId,
-        sessionId,
-        browser,
-        device,
-        ipAddress: ipAddress || null,
-        createdAt: new Date().toISOString(),
-      }),
+      )
     ]);
 
     console.log(`[LOGIN] SUCCESS: Email=${user?.email}, Role=${role}, College=${user?.collegeId}, Tenant=${user?.collegeId}, IP=${ipAddress || 'Unknown'}, Device=${device}/${browser}, Result=SUCCESS`);
@@ -1199,7 +996,6 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
     );
 
     // Remove session from Redis cache
-    await this.redis.deleteSession(userId, sessionId);
 
     return true;
   }
@@ -1223,7 +1019,6 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
     );
 
     // Clear all cached sessions from Redis for this user
-    await this.redis.deleteUserSessions(userId);
 
     return true;
   }
@@ -1264,7 +1059,7 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
     // Send email (Mocked in logs/console for local development)
     console.log(`
 =====================================================
-📧 EMAIL NOTIFICATION: PASSWORD RESET OTP
+ðŸ“§ EMAIL NOTIFICATION: PASSWORD RESET OTP
 To: ${user.email}
 Subject: Reset Your Campus Connect Password
 Content:
@@ -1378,12 +1173,11 @@ This code will expire in 10 minutes.
     // Revoke all active sessions on password reset
     await this.prisma.refreshToken.deleteMany({ where: { userId } });
     await this.prisma.session.deleteMany({ where: { userId } });
-    await this.redis.deleteUserSessions(userId);
 
     // Mock Email: Password Changed
     console.log(`
 =====================================================
-📧 EMAIL NOTIFICATION: PASSWORD CHANGED
+ðŸ“§ EMAIL NOTIFICATION: PASSWORD CHANGED
 To: ${user.email}
 Subject: Campus Connect Password Changed
 Content:
@@ -1446,12 +1240,11 @@ If you did not make this change, please contact system support immediately.
     // Revoke all active sessions on password change
     await this.prisma.refreshToken.deleteMany({ where: { userId } });
     await this.prisma.session.deleteMany({ where: { userId } });
-    await this.redis.deleteUserSessions(userId);
 
     // Mock Email: Password Changed
     console.log(`
 =====================================================
-📧 EMAIL NOTIFICATION: PASSWORD CHANGED
+ðŸ“§ EMAIL NOTIFICATION: PASSWORD CHANGED
 To: ${user.email}
 Subject: Campus Connect Password Changed
 Content:
@@ -1762,7 +1555,7 @@ If you did not make this change, please contact support immediately.
       // Notify the Admin (console representation of notification service dispatch)
       console.log(`
 ================================================================================
-🔔 ADMIN NOTIFICATION: NEW PROFILE CREATED
+ðŸ”” ADMIN NOTIFICATION: NEW PROFILE CREATED
 To: System Administrators
 Subject: Account Registration Alert - New ${dto.role} Created
 Content:
@@ -1790,7 +1583,7 @@ Action Required: Please review credentials or allocate schedules accordingly.
       // Send profile confirmation email to the student/teacher gmail (console representation)
       console.log(`
 ================================================================================
-📧 EMAIL NOTIFICATION: PROFILE REGISTRATION CONFIRMATION
+ðŸ“§ EMAIL NOTIFICATION: PROFILE REGISTRATION CONFIRMATION
 To: ${user.email}
 Subject: Welcome to Campus Connect - Profile Registered!
 Content:
@@ -2119,11 +1912,6 @@ The Campus Connect Team
 
   // Get currently authenticated user with profiles
   async getMe(currentUser: { id: string; email: string; name: string; role: string; collegeId: string }) {
-    const cacheKey = `user:profile:${currentUser.id}:${currentUser.role}`;
-    const cachedProfile = await this.redis.get<any>(cacheKey).catch(() => null);
-    if (cachedProfile) {
-      return cachedProfile;
-    }
 
     let studentProfile: any = null;
     let profileCompletionPercentage = 100;
@@ -2197,9 +1985,6 @@ The Campus Connect Team
       profileCompletionPercentage,
     };
 
-    await this.redis.set(cacheKey, profileData, 300).catch((err) =>
-      console.error('[AuthService] Failed to cache profile:', err)
-    );
 
     return profileData;
   }
@@ -2267,3 +2052,4 @@ The Campus Connect Team
     return newUser;
   }
 }
+

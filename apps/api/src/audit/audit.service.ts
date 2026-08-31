@@ -1,8 +1,7 @@
-import { Injectable, Inject, Optional, forwardRef } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { EventsGateway } from '../events/events.gateway';
-import { MongoDbService } from '../mongodb/mongodb.service';
 
 @Injectable()
 export class AuditService {
@@ -10,14 +9,8 @@ export class AuditService {
     private prisma: PrismaService,
     @Inject(forwardRef(() => EventsGateway))
     private eventsGateway: EventsGateway,
-    @Optional()
-    private mongoDbService?: MongoDbService,
   ) {}
 
-  /**
-   * Write an audit log entry.
-   * The module/entityType/entityId parameters are optional for backwards compatibility.
-   */
   async log(
     userId: string | null,
     userName: string,
@@ -48,23 +41,6 @@ export class AuditService {
         this.eventsGateway.broadcast('audit:log', logEntry);
       }
 
-      // Asynchronously archive to MongoDB auxiliary document store
-      if (this.mongoDbService) {
-        this.mongoDbService.logAudit({
-          userId,
-          userName,
-          role,
-          action,
-          details,
-          module,
-          entityType,
-          entityId,
-          ipAddress,
-        }).catch((err) => {
-          console.warn('[MongoDB Audit Archive Warning]:', err.message);
-        });
-      }
-
       return logEntry;
     } catch (error) {
       console.error('Failed to write activity log:', error);
@@ -72,9 +48,6 @@ export class AuditService {
     }
   }
 
-  /**
-   * Get audit logs with pagination, filtering, and search.
-   */
   async getLogs(pagination?: PaginationDto, filters?: {
     userId?: string;
     action?: string;
@@ -133,9 +106,6 @@ export class AuditService {
     }
   }
 
-  /**
-   * Get audit timeline for a specific entity.
-   */
   async getEntityTimeline(entityType: string, entityId: string) {
     return this.prisma.activityLog.findMany({
       where: { entityType, entityId },
@@ -143,9 +113,6 @@ export class AuditService {
     });
   }
 
-  /**
-   * Get audit timeline for a specific user.
-   */
   async getUserTimeline(userId: string, limit: number = 50) {
     return this.prisma.activityLog.findMany({
       where: { userId },

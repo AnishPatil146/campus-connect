@@ -6,7 +6,7 @@ import * as path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 export const envSchema = z.object({
-  PORT: z.coerce.number().default(4000),
+  PORT: z.coerce.number().default(10000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   DATABASE_URL: z.string().refine((val) => {
     try {
@@ -16,20 +16,9 @@ export const envSchema = z.object({
       return false;
     }
   }, { message: 'DATABASE_URL must be a valid database connection string (postgresql:// or postgres://)' }),
+  DIRECT_URL: z.string().optional(),
   JWT_SECRET: z.string().min(8, { message: 'JWT_SECRET must be at least 8 characters long' }),
-  REDIS_URL: z.string().refine((val) => {
-    try {
-      const parsed = new URL(val);
-      return parsed.protocol === 'redis:' || parsed.protocol === 'rediss:';
-    } catch {
-      return false;
-    }
-  }, { message: 'REDIS_URL must be a valid Redis connection string (redis:// or rediss://)' }).optional(),
-  REDIS_HOST: z.string().optional(),
-  REDIS_PORT: z.coerce.number().optional(),
-  REDIS_PASSWORD: z.string().optional(),
-  MULTI_DB_ENABLED: z.coerce.boolean().default(false),
-  SINGLE_DB_MODE: z.coerce.boolean().default(false),
+  ALLOWED_ADMIN_EMAILS: z.string().optional(),
   CLOUDINARY_URL: z.string().refine((val) => {
     try {
       const parsed = new URL(val);
@@ -44,36 +33,10 @@ export const envSchema = z.object({
   ALLOWED_ORIGINS: z.string().optional(),
   OLLAMA_HOST: z.string().optional(),
   OLLAMA_MODEL: z.string().optional(),
-  ENABLE_SWAGGER: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false),
-  MONGODB_URI: z.string().optional(),
-  MONGODB_DB_NAME: z.string().default('campus_connect_aux'),
-  MONGODB_ENABLED: z.coerce.boolean().default(false),
-}).refine(
-  (data) => {
-    // If CLOUDINARY_URL is not set, we require cloud_name, api_key, and api_secret
-    if (!data.CLOUDINARY_URL) {
-      return !!(data.CLOUDINARY_CLOUD_NAME && data.CLOUDINARY_API_KEY && data.CLOUDINARY_API_SECRET);
-    }
-    return true;
-  },
-  {
-    message: 'Either CLOUDINARY_URL must be provided, or CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET must all be provided.',
-    path: ['CLOUDINARY_URL'],
-  }
-).refine(
-  (data) => {
-    // In production, REDIS_URL must be provided
-    if (data.NODE_ENV === 'production') {
-      return !!data.REDIS_URL;
-    }
-    // In development or test, either REDIS_URL or REDIS_HOST must be provided
-    return !!(data.REDIS_URL || data.REDIS_HOST);
-  },
-  {
-    message: 'REDIS_URL must be provided in production. In local development/test, either REDIS_URL or REDIS_HOST must be provided.',
-    path: ['REDIS_URL'],
-  }
-);
+  ENABLE_SWAGGER: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(true),
+  SINGLE_DB_MODE: z.coerce.boolean().default(true),
+  MULTI_DB_ENABLED: z.coerce.boolean().default(false),
+});
 
 export type EnvConfig = z.infer<typeof envSchema>;
 
@@ -81,8 +44,7 @@ export function validateEnv() {
   if (process.env.NODE_ENV === 'test') {
     process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:postgrespassword@localhost:5432/campus-connect';
     process.env.JWT_SECRET = process.env.JWT_SECRET || 'super-secret-jwt-key-for-test-suite';
-    process.env.REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
-    process.env.CLOUDINARY_URL = process.env.CLOUDINARY_URL || 'cloudinary://636825337839938:6H1RURbZ36cg028rqRz6O34XVKg@poqayuww';
+    process.env.CLOUDINARY_URL = process.env.CLOUDINARY_URL || 'cloudinary://key:secret@cloud';
   }
 
   const result = envSchema.safeParse(process.env);
