@@ -9,7 +9,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   private singleClient: PrismaClient | null = null;
 
   public static readonly MASTER_NEON_URL =
-    'postgresql://neondb_owner:npg_Lth9w8nWeZlg@ep-delicate-fog-aebcogwo.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&connect_timeout=30';
+    'postgresql://neondb_owner:npg_Lth9w8nWeZlg@ep-delicate-fog-aebcogwo-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&connect_timeout=30';
 
   private defaultUrl: string;
 
@@ -103,8 +103,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   /**
-   * Sanitizes database connection strings by eliminating channel_binding and broken poolers
-   * that cause "Server has closed the connection" on Neon PostgreSQL.
+   * Sanitizes database connection strings by eliminating channel_binding and ensuring
+   * Neon pooled connection (PgBouncer) is used to prevent "Server has closed the connection".
    */
   public static sanitizeUrl(rawUrl?: string): string {
     if (!rawUrl || rawUrl.trim() === '') {
@@ -132,9 +132,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     // Remove channel_binding=require which causes socket drop in Prisma's Rust TLS engine
     url = url.replace(/([?&])channel_binding=[^&]*(&|$)/g, '$1');
 
-    // Remove -pooler suffix from Neon host to ensure direct rock-solid TCP connection
-    if (url.includes('-pooler') && !url.includes('pgbouncer=true')) {
-      url = url.replace('-pooler', '');
+    // Ensure Neon pooled endpoint (-pooler) is used for robust connection pooling and serverless keepalive
+    if (url.includes('neon.tech') && !url.includes('-pooler')) {
+      url = url.replace(/ep-([a-zA-Z0-9-]+)\./, 'ep-$1-pooler.');
     }
 
     // Clean up dangling & or ?
