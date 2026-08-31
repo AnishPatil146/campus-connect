@@ -47,4 +47,7 @@ apps/api/prisma/schema_merged.prisma
 !apps/web/public/downloads/CampusConnect.apk
 !apps/web/public/CampusConnect.apk
 
+# Binaries & tools
+cloudflared.exe
+
 
