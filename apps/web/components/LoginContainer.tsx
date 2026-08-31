@@ -45,8 +45,8 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
   const [resetStatus, setResetStatus] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [isResetting, setIsResetting] = useState(false);
 
-  // Sign up states - Show Create New Profile page FIRST by default
-  const [showSignUp, setShowSignUp] = useState(true);
+  // Sign up states - Show Login form by default
+  const [showSignUp, setShowSignUp] = useState(false);
   const [signUpFirstName, setSignUpFirstName] = useState('');
   const [signUpSurname, setSignUpSurname] = useState('');
   const [signUpGmail, setSignUpGmail] = useState('');         // Gmail (login email)
