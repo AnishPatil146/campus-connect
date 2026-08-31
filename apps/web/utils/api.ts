@@ -51,7 +51,7 @@ export interface StudentRecord {
   };
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:10000/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_API_URL || 'https://lighter-laura-mere-reminder.trycloudflare.com/api/v1';
 
 // Get auth headers
 function getHeaders() {
