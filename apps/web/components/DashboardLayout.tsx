@@ -420,43 +420,45 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
       {/* Main Workspace Body */}
       <div className="flex-1 flex relative">
         {/* Sidebar Left Navigation (Desktop) */}
-        <aside className="w-64 border-r border-role-border/40 bg-role-sidebar-bg hidden md:flex flex-col p-4 shrink-0 transition-colors duration-300">
-          <nav className="space-y-1.5 flex-1">
+        <aside className="w-64 border-r border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/90 hidden md:flex flex-col p-4 shrink-0 transition-colors duration-300">
+          <nav className="space-y-1 flex-1 overflow-y-auto">
             {sidebarItems.map((item) => {
               const isActive = pathname === item.path;
               return (
                 <Link
                   key={item.path}
                   href={item.path}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150 ${
+                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                     isActive
-                      ? 'bg-role-surface/60 dark:bg-role-surface/30 text-role-primary border border-role-border/50 shadow-sm'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-role-surface-hover/20 dark:hover:bg-role-surface-hover/10 hover:text-role-primary border border-transparent'
+                      ? 'bg-role-primary/10 text-role-primary font-semibold border border-role-primary/20 shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200 border border-transparent'
                   }`}
                 >
-                  {item.icon}
+                  <span className={isActive ? 'text-role-primary' : 'text-slate-400 dark:text-slate-500'}>
+                    {item.icon}
+                  </span>
                   <span>{item.name}</span>
                 </Link>
               );
             })}
           </nav>
 
-          <div className="border-t border-role-border/40 pt-4">
-            <div className="p-3 bg-role-surface/30 dark:bg-role-surface/10 rounded-xl border border-role-border/30 flex items-center gap-2">
+          <div className="border-t border-slate-200 dark:border-slate-800 pt-4 mt-2">
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200/60 dark:border-slate-800 flex items-center gap-2.5">
               <Settings className="h-4 w-4 text-slate-400" />
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Workspace settings</span>
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Workspace Active</span>
             </div>
           </div>
         </aside>
 
         {/* Mobile Navigation Drawer */}
         {mobileMenuOpen && (
-          <div className="fixed inset-0 top-16 bg-slate-900/20 dark:bg-black/40 backdrop-blur-sm z-20 md:hidden" onClick={() => setMobileMenuOpen(false)}>
+          <div className="fixed inset-0 top-16 bg-slate-900/40 backdrop-blur-sm z-20 md:hidden" onClick={() => setMobileMenuOpen(false)}>
             <div 
-              className="w-64 h-full bg-role-sidebar-bg border-r border-role-border/50 p-4 flex flex-col"
+              className="w-64 h-full bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 p-4 flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <nav className="space-y-1.5 flex-1">
+              <nav className="space-y-1 flex-1 overflow-y-auto">
                 {sidebarItems.map((item) => {
                   const isActive = pathname === item.path;
                   return (
@@ -464,13 +466,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
                       key={item.path}
                       href={item.path}
                       onClick={() => setMobileMenuOpen(false)}
-                      className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150 ${
+                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                         isActive
-                          ? 'bg-role-surface/60 dark:bg-role-surface/30 text-role-primary border border-role-border/50'
-                          : 'text-slate-600 dark:text-slate-400 hover:bg-role-surface-hover/20 dark:hover:bg-role-surface-hover/10'
+                          ? 'bg-role-primary/10 text-role-primary font-semibold border border-role-primary/20 shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60'
                       }`}
                     >
-                      {item.icon}
+                      <span className={isActive ? 'text-role-primary' : 'text-slate-400 dark:text-slate-500'}>
+                        {item.icon}
+                      </span>
                       <span>{item.name}</span>
                     </Link>
                   );
