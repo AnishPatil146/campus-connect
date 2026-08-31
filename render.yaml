@@ -5,7 +5,7 @@ services:
     region: oregon
     plan: free
     rootDir: apps/api
-    buildCommand: cd ../.. && pnpm install --no-frozen-lockfile && pnpm --filter @campus-connect/types build && pnpm --filter @campus-connect/utils build && pnpm --filter @campus-connect/api build
+    buildCommand: cd ../.. && pnpm install --frozen-lockfile && pnpm --filter @campus-connect/types build && pnpm --filter @campus-connect/utils build && pnpm --filter @campus-connect/api prisma:generate && pnpm --filter @campus-connect/api build
     startCommand: node dist/main
     healthCheckPath: /api/v1/health
     envVars:

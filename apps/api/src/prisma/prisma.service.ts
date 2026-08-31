@@ -8,8 +8,13 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   private clients = new Map<string, PrismaClient>();
   private singleClient: PrismaClient | null = null;
 
+  /**
+   * CANONICAL Neon PgBouncer pooler URL — this is the ONLY valid production database endpoint.
+   * Using the pooler endpoint prevents "Server has closed the connection" when Neon compute
+   * scales to zero on idle, because PgBouncer maintains proxy-level connection multiplexing.
+   */
   public static readonly MASTER_NEON_URL =
-    'postgresql://neondb_owner:npg_Lth9w8nWeZlg@ep-delicate-fog-aebcogwo-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&connect_timeout=30';
+    'postgresql://neondb_owner:npg_Lth9w8nWeZlg@ep-delicate-fog-aebcogwo-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&connect_timeout=30&pool_timeout=15&connection_limit=10';
 
   private defaultUrl: string;
 
@@ -50,6 +55,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           'isConnectionClosedError',
           'executeWithRetry',
           'sanitizeUrl',
+          'getMaskedUrl',
         ];
 
         // Direct method access for wrapper-specific members
@@ -103,8 +109,13 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   /**
-   * Sanitizes database connection strings by eliminating channel_binding and ensuring
-   * Neon pooled connection (PgBouncer) is used to prevent "Server has closed the connection".
+   * Sanitizes database connection strings to enforce Neon PgBouncer pooler routing.
+   *
+   * CRITICAL: Neon serverless compute scales to zero on idle and kills direct TCP connections.
+   * The -pooler endpoint (PgBouncer) maintains connection proxies and handles compute spin-up
+   * transparently. ALL Neon connections MUST go through the pooler.
+   *
+   * If DATABASE_URL is the old direct endpoint, this method rewrites it to the pooler endpoint.
    */
   public static sanitizeUrl(rawUrl?: string): string {
     if (!rawUrl || rawUrl.trim() === '') {
@@ -132,27 +143,39 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     // Remove channel_binding=require which causes socket drop in Prisma's Rust TLS engine
     url = url.replace(/([?&])channel_binding=[^&]*(&|$)/g, '$1');
 
-    // Ensure Neon pooled endpoint (-pooler) is used for robust connection pooling and serverless keepalive
+    // CRITICAL FIX: Ensure Neon pooled endpoint (-pooler) is used.
+    // Direct Neon endpoints (ep-xxx.region.aws.neon.tech) drop idle connections when compute
+    // scales to zero. The pooler endpoint (ep-xxx-pooler.region.aws.neon.tech) routes through
+    // PgBouncer which handles connection multiplexing and prevents socket drops.
     if (url.includes('neon.tech') && !url.includes('-pooler')) {
-      url = url.replace(/ep-([a-zA-Z0-9-]+)\./, 'ep-$1-pooler.');
+      // Rewrite: ep-NAME.REGION.aws.neon.tech → ep-NAME-pooler.REGION.aws.neon.tech
+      url = url.replace(/(ep-[a-zA-Z0-9-]+)(\.(?:[a-z0-9-]+\.)+aws\.neon\.tech)/, '$1-pooler$2');
     }
 
     // Clean up dangling & or ?
     url = url.replace(/[?&]+$/, '');
 
-    // Ensure sslmode=require and connection timeouts
+    // Ensure sslmode=require
     if (!url.includes('sslmode=')) {
       url += (url.includes('?') ? '&' : '?') + 'sslmode=require';
     }
+
+    // Ensure connection timeout
     if (!url.includes('connect_timeout=')) {
       url += '&connect_timeout=30';
+    }
+
+    // Ensure pool_timeout to handle compute spin-up latency gracefully
+    if (!url.includes('pool_timeout=')) {
+      url += '&pool_timeout=15';
     }
 
     return url;
   }
 
   /**
-   * Automatically retries an operation up to 3 times if a transient connection closure occurs
+   * Automatically retries an operation up to 3 times if a transient connection closure occurs.
+   * On each retry, the connection pool is fully reset to ensure no stale sockets are reused.
    */
   public async executeWithRetry<T>(operation: (client: PrismaClient) => Promise<T>): Promise<T> {
     const maxRetries = 3;
@@ -165,10 +188,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       } catch (err: any) {
         lastError = err;
         if (this.isConnectionClosedError(err) && attempt < maxRetries) {
-          const delayMs = attempt * 250;
+          const delayMs = attempt * 500;
           this.logger.warn(
-            `[PrismaService] DB connection closed (attempt ${attempt}/${maxRetries}): ${err.message || err}. Reconnecting in ${delayMs}ms...`
+            `[PrismaService] DB connection closed (attempt ${attempt}/${maxRetries}): ${err.message || err}. Resetting pool in ${delayMs}ms...`
           );
+          // Reset client BEFORE next iteration so getClient() returns fresh connection
           await this.resetClient();
           await new Promise((resolve) => setTimeout(resolve, delayMs));
           continue;
@@ -187,12 +211,16 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       process.env.MULTI_DB_ENABLED === 'false'
     ) {
       this.logger.log('🚀 Prisma initialized in Single Cloud Database Mode (Neon PostgreSQL).');
+      this.logger.log(`🔗 Database URL host: ${this.getMaskedUrl(this.defaultUrl)}`);
       try {
         const client = this.getClient();
         await client.$connect();
-        this.logger.log('✅ Connected to Neon database successfully.');
+        // Validate connection with a lightweight query
+        await client.$queryRaw`SELECT 1 as ping`;
+        this.logger.log('✅ Connected to Neon database successfully — connection validated.');
       } catch (err: any) {
         this.logger.error(`❌ Initial database connection error: ${err.message || err}`);
+        // Do not throw — allow application to start; retry logic will handle transient errors
       }
       return;
     }
@@ -222,6 +250,15 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       await client.$disconnect().catch(() => {});
     }
     await this.$disconnect().catch(() => {});
+  }
+
+  private getMaskedUrl(url: string): string {
+    try {
+      const parsed = new URL(url);
+      return `${parsed.protocol}//${parsed.host}${parsed.pathname}`;
+    } catch {
+      return '[unparseable URL]';
+    }
   }
 
   private getDatabaseUrl(collegeId: string): string {
@@ -295,9 +332,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     ) {
       if (this.singleClient) {
         await this.singleClient.$disconnect().catch(() => {});
+        this.singleClient = null;
       }
-      this.singleClient = this.createClientInstance();
-      await this.singleClient.$connect().catch(() => {});
+      const newClient = this.createClientInstance();
+      await newClient.$connect().catch(() => {});
+      this.singleClient = newClient;
       return this.singleClient;
     }
 
