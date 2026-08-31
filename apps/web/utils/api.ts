@@ -92,8 +92,8 @@ export async function fetchWithRefresh(url: string, options: RequestInit = {}): 
           body: JSON.stringify({ refreshToken }),
           credentials: 'include',
         });
-        const refreshData = await refreshRes.json();
-        if (refreshData.success && refreshData.data?.accessToken) {
+        const refreshData = await refreshRes.json().catch(() => null);
+        if (refreshData?.success && refreshData.data?.accessToken) {
           localStorage.setItem('cc_token', refreshData.data.accessToken);
           if (refreshData.data.refreshToken) {
             localStorage.setItem('cc_refresh_token', refreshData.data.refreshToken);
@@ -118,14 +118,14 @@ async function pingAPI(): Promise<boolean> {
     const res = await fetch(`${API_BASE_URL}/health`, { 
       method: 'GET',
       headers: getHeaders(),
-      signal: AbortSignal.timeout(3000)
+      signal: AbortSignal.timeout(5000)
     }).catch(() => null);
     if (res && res.ok) return true;
     
     const fallbackRes = await fetch(`${API_BASE_URL}/auth/health`, {
       method: 'GET',
       headers: getHeaders(),
-      signal: AbortSignal.timeout(3000)
+      signal: AbortSignal.timeout(5000)
     }).catch(() => null);
     return Boolean(fallbackRes && fallbackRes.ok);
   } catch (e) {
@@ -340,29 +340,29 @@ export const api = {
     }
 
     if (query?.collegeId && query.collegeId !== 'all') {
-      list = list.filter(s => s.user.collegeId === query.collegeId);
+      list = list.filter(s => s.user?.collegeId === query.collegeId);
     }
     if (query?.departmentId && query.departmentId !== 'all') {
-      list = list.filter(s => s.division.semester.academicSession.course.department.id === query.departmentId);
+      list = list.filter(s => s.division?.semester?.academicSession?.course?.department?.id === query.departmentId);
     }
     if (query?.courseId && query.courseId !== 'all') {
-      list = list.filter(s => s.division.semester.academicSession.course.id === query.courseId);
+      list = list.filter(s => s.division?.semester?.academicSession?.course?.id === query.courseId);
     }
     if (query?.semesterId && query.semesterId !== 'all') {
-      list = list.filter(s => s.division.semester.id === query.semesterId);
+      list = list.filter(s => s.division?.semester?.id === query.semesterId);
     }
     if (query?.divisionId && query.divisionId !== 'all') {
-      list = list.filter(s => s.division.id === query.divisionId);
+      list = list.filter(s => s.division?.id === query.divisionId);
     }
 
     if (query?.search) {
       const s = query.search.toLowerCase().trim();
       list = list.filter(
         item =>
-          item.user.name.toLowerCase().includes(s) ||
-          item.user.email.toLowerCase().includes(s) ||
-          item.rollNumber.toLowerCase().includes(s) ||
-          item.admissionNumber.toLowerCase().includes(s)
+          item.user?.name?.toLowerCase().includes(s) ||
+          item.user?.email?.toLowerCase().includes(s) ||
+          item.rollNumber?.toLowerCase().includes(s) ||
+          item.admissionNumber?.toLowerCase().includes(s)
       );
     }
 
@@ -711,9 +711,9 @@ export const api = {
         const res = await fetch(`${API_BASE_URL}/student/timetable${queryString}`, {
           headers: getHeaders(),
         });
-        const payload = await res.json();
-        if (payload.success && payload.data) {
-          const daysMap = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const payload = await res.json().catch(() => null);
+        if (payload?.success && Array.isArray(payload.data)) {
+          const daysMap = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
           return payload.data.map((slot: any) => ({
             day: daysMap[slot.dayOfWeek] || 'Monday',
             timeSlot: `${slot.startTime} - ${slot.endTime}`,
@@ -1163,8 +1163,8 @@ export const api = {
         const res = await fetch(`${API_BASE_URL}/student/notes`, {
           headers: getHeaders(),
         });
-        const payload = await res.json();
-        if (payload.success && payload.data) {
+        const payload = await res.json().catch(() => null);
+        if (payload?.success && Array.isArray(payload.data)) {
           const notesMapped = payload.data.map((n: any) => ({
             id: n.id,
             title: n.title,
@@ -1198,8 +1198,8 @@ export const api = {
           headers: getHeaders(),
           body: JSON.stringify(payload),
         });
-        const resp = await res.json();
-        return { success: resp.success, data: resp.data };
+        const resp = await res.json().catch(() => null);
+        return { success: !!resp?.success, data: resp?.data || null };
       } catch (err) {
         console.warn('Failed to upload teacher notes:', err);
       }
@@ -1229,8 +1229,8 @@ export const api = {
         const res = await fetch(`${API_BASE_URL}/notes?${params.toString()}`, {
           headers: getHeaders(),
         });
-        const resp = await res.json();
-        if (resp.success && resp.data) {
+        const resp = await res.json().catch(() => null);
+        if (resp?.success && Array.isArray(resp.data)) {
           const notesMapped = resp.data.map((n: any) => ({
             id: n.id,
             title: n.title,
@@ -1369,8 +1369,8 @@ export const api = {
         const res = await fetch(`${API_BASE_URL}/timetable/teacher?teacherId=${teacherId}`, {
           headers: getHeaders(),
         });
-        const payload = await res.json();
-        if (payload.success && payload.data) {
+        const payload = await res.json().catch(() => null);
+        if (payload?.success && Array.isArray(payload.data)) {
           const mapped = payload.data.map((slot: any) => ({
             ...slot,
             dayOfWeek: daysMap[slot.dayOfWeek] || 'Monday',
@@ -1716,8 +1716,8 @@ export const api = {
         const res = await fetch(`${API_BASE_URL}/notifications/in-app`, {
           headers: getHeaders(),
         });
-        const resp = await res.json();
-        if (resp.success && resp.data) {
+        const resp = await res.json().catch(() => null);
+        if (resp?.success && Array.isArray(resp.data)) {
           const mapped = resp.data.map((n: any) => ({
             ...n,
             read: n.isRead,
