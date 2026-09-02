@@ -2,10 +2,6 @@
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@campus-connect/ui", "@campus-connect/utils", "@campus-connect/types"],
-  env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || '',
-    NEXT_API_URL: process.env.NEXT_API_URL || process.env.NEXT_PUBLIC_API_URL || '',
-  },
   async rewrites() {
     const backendUrl =
       process.env.BACKEND_API_URL ||

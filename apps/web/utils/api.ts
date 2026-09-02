@@ -52,18 +52,20 @@ export interface StudentRecord {
 }
 
 export function getApiBaseUrl(): string {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_API_URL;
-  if (envUrl && envUrl.trim() !== '') {
-    // If the browser is loaded over HTTPS, never allow insecure http:// calls to prevent Mixed Content blocking
-    if (typeof window !== 'undefined' && window.location.protocol === 'https:' && envUrl.startsWith('http:')) {
-      return '/api/v1';
-    }
-    return envUrl.replace(/\/$/, '');
-  }
-
-  // In the browser on HTTPS (e.g. Vercel deployment), route through Next.js /api/v1 rewrite proxy
+  // In the browser on HTTPS (e.g. Vercel deployment), ALWAYS route through same-origin relative /api/v1.
+  // This completely eliminates Mixed Content, CORS failures, and stale/expired tunnel URLs.
   if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
     return '/api/v1';
+  }
+
+  const envUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_API_URL;
+  if (
+    envUrl &&
+    envUrl.trim() !== '' &&
+    !envUrl.includes('trycloudflare.com') &&
+    !envUrl.includes('cloudflare')
+  ) {
+    return envUrl.replace(/\/$/, '');
   }
 
   // Local development default
