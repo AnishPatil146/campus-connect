@@ -51,7 +51,26 @@ export interface StudentRecord {
   };
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_API_URL || 'http://localhost:10000/api/v1';
+export function getApiBaseUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_API_URL;
+  if (envUrl && envUrl.trim() !== '') {
+    // If the browser is loaded over HTTPS, never allow insecure http:// calls to prevent Mixed Content blocking
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:' && envUrl.startsWith('http:')) {
+      return '/api/v1';
+    }
+    return envUrl.replace(/\/$/, '');
+  }
+
+  // In the browser on HTTPS (e.g. Vercel deployment), route through Next.js /api/v1 rewrite proxy
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+    return '/api/v1';
+  }
+
+  // Local development default
+  return 'http://localhost:10000/api/v1';
+}
+
+export const API_BASE_URL = getApiBaseUrl();
 
 // Get auth headers
 function getHeaders() {

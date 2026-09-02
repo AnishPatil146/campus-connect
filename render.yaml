@@ -20,7 +20,7 @@ services:
       - key: SINGLE_DB_MODE
         value: "true"
       - key: ALLOWED_ADMIN_EMAILS
-        value: anish@college.edu,teacher@college.edu,admin@collegea.edu,admin@collegeb.edu,super@campusconnect.com
+        value: admin.demo@campusconnect.demo,anish@college.edu,teacher@college.edu,admin@collegea.edu,admin@collegeb.edu,super@campusconnect.com
       - key: JWT_SECRET
         value: super-secret-jwt-key-for-campus-connect
       - key: REDIS_URL
@@ -37,9 +37,4 @@ services:
         value: "true"
       - key: ALLOWED_ORIGINS
         value: https://campus-connect-web-tau.vercel.app,http://localhost:3000,http://localhost:3001
-      - key: MONGODB_ENABLED
-        value: "true"
-      - key: MONGODB_URI
-        value: mongodb://campusconnect:anishsantoshpatil123@ac-g7ss8v3-shard-00-00.hjyjapj.mongodb.net:27017,ac-g7ss8v3-shard-00-01.hjyjapj.mongodb.net:27017,ac-g7ss8v3-shard-00-02.hjyjapj.mongodb.net:27017/?ssl=true&replicaSet=atlas-abo4jb-shard-0&authSource=admin&appName=Cluster0
-      - key: MONGODB_DB_NAME
-        value: campus_connect_aux
+

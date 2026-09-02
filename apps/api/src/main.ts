@@ -32,27 +32,46 @@ async function bootstrap() {
     'http://localhost:3001',
     'http://localhost:10000',
     'https://campus-connect.vercel.app',
-    'https://campus-connect-web-tau.vercel.app',  // Production frontend
+    'https://campus-connect-web-tau.vercel.app', // Production frontend
   ];
+
+  const envOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',')
+        .map((o) => o.trim().replace(/^["']|["']$/g, ''))
+        .filter(Boolean)
+    : [];
+
+  const combinedAllowedOrigins = Array.from(new Set([...defaultAllowedOrigins, ...envOrigins]));
+
   app.enableCors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
-      
-      const allowedOrigins = process.env.ALLOWED_ORIGINS 
-        ? process.env.ALLOWED_ORIGINS.split(',') 
-        : defaultAllowedOrigins;
 
-      const isAllowed = allowedOrigins.includes(origin) ||
-        /^https:\/\/campus-connect-[a-zA-Z0-9-]+\.vercel\.app$/.test(origin);
+      const isAllowed =
+        combinedAllowedOrigins.includes(origin) ||
+        /^https:\/\/campus-connect-[a-zA-Z0-9-]+\.vercel\.app$/.test(origin) ||
+        /^http:\/\/localhost:[0-9]+$/.test(origin);
 
       if (isAllowed) {
         callback(null, true);
       } else {
-        callback(new Error('Not allowed by CORS'));
+        console.warn(`[CORS] Request from disallowed origin: ${origin}`);
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
       }
     },
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'x-college-id',
+      'Accept',
+      'Origin',
+      'X-Requested-With',
+      'Range',
+    ],
+    exposedHeaders: ['Set-Cookie', 'Content-Range', 'X-Total-Count'],
     credentials: true,
+    optionsSuccessStatus: 204,
   });
 
   // Set global API prefix
