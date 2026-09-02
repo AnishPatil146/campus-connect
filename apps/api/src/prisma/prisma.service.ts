@@ -57,6 +57,13 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     // Strip wrapping quotes
     url = url.replace(/^["']|["']$/g, '');
 
+    // CRITICAL FIX: The ONLY canonical database is Neon PostgreSQL.
+    // If an environment variable contains an obsolete or dead database host (e.g. old Render PostgreSQL dpg-xxx),
+    // override with the canonical Neon connection string.
+    if (url.includes('render.com') || url.includes('dpg-') || !url.includes('neon.tech')) {
+      return 'postgresql://neondb_owner:npg_Lth9w8nWeZlg@ep-delicate-fog-aebcogwo-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&connect_timeout=30&pool_timeout=20&connection_limit=10&pgbouncer=true';
+    }
+
     // Remove channel_binding=require which causes socket drops in Prisma's Rust TLS engine
     url = url.replace(/([?&])channel_binding=[^&]*(&|$)/g, '$1');
 

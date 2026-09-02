@@ -38,8 +38,9 @@ export class HealthController {
   async getDatabaseHealth(@Req() req: Request) {
     console.log(`[Health Probe] GET ${req?.url || '/health/database'} at: ${new Date().toISOString()}`);
     const rawEnvUrl = process.env.DATABASE_URL || '(not set)';
+    const effectiveUrl = PrismaService.sanitizeUrl(rawEnvUrl);
     let envHost = '(parse error)';
-    try { envHost = new URL(rawEnvUrl).host; } catch {}
+    try { envHost = new URL(effectiveUrl).host; } catch {}
 
     try {
       await this.prisma.$queryRawUnsafe('SELECT 1 as ping');

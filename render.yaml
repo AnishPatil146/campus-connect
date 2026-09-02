@@ -14,7 +14,7 @@ services:
       - key: PORT
         value: 10000
       - key: DATABASE_URL
-        value: postgresql://neondb_owner:npg_Lth9w8nWeZlg@ep-delicate-fog-aebcogwo-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&connect_timeout=30
+        value: postgresql://neondb_owner:npg_Lth9w8nWeZlg@ep-delicate-fog-aebcogwo-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&connect_timeout=30&pool_timeout=20&connection_limit=10&pgbouncer=true
       - key: MULTI_DB_ENABLED
         value: "false"
       - key: SINGLE_DB_MODE

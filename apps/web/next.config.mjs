@@ -11,7 +11,7 @@ const nextConfig = {
       process.env.BACKEND_API_URL ||
       process.env.API_URL ||
       process.env.NEXT_PUBLIC_API_URL ||
-      'http://localhost:10000/api/v1';
+      'https://campus-connect-tyz7.onrender.com/api/v1';
 
     const normalized = backendUrl.replace(/\/$/, '');
     const destination = normalized.endsWith('/api/v1')
