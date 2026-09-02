@@ -14,55 +14,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function checkMockLogin(email: string, collegeId: CollegeId, role: UserRole): User | null {
-  if (typeof window === 'undefined') return null;
-  
-  // 1. Check registered users in local storage
-  const stored = localStorage.getItem('cc_mock_registered_users');
-  if (stored) {
-    try {
-      const users = JSON.parse(stored);
-      const matched = users.find((u: any) => u.email && u.email.toLowerCase() === email.toLowerCase());
-      if (matched) {
-        return {
-          id: matched.id,
-          email: matched.email,
-          name: matched.name,
-          role: (matched.role === 'COLLEGE_ADMIN' || matched.role === 'ADMIN') ? 'ADMIN' : matched.role,
-          collegeId: matched.collegeId || collegeId,
-          createdAt: matched.createdAt || new Date().toISOString(),
-          updatedAt: matched.updatedAt || new Date().toISOString(),
-        };
-      }
-    } catch (_) {}
-  }
-
-  // 2. Check default demo accounts
-  const demoAccounts: Record<string, { name: string; role: UserRole; collegeId: CollegeId }> = {
-    'admin@collegec.edu': { name: 'College Admin', role: 'ADMIN', collegeId: 'college-c' },
-    'admin@college.edu': { name: 'Super Admin', role: 'ADMIN', collegeId: 'college-a' },
-    'amit.patil@collegec.edu': { name: 'Prof. Amit Patil', role: 'TEACHER', collegeId: 'college-c' },
-    'teacher@collegec.edu': { name: 'Dr. Sarah Jenkins', role: 'TEACHER', collegeId: 'college-c' },
-    'student@college.edu': { name: 'Aarav Sharma', role: 'STUDENT', collegeId: 'college-a' },
-  };
-
-  const normalized = email.toLowerCase().trim();
-  if (demoAccounts[normalized]) {
-    const acc = demoAccounts[normalized];
-    return {
-      id: `usr-demo-${role.toLowerCase()}`,
-      email: normalized,
-      name: acc.name,
-      role: acc.role,
-      collegeId: collegeId || acc.collegeId,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-  }
-
-  return null;
-}
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -82,7 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, collegeId: CollegeId, role: UserRole, password?: string): Promise<boolean> => {
     setIsLoading(true);
 
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_API_URL || 'https://lighter-laura-mere-reminder.trycloudflare.com/api/v1';
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_API_URL || 'http://localhost:10000/api/v1';
     try {
       const res = await fetch(`${apiBaseUrl}/auth/login`, {
         method: 'POST',
@@ -102,7 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email: apiUser.email,
           name: apiUser.name,
           role: (apiUser.role === 'COLLEGE_ADMIN' || apiUser.role === 'ADMIN') ? 'ADMIN' : apiUser.role,
-          collegeId: collegeId, // Keep visual selected collegeId for asset logo mapping
+          collegeId: apiUser.collegeId || collegeId, // Keep visual selected collegeId for asset logo mapping
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           studentProfile: apiUser.studentProfile,
@@ -117,26 +68,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
         return true;
       } else {
-        const mockFallback = checkMockLogin(email, collegeId, role);
-        if (mockFallback) {
-          setUser(mockFallback);
-          localStorage.setItem('cc_user', JSON.stringify(mockFallback));
-          localStorage.setItem('cc_token', `mock-token-${Date.now()}`);
-          setIsLoading(false);
-          return true;
-        }
         setIsLoading(false);
         throw new Error(payload.message || 'Invalid credentials');
       }
     } catch (e: any) {
-      const mockFallback = checkMockLogin(email, collegeId, role);
-      if (mockFallback) {
-        setUser(mockFallback);
-        localStorage.setItem('cc_user', JSON.stringify(mockFallback));
-        localStorage.setItem('cc_token', `mock-token-${Date.now()}`);
-        setIsLoading(false);
-        return true;
-      }
       setIsLoading(false);
       throw e;
     }
@@ -144,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWithGoogle = async (token: string, collegeId: CollegeId, role: UserRole): Promise<boolean> => {
     setIsLoading(true);
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_API_URL || 'https://lighter-laura-mere-reminder.trycloudflare.com/api/v1';
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_API_URL || 'http://localhost:10000/api/v1';
     try {
       const res = await fetch(`${apiBaseUrl}/auth/google`, {
         method: 'POST',
@@ -165,7 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email: apiUser.email,
           name: apiUser.name,
           role: (apiUser.role === 'COLLEGE_ADMIN' || apiUser.role === 'ADMIN') ? 'ADMIN' : apiUser.role,
-          collegeId: collegeId,
+          collegeId: apiUser.collegeId || collegeId,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           studentProfile: apiUser.studentProfile,
@@ -181,9 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return true;
       } else {
         setIsLoading(false);
-        const err = new Error(payload.message || 'Google login failed') as any;
-        err.errorCode = payload.errorCode;
-        throw err;
+        throw new Error(payload.message || 'Google authentication failed');
       }
     } catch (e: any) {
       setIsLoading(false);

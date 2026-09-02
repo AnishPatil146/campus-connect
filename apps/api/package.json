@@ -12,6 +12,7 @@
     "prisma:migrate": "dotenv -e .env -- prisma migrate deploy --schema=prisma/schema_merged.prisma",
     "prisma:reset": "dotenv -e .env -- prisma migrate reset --schema=prisma/schema_merged.prisma --force",
     "prisma:seed": "ts-node prisma/seed.ts",
+    "prisma:seed:demo": "ts-node prisma/seed-demo.ts",
     "test": "jest --runInBand",
     "test:cov": "jest --coverage"
   },

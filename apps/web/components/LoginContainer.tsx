@@ -419,6 +419,35 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
     }
   };
 
+  const handleDemoLogin = async (demoRole: UserRole) => {
+    setError(null);
+    let demoEmail = '';
+    if (demoRole === 'STUDENT') demoEmail = 'student.demo@campusconnect.demo';
+    else if (demoRole === 'TEACHER') demoEmail = 'teacher.demo@campusconnect.demo';
+    else demoEmail = 'admin.demo@campusconnect.demo';
+
+    const demoPassword = 'password123';
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+    setRole(demoRole);
+    setCollegeId('college-c');
+
+    startLoading(`Signing in as ${demoRole.toLowerCase()} demo...`);
+    try {
+      const success = await login(demoEmail, 'college-c', demoRole, demoPassword);
+      if (success) {
+        redirectUser(demoRole);
+      } else {
+        setError('Authentication failed for demo account.');
+        stopLoading();
+      }
+    } catch (err: any) {
+      console.error('[Demo Login Error]', err);
+      setError(err.message || 'Demo login failed. Check backend connection.');
+      stopLoading();
+    }
+  };
+
   const redirectUser = (userRole: UserRole) => {
     stopLoading();
     const targetPath = userRole === 'STUDENT' ? '/dashboard/student' : userRole === 'TEACHER' ? '/dashboard/teacher' : '/dashboard/admin';
@@ -1246,6 +1275,50 @@ export default function LoginContainer({ initialRole, brandingMessage }: { initi
                   <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
                     Login to your account to continue
                   </p>
+                </div>
+
+                {/* ── Demo Accounts Quick-Select (One-Click) ── */}
+                <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-850/60 border border-slate-200/80 dark:border-slate-800 space-y-2.5 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                      <span className="text-amber-500">⚡</span> Demo Accounts
+                    </span>
+                    <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live Neon DB
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      id="demo-student-btn"
+                      onClick={() => handleDemoLogin('STUDENT')}
+                      disabled={isLoading}
+                      className="px-2.5 py-2.5 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-500 hover:text-blue-600 dark:hover:border-blue-400 dark:hover:text-blue-400 shadow-sm transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
+                    >
+                      <GraduationCap className="h-3.5 w-3.5 text-blue-500" />
+                      <span>Student</span>
+                    </button>
+                    <button
+                      type="button"
+                      id="demo-teacher-btn"
+                      onClick={() => handleDemoLogin('TEACHER')}
+                      disabled={isLoading}
+                      className="px-2.5 py-2.5 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-emerald-500 hover:text-emerald-600 dark:hover:border-emerald-400 dark:hover:text-emerald-400 shadow-sm transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
+                    >
+                      <UserIcon className="h-3.5 w-3.5 text-emerald-500" />
+                      <span>Teacher</span>
+                    </button>
+                    <button
+                      type="button"
+                      id="demo-admin-btn"
+                      onClick={() => handleDemoLogin('ADMIN')}
+                      disabled={isLoading}
+                      className="px-2.5 py-2.5 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-violet-500 hover:text-violet-600 dark:hover:border-violet-400 dark:hover:text-violet-400 shadow-sm transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
+                    >
+                      <Shield className="h-3.5 w-3.5 text-violet-500" />
+                      <span>Admin</span>
+                    </button>
+                  </div>
                 </div>
 
                 {error && (

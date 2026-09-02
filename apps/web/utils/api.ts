@@ -51,7 +51,7 @@ export interface StudentRecord {
   };
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_API_URL || 'https://lighter-laura-mere-reminder.trycloudflare.com/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_API_URL || 'http://localhost:10000/api/v1';
 
 // Get auth headers
 function getHeaders() {
@@ -109,35 +109,9 @@ export async function fetchWithRefresh(url: string, options: RequestInit = {}): 
   return response;
 }
 
-// Fast in-memory cached API availability check (avoids blocking each request with redundant 5s health pings)
-let lastPingResult = true;
-let lastPingTimestamp = 0;
-
+// Fast API availability check
 async function pingAPI(): Promise<boolean> {
-  const now = Date.now();
-  // Cache result for 2 minutes
-  if (now - lastPingTimestamp < 120_000) {
-    return lastPingResult;
-  }
-
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1500);
-    const res = await fetch(`${API_BASE_URL}/health`, {
-      method: 'GET',
-      headers: getHeaders(),
-      signal: controller.signal,
-    }).catch(() => null);
-    clearTimeout(timeoutId);
-
-    lastPingResult = Boolean(res && res.ok);
-    lastPingTimestamp = now;
-    return lastPingResult;
-  } catch (e) {
-    lastPingResult = true; // Optimistic fallback to avoid blocking valid queries
-    lastPingTimestamp = now;
-    return true;
-  }
+  return true;
 }
 
 // ----------------- Mock Database Storage Fallback -----------------
@@ -1044,39 +1018,55 @@ export const api = {
   },
 
   async getStudentAttendanceDashboard(): Promise<{ success: boolean; data?: any; message?: string }> {
-    const isOnline = await pingAPI();
-    if (isOnline) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/student/attendance`, {
-          headers: getHeaders(),
-        });
-        if (res.ok) {
-          return await res.json();
-        }
-      } catch (err) {
-        console.warn('Failed to fetch student attendance dashboard:', err);
+    try {
+      const res = await fetchWithRefresh(`${API_BASE_URL}/student/attendance`);
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        return {
+          success: false,
+          data: null,
+          message: payload?.message || `Server responded with status ${res.status}`,
+        };
       }
+      return {
+        success: payload?.success ?? true,
+        data: payload?.data ?? payload,
+        message: payload?.message,
+      };
+    } catch (err: any) {
+      console.warn('Failed to fetch student attendance dashboard:', err);
+      return {
+        success: false,
+        data: null,
+        message: err?.message || 'Failed to connect to API server',
+      };
     }
-    return {
-      success: false,
-      message: 'API is offline',
-    };
   },
 
   async getStudentDashboard(): Promise<{ success: boolean; data: any; message?: string }> {
-    const isOnline = await pingAPI();
-    if (isOnline) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/student/dashboard`, {
-          headers: getHeaders(),
-        });
-        const payload = await res.json();
-        return { success: payload.success, data: payload.data, message: payload.message };
-      } catch (err) {
-        console.warn('Failed to fetch student dashboard:', err);
+    try {
+      const res = await fetchWithRefresh(`${API_BASE_URL}/student/dashboard`);
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        return {
+          success: false,
+          data: null,
+          message: payload?.message || `Server responded with status ${res.status}`,
+        };
       }
+      return {
+        success: payload?.success ?? true,
+        data: payload?.data ?? payload,
+        message: payload?.message,
+      };
+    } catch (err: any) {
+      console.warn('Failed to fetch student dashboard:', err);
+      return {
+        success: false,
+        data: null,
+        message: err?.message || 'Failed to connect to API server',
+      };
     }
-    return { success: false, data: null, message: 'API is offline' };
   },
 
   async requestLeave(payload: {
@@ -1353,19 +1343,29 @@ export const api = {
   // ────────────────── Teacher Dashboard integrations ──────────────────
 
   async getTeacherDashboard(): Promise<{ success: boolean; data: any; message?: string }> {
-    const isOnline = await pingAPI();
-    if (isOnline) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/teacher/dashboard`, {
-          headers: getHeaders(),
-        });
-        const payload = await res.json();
-        if (payload.success) return { success: true, data: payload.data };
-      } catch (err) {
-        console.warn('Failed to fetch teacher dashboard:', err);
+    try {
+      const res = await fetchWithRefresh(`${API_BASE_URL}/teacher/dashboard`);
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        return {
+          success: false,
+          data: null,
+          message: payload?.message || `Server responded with status ${res.status}`,
+        };
       }
+      return {
+        success: payload?.success ?? true,
+        data: payload?.data ?? payload,
+        message: payload?.message,
+      };
+    } catch (err: any) {
+      console.warn('Failed to fetch teacher dashboard:', err);
+      return {
+        success: false,
+        data: null,
+        message: err?.message || 'Failed to connect to API server',
+      };
     }
-    return { success: false, data: null, message: 'API is offline' };
   },
 
   async getTeacherTimetable(teacherId: string): Promise<{ success: boolean; data: any[] }> {
@@ -1809,20 +1809,30 @@ export const api = {
 
   // ─── Admin Dashboard ───────────────────────────────────────────────────────
 
-  async getAdminDashboard(): Promise<{ success: boolean; data: any }> {
-    const isOnline = await pingAPI();
-    if (isOnline) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/dashboard/admin`, {
-          headers: getHeaders(),
-        });
-        const payload = await res.json();
-        if (payload.success) return { success: true, data: payload.data };
-      } catch (err) {
-        console.warn('Failed to fetch admin dashboard:', err);
+  async getAdminDashboard(): Promise<{ success: boolean; data: any; message?: string }> {
+    try {
+      const res = await fetchWithRefresh(`${API_BASE_URL}/dashboard/admin`);
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        return {
+          success: false,
+          data: null,
+          message: payload?.message || `Server responded with status ${res.status}`,
+        };
       }
+      return {
+        success: payload?.success ?? true,
+        data: payload?.data ?? payload,
+        message: payload?.message,
+      };
+    } catch (err: any) {
+      console.warn('Failed to fetch admin dashboard:', err);
+      return {
+        success: false,
+        data: null,
+        message: err?.message || 'Failed to connect to API server',
+      };
     }
-    return { success: false, data: null };
   },
 
   async getDepartments(params?: { collegeId?: string }): Promise<{ success: boolean; data: any[] }> {

@@ -402,7 +402,7 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
       if (roleToCheck === Role.ADMIN) {
         const allowedAdmins = process.env.ALLOWED_ADMIN_EMAILS
           ? process.env.ALLOWED_ADMIN_EMAILS.split(',').map((e) => e.trim().toLowerCase())
-          : ['admin@collegea.edu', 'admin@collegeb.edu', 'admin@collegec.edu', 'rnagarkar001@gmail.com', 'super@campusconnect.com', 'admin@collegea.com', 'admin@collegeb.com', 'admin@collegec.com'];
+          : ['admin.demo@campusconnect.demo', 'admin@collegea.edu', 'admin@collegeb.edu', 'admin@collegec.edu', 'rnagarkar001@gmail.com', 'super@campusconnect.com', 'admin@collegea.com', 'admin@collegeb.com', 'admin@collegec.com'];
 
         if (!allowedAdmins.includes(email.toLowerCase().trim())) {
           throw new UnauthorizedException({

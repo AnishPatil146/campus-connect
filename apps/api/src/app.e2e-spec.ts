@@ -283,13 +283,14 @@ describe('Auth API (e2e)', () => {
     it('should suspend account after 20 failed attempts', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({
         ...activeUser,
+        email: 'student-suspend@college.edu',
         failedLoginAttempts: 19, // 20th fail suspends
       });
 
       const res = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
         .send({
-          email: 'student@college.edu',
+          email: 'student-suspend@college.edu',
           password: 'WrongPassword',
         });
 
