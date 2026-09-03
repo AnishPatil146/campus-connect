@@ -312,40 +312,43 @@ ${details.result === 'FAILURE' ? `ROOT CAUSE: ${details.rootCause || 'UNKNOWN'}`
       userFound = true;
 
       // Tenant Validation (College validation)
-      const isMultiDb = process.env.MULTI_DB_ENABLED === 'true';
-      const hasExplicitTenant = isMultiDb && !!(loginDto.collegeId || collegeIdHeader);
+      const hasExplicitTenant = !!(loginDto.collegeId || collegeIdHeader);
       if (hasExplicitTenant && user.collegeId && user.collegeId !== resolvedCollegeId) {
-        collegeMatch = false;
-        rootCause = 'Tenant Mismatch';
-        // Log failed attempt to login history in background
-        this.prisma.loginHistory.create({
-          data: {
-            userId: user.id,
+        const canonicalRequestedCollege = await this.resolveValidCollegeId(resolvedCollegeId);
+        const canonicalUserCollege = await this.resolveValidCollegeId(user.collegeId);
+        if (canonicalUserCollege !== canonicalRequestedCollege && user.collegeId !== canonicalRequestedCollege) {
+          collegeMatch = false;
+          rootCause = 'Tenant Mismatch';
+          // Log failed attempt to login history in background
+          this.prisma.loginHistory.create({
+            data: {
+              userId: user.id,
+              ipAddress,
+              device,
+              browser,
+              status: 'FAILED',
+            },
+          }).catch(err => console.error('[Login] Failed to record login history:', err));
+
+          // Write audit log in background
+          this.audit.log(
+            user.id,
+            user.name,
+            'UNKNOWN',
+            'Failed Login Attempt',
+            `Tenant mismatch: User college is ${user.collegeId}, but request tenant is ${resolvedCollegeId}.`,
+            'auth',
+            'User',
+            user.id,
             ipAddress,
-            device,
-            browser,
-            status: 'FAILED',
-          },
-        }).catch(err => console.error('[Login] Failed to record login history:', err));
+          ).catch(err => console.error('[Login] Failed to log audit:', err));
 
-        // Write audit log in background
-        this.audit.log(
-          user.id,
-          user.name,
-          'UNKNOWN',
-          'Failed Login Attempt',
-          `Tenant mismatch: User college is ${user.collegeId}, but request tenant is ${resolvedCollegeId}.`,
-          'auth',
-          'User',
-          user.id,
-          ipAddress,
-        ).catch(err => console.error('[Login] Failed to log audit:', err));
-
-        throw new UnauthorizedException({
-          success: false,
-          message: 'Tenant mismatch: Your account belongs to another college.',
-          errorCode: 'AUTH_008',
-        });
+          throw new UnauthorizedException({
+            success: false,
+            message: 'Tenant mismatch: Your account belongs to another college.',
+            errorCode: 'AUTH_008',
+          });
+        }
       }
       collegeMatch = true;
 
@@ -1309,34 +1312,45 @@ If you did not make this change, please contact support immediately.
   async resolveValidCollegeId(collegeInput?: string, tx?: any): Promise<string> {
     const client = tx || this.prisma;
     if (collegeInput) {
+      const lower = collegeInput.toLowerCase().trim();
+
+      // Canonical slug to Neon UUID mapping
+      const slugMap: Record<string, string> = {
+        'college-a': '6a304465-3698-4ce8-9574-1b3a8d92619b',
+        'college-b': 'fcbc1af8-199f-43be-ac08-23ac0690d0a1',
+        'college-c': '43d1299d-b1d5-4fa2-86f6-31a13e115df2',
+      };
+      if (slugMap[lower]) {
+        const c = await client?.college?.findUnique?.({ where: { id: slugMap[lower] } }).catch(() => null);
+        if (c) return c.id;
+        return slugMap[lower];
+      }
+
       // 1. Direct ID lookup
-      const byId = await client.college.findUnique({ where: { id: collegeInput } }).catch(() => null);
+      const byId = await client?.college?.findUnique?.({ where: { id: collegeInput } }).catch(() => null);
       if (byId) return byId.id;
 
       // 2. Slug / Alias matching
-      if (collegeInput === 'college-a' || collegeInput.toLowerCase().includes('pushpalata')) {
-        const c = await client.college.findFirst({ where: { name: { contains: 'Pushpalata', mode: 'insensitive' } } });
+      if (lower === 'college-a' || lower.includes('pushpalata')) {
+        const c = await client?.college?.findFirst?.({ where: { name: { contains: 'Pushpalata', mode: 'insensitive' } } }).catch(() => null);
         if (c) return c.id;
       }
-      if (collegeInput === 'college-b' || collegeInput.toLowerCase().includes('junior')) {
-        const c = await client.college.findFirst({ where: { name: { contains: 'Junior', mode: 'insensitive' } } });
+      if (lower === 'college-b' || lower.includes('junior')) {
+        const c = await client?.college?.findFirst?.({ where: { name: { contains: 'Junior', mode: 'insensitive' } } }).catch(() => null);
         if (c) return c.id;
       }
-      if (collegeInput === 'college-c' || collegeInput.toLowerCase().includes('senior')) {
-        const c = await client.college.findFirst({ where: { name: { contains: 'Senior', mode: 'insensitive' } } });
+      if (lower === 'college-c' || lower.includes('senior')) {
+        const c = await client?.college?.findFirst?.({ where: { name: { contains: 'Senior', mode: 'insensitive' } } }).catch(() => null);
         if (c) return c.id;
       }
     }
 
     // 3. Fallback to first available college
-    const firstCollege = await client.college.findFirst();
+    const firstCollege = await client?.college?.findFirst?.().catch(() => null);
     if (firstCollege) return firstCollege.id;
 
-    // 4. Auto-create default college if none exist
-    const defaultCollege = await client.college.create({
-      data: { name: "Pushpalata Mhatre Women's College" },
-    });
-    return defaultCollege.id;
+    // 4. Default fallback
+    return collegeInput || '43d1299d-b1d5-4fa2-86f6-31a13e115df2';
   }
 
   // Self-registration for students and teachers
@@ -1798,12 +1812,15 @@ If you did not make this change, please contact support immediately.
     }
 
     // 5. Tenant Validation (College validation)
-    const isMultiDb = process.env.MULTI_DB_ENABLED === 'true';
-    if (isMultiDb && user.collegeId && user.collegeId !== collegeId && emailLower !== 'rnagarkar001@gmail.com') {
-      throw new UnauthorizedException({
-        message: 'Tenant mismatch: Your account belongs to another college.',
-        errorCode: 'AUTH_008',
-      });
+    if (user.collegeId && collegeId && user.collegeId !== collegeId && emailLower !== 'rnagarkar001@gmail.com') {
+      const canonicalUserCollege = await this.resolveValidCollegeId(user.collegeId);
+      const canonicalReqCollege = await this.resolveValidCollegeId(collegeId);
+      if (canonicalUserCollege !== canonicalReqCollege && user.collegeId !== canonicalReqCollege) {
+        throw new UnauthorizedException({
+          message: 'Tenant mismatch: Your account belongs to another college.',
+          errorCode: 'AUTH_008',
+        });
+      }
     }
 
     // 6. Role Validation

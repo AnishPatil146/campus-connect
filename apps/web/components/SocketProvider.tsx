@@ -31,7 +31,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:10000/events';
+    const socketUrl =
+      process.env.NEXT_PUBLIC_SOCKET_URL ||
+      (typeof window !== 'undefined' && window.location.protocol === 'https:'
+        ? 'https://campus-connect-tyz7.onrender.com/events'
+        : 'http://localhost:10000/events');
     const token = typeof window !== 'undefined' ? localStorage.getItem('cc_token') : null;
     
     const s = io(socketUrl, {

@@ -21,6 +21,25 @@ const nextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: '/student/dashboard',
+        destination: '/dashboard/student',
+        permanent: false,
+      },
+      {
+        source: '/teacher/dashboard',
+        destination: '/dashboard/teacher',
+        permanent: false,
+      },
+      {
+        source: '/admin/dashboard',
+        destination: '/dashboard/admin',
+        permanent: false,
+      },
+    ];
+  },
   experimental: {
     outputFileTracingExcludes: {
       '*': ['**/*'],

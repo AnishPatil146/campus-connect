@@ -52,20 +52,24 @@ export interface StudentRecord {
 }
 
 export function getApiBaseUrl(): string {
-  // In the browser on HTTPS (e.g. Vercel deployment), ALWAYS route through same-origin relative /api/v1.
-  // This completely eliminates Mixed Content, CORS failures, and stale/expired tunnel URLs.
-  if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
-    return '/api/v1';
-  }
-
   const envUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_API_URL;
+
+  // If explicitly configured with a valid production HTTPS API URL, use it directly (Option A)
   if (
     envUrl &&
     envUrl.trim() !== '' &&
     !envUrl.includes('trycloudflare.com') &&
-    !envUrl.includes('cloudflare')
+    !envUrl.includes('cloudflare') &&
+    !envUrl.includes('localhost') &&
+    !envUrl.includes('127.0.0.1')
   ) {
     return envUrl.replace(/\/$/, '');
+  }
+
+  // In the browser on HTTPS (e.g. Vercel deployment), if envUrl is missing, localhost, or expired tunnel,
+  // use the verified production NestJS API gateway on Render (Option A canonical endpoint)
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+    return 'https://campus-connect-tyz7.onrender.com/api/v1';
   }
 
   // Local development default

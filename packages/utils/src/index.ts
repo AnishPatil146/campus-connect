@@ -63,6 +63,36 @@ export function getCollegeLogo(id: CollegeId): string {
   }
 }
 
+/**
+ * Canonical Neon database UUIDs mapped to UI slugs and vice versa.
+ */
+export const COLLEGE_SLUG_TO_UUID: Record<string, string> = {
+  'college-a': '6a304465-3698-4ce8-9574-1b3a8d92619b',
+  'college-b': 'fcbc1af8-199f-43be-ac08-23ac0690d0a1',
+  'college-c': '43d1299d-b1d5-4fa2-86f6-31a13e115df2',
+};
+
+export const COLLEGE_UUID_TO_SLUG: Record<string, CollegeId> = {
+  '6a304465-3698-4ce8-9574-1b3a8d92619b': 'college-a',
+  'fcbc1af8-199f-43be-ac08-23ac0690d0a1': 'college-b',
+  '43d1299d-b1d5-4fa2-86f6-31a13e115df2': 'college-c',
+};
+
+export function getCollegeUuid(slugOrId?: string): string {
+  if (!slugOrId) return COLLEGE_SLUG_TO_UUID['college-c'];
+  const lower = slugOrId.toLowerCase().trim();
+  return COLLEGE_SLUG_TO_UUID[lower] || slugOrId;
+}
+
+export function getCollegeSlug(uuidOrSlug?: string): CollegeId {
+  if (!uuidOrSlug) return 'college-c';
+  const lower = uuidOrSlug.toLowerCase().trim();
+  if (lower === 'college-a' || lower === 'college-b' || lower === 'college-c') {
+    return lower as CollegeId;
+  }
+  return COLLEGE_UUID_TO_SLUG[lower] || 'college-c';
+}
+
 
 export function formatDate(dateString: string): string {
   const options: Intl.DateTimeFormatOptions = {

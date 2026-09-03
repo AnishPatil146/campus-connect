@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { DashboardLayout } from '../../../../components/DashboardLayout';
-import { api, TimetableEntry } from '../../../../utils/api';
+import { api, TimetableEntry, getApiBaseUrl } from '../../../../utils/api';
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell, Badge, Card, CardContent } from '@campus-connect/ui';
 import { FolderInput, Download, UploadCloud, CheckCircle2, AlertTriangle, Play, RefreshCw, History, FileSpreadsheet, ShieldCheck } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -68,7 +68,7 @@ export default function ImportCenter() {
     setIsLoadingHistory(true);
     try {
       const token = localStorage.getItem('cc_token');
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:10000/api/v1';
+      const apiBaseUrl = getApiBaseUrl();
       const response = await fetch(`${apiBaseUrl}/imports/history`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -135,7 +135,7 @@ export default function ImportCenter() {
       XLSX.writeFile(workbook, 'timetable_import_template.xlsx');
       return;
     }
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:10000/api/v1';
+    const apiBaseUrl = getApiBaseUrl();
     window.open(`${apiBaseUrl}/imports/template/${importType.toLowerCase()}?token=${localStorage.getItem('cc_token') || ''}`);
   };
 
@@ -302,7 +302,7 @@ export default function ImportCenter() {
 
     try {
       const token = localStorage.getItem('cc_token');
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:10000/api/v1';
+      const apiBaseUrl = getApiBaseUrl();
       const response = await fetch(`${apiBaseUrl}/imports/preview`, {
         method: 'POST',
         headers: {
@@ -492,7 +492,7 @@ export default function ImportCenter() {
 
     try {
       const token = localStorage.getItem('cc_token');
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:10000/api/v1';
+      const apiBaseUrl = getApiBaseUrl();
       const response = await fetch(`${apiBaseUrl}/imports/commit`, {
         method: 'POST',
         headers: {

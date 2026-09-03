@@ -75,6 +75,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e: any) {
       setIsLoading(false);
       console.error('[Login Error]', e);
+      if (e?.name === 'TypeError' && (e?.message?.includes('fetch') || e?.message?.includes('NetworkError') || e?.message?.includes('Failed to fetch'))) {
+        throw new Error('Unable to connect to the Campus Connect API. Please check your connection or try again.');
+      }
       throw e;
     }
   };

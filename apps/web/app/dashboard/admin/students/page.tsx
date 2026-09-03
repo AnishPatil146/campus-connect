@@ -32,7 +32,7 @@ import {
   X,
   RefreshCw
 } from 'lucide-react';
-import { api, StudentRecord } from '../../../../utils/api';
+import { api, StudentRecord, getApiBaseUrl } from '../../../../utils/api';
 import { CollegeId } from '@campus-connect/types';
 
 export default function StudentsDirectory() {
@@ -296,7 +296,7 @@ export default function StudentsDirectory() {
     setIsPromoting(true);
     try {
       const token = localStorage.getItem('cc_token');
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:10000/api/v1';
+      const apiBaseUrl = getApiBaseUrl();
       const response = await fetch(`${apiBaseUrl}/imports/promote`, {
         method: 'POST',
         headers: {
