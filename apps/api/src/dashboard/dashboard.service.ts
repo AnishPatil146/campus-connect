@@ -75,7 +75,7 @@ export class DashboardService {
       },
     });
 
-    const attendancePercentage = totalAttRecords > 0 ? (attendanceCount / totalAttRecords) * 100 : 100;
+    const attendancePercentage = totalAttRecords > 0 ? Math.round((attendanceCount / totalAttRecords) * 100) : 100;
 
     // 3. Pending approvals (Waitlisted registrations or pending teacher leave requests)
     const pendingEventApprovals = await this.prisma.eventRegistration.count({
@@ -355,7 +355,7 @@ export class DashboardService {
       where: { studentId: student.id, status: 'PRESENT' },
     });
 
-    const overallPercentage = totalSessions > 0 ? (presentSessions / totalSessions) * 100 : 100;
+    const overallPercentage = totalSessions > 0 ? Math.round((presentSessions / totalSessions) * 100) : 100;
 
     // 2. Today's classes
     const today = new Date();

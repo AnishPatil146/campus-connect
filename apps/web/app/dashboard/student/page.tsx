@@ -44,7 +44,7 @@ export default function StudentDashboard() {
       if (resp.success && resp.data) {
         setDashboardData(resp.data);
         if (resp.data.attendance) {
-          setAttendancePercent(resp.data.attendance.overallPercentage);
+          setAttendancePercent(Math.round(resp.data.attendance.overallPercentage ?? 0));
         }
       } else {
         setError(resp.message || 'Failed to load student dashboard.');
@@ -64,7 +64,7 @@ export default function StudentDashboard() {
     if (!socket) return;
     const handleAttendanceUpdate = (data: any) => {
       if (data && data.percentage !== undefined) {
-        setAttendancePercent(data.percentage);
+        setAttendancePercent(Math.round(data.percentage));
       }
       fetchDashboard();
     };
@@ -139,6 +139,11 @@ export default function StudentDashboard() {
     attendance: attendancePercent,
   };
 
+  const attendanceNumber = typeof studentInfo.attendance === 'number' 
+    ? studentInfo.attendance 
+    : parseFloat(studentInfo.attendance) || 0;
+  const attendanceFormatted = Math.round(attendanceNumber);
+
   return (
     <DashboardLayout title="Student Dashboard">
       <div className="space-y-6">
@@ -188,13 +193,13 @@ export default function StudentDashboard() {
               </p>
             </div>
             
-            <div className="flex gap-4">
+            <div className="flex gap-4 shrink-0">
               <div className="bg-white/12 backdrop-blur-md rounded-xl p-3 text-center border border-white/10 min-w-[90px]">
                 <div className="text-2xl font-bold">{studentInfo.gpa}</div>
                 <div className="text-[10px] text-white/70 font-semibold uppercase tracking-wider">GPA</div>
               </div>
               <div className="bg-white/12 backdrop-blur-md rounded-xl p-3 text-center border border-white/10 min-w-[90px]">
-                <div className="text-2xl font-bold">{studentInfo.attendance}%</div>
+                <div className="text-2xl font-bold">{attendanceFormatted}%</div>
                 <div className="text-[10px] text-white/70 font-semibold uppercase tracking-wider">Attendance</div>
               </div>
             </div>
@@ -205,38 +210,42 @@ export default function StudentDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           
           {/* Card 1: Attendance */}
-          <Link href="/dashboard/student/attendance" className="group">
-            <Card className="h-full border-slate-100 hover:border-blue-100 transition-all duration-300 hover:-translate-y-0.5">
+          <Link href="/dashboard/student/attendance" className="group min-w-0">
+            <Card className="h-full border-slate-100 hover:border-blue-100 transition-all duration-300 hover:-translate-y-0.5 overflow-hidden">
               <CardContent className="p-5 flex flex-col justify-between h-full space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider">Attendance</span>
-                  <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider truncate">Attendance</span>
+                  <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                     <Calendar className="h-4 w-4" />
                   </div>
                 </div>
-                <div>
-                  <span className="text-2xl font-extrabold text-slate-900 dark:text-white">{studentInfo.attendance}%</span>
-                  <p className="text-[10px] text-slate-400 mt-1">Status: Safe (above 75%)</p>
+                <div className="min-w-0">
+                  <span className="text-2xl font-extrabold text-slate-900 dark:text-white truncate block">
+                    {attendanceFormatted}%
+                  </span>
+                  <p className="text-[10px] text-slate-400 mt-1 truncate">
+                    Status: {attendanceNumber >= 75 ? 'Safe (above 75%)' : 'Attention (below 75%)'}
+                  </p>
                 </div>
               </CardContent>
             </Card>
           </Link>
 
           {/* Card 2: Upcoming Class */}
-          <Link href="/dashboard/student/timetable" className="group">
-            <Card className="h-full border-slate-100 hover:border-blue-100 transition-all duration-300 hover:-translate-y-0.5">
+          <Link href="/dashboard/student/timetable" className="group min-w-0">
+            <Card className="h-full border-slate-100 hover:border-blue-100 transition-all duration-300 hover:-translate-y-0.5 overflow-hidden">
               <CardContent className="p-5 flex flex-col justify-between h-full space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider">Upcoming Class</span>
-                  <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider truncate">Upcoming Class</span>
+                  <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                     <Clock className="h-4 w-4" />
                   </div>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <span className="text-sm font-extrabold text-slate-900 dark:text-white block truncate">
                     {dashboardData?.todayClasses?.[0]?.subjectName || 'None Scheduled'}
                   </span>
-                  <p className="text-[10px] text-slate-400 mt-1">
+                  <p className="text-[10px] text-slate-400 mt-1 truncate">
                     {dashboardData?.todayClasses?.[0]
                       ? `Time: ${dashboardData.todayClasses[0].startTime} • Rm ${dashboardData.todayClasses[0].classroom}`
                       : 'Enjoy your day!'}
@@ -246,61 +255,61 @@ export default function StudentDashboard() {
             </Card>
           </Link>
  
-           {/* Card 3: Next Event */}
-           <Link href="/dashboard/student/events" className="group">
-             <Card className="h-full border-slate-100 hover:border-blue-100 transition-all duration-300 hover:-translate-y-0.5">
-               <CardContent className="p-5 flex flex-col justify-between h-full space-y-4">
-                 <div className="flex items-center justify-between">
-                   <span className="text-xs font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider">Next Event</span>
-                   <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                     <Star className="h-4 w-4" />
-                   </div>
-                 </div>
-                 <div>
-                   <span className="text-xs font-extrabold text-slate-900 dark:text-white block truncate">{nextEvent?.title || 'Hackathon'}</span>
-                   <p className="text-[10px] text-slate-400 mt-1">Date: {nextEvent?.date || 'Upcoming'}</p>
-                 </div>
-               </CardContent>
-             </Card>
-           </Link>
+          {/* Card 3: Next Event */}
+          <Link href="/dashboard/student/events" className="group min-w-0">
+            <Card className="h-full border-slate-100 hover:border-blue-100 transition-all duration-300 hover:-translate-y-0.5 overflow-hidden">
+              <CardContent className="p-5 flex flex-col justify-between h-full space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider truncate">Next Event</span>
+                  <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                    <Star className="h-4 w-4" />
+                  </div>
+                </div>
+                <div className="min-w-0">
+                  <span className="text-xs font-extrabold text-slate-900 dark:text-white block truncate">{nextEvent?.title || 'Hackathon'}</span>
+                  <p className="text-[10px] text-slate-400 mt-1 truncate">Date: {nextEvent?.date || 'Upcoming'}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
  
-           {/* Card 4: Latest Announcement */}
-           <Link href="/dashboard/student/announcements" className="group">
-             <Card className="h-full border-slate-100 hover:border-blue-100 transition-all duration-300 hover:-translate-y-0.5">
-               <CardContent className="p-5 flex flex-col justify-between h-full space-y-4">
-                 <div className="flex items-center justify-between">
-                   <span className="text-xs font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider">Latest Info</span>
-                   <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                     <Megaphone className="h-4 w-4" />
-                   </div>
-                 </div>
-                 <div>
-                   <span className="text-xs font-extrabold text-slate-900 dark:text-white block truncate">{latestAnnouncement?.title || 'No Notice'}</span>
-                   <p className="text-[10px] text-slate-400 mt-1">Published: {latestAnnouncement?.date || 'Today'}</p>
-                 </div>
-               </CardContent>
-             </Card>
-           </Link>
+          {/* Card 4: Latest Announcement */}
+          <Link href="/dashboard/student/announcements" className="group min-w-0">
+            <Card className="h-full border-slate-100 hover:border-blue-100 transition-all duration-300 hover:-translate-y-0.5 overflow-hidden">
+              <CardContent className="p-5 flex flex-col justify-between h-full space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider truncate">Latest Info</span>
+                  <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                    <Megaphone className="h-4 w-4" />
+                  </div>
+                </div>
+                <div className="min-w-0">
+                  <span className="text-xs font-extrabold text-slate-900 dark:text-white block truncate">{latestAnnouncement?.title || 'No Notice'}</span>
+                  <p className="text-[10px] text-slate-400 mt-1 truncate">Published: {latestAnnouncement?.date || 'Today'}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
  
-           {/* Card 5: Class Leaderboard Rank */}
-           <Link href="/dashboard/student/performance" className="group">
-             <Card className="h-full border-slate-100 hover:border-blue-100 transition-all duration-300 hover:-translate-y-0.5">
-               <CardContent className="p-5 flex flex-col justify-between h-full space-y-4">
-                 <div className="flex items-center justify-between">
-                   <span className="text-xs font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider">Leaderboard</span>
-                   <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                     <Trophy className="h-4 w-4" />
-                   </div>
-                 </div>
-                 <div>
-                   <span className="text-2xl font-extrabold text-slate-900 dark:text-white">Rank #{dashboardData?.leaderboard?.position || 'N/A'}</span>
-                   <p className="text-[10px] text-slate-400 mt-1">
-                     Percentile: Top {Math.round(((dashboardData?.leaderboard?.position || 1) / (dashboardData?.performance?.totalStudents || 120)) * 100) || 5}%
-                   </p>
-                 </div>
-               </CardContent>
-             </Card>
-           </Link>
+          {/* Card 5: Class Leaderboard Rank */}
+          <Link href="/dashboard/student/performance" className="group min-w-0">
+            <Card className="h-full border-slate-100 hover:border-blue-100 transition-all duration-300 hover:-translate-y-0.5 overflow-hidden">
+              <CardContent className="p-5 flex flex-col justify-between h-full space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider truncate">Leaderboard</span>
+                  <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                    <Trophy className="h-4 w-4" />
+                  </div>
+                </div>
+                <div className="min-w-0">
+                  <span className="text-2xl font-extrabold text-slate-900 dark:text-white truncate block">Rank #{dashboardData?.leaderboard?.position || 'N/A'}</span>
+                  <p className="text-[10px] text-slate-400 mt-1 truncate">
+                    Percentile: Top {Math.round(((dashboardData?.leaderboard?.position || 1) / (dashboardData?.performance?.totalStudents || 120)) * 100) || 5}%
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
 
         </div>
 

@@ -57,7 +57,7 @@ export default function StudentAttendancePage() {
       if (dbRes.success && dbRes.data) {
         const d = dbRes.data;
         setStats({
-          percentage: d.percentage ?? 0,
+          percentage: Math.round(d.percentage ?? 0),
           present: d.present ?? 0,
           absent: d.absent ?? 0,
           medicalLeaves: d.medicalLeaves ?? 0,
