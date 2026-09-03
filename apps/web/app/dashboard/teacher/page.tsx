@@ -284,16 +284,14 @@ export default function TeacherDashboard() {
   // Load everything
   useEffect(() => {
     if (user) {
-      startLoading("Loading dashboard...");
       Promise.all([
         fetchDashboardStats(),
         fetchAssignedTasks(),
-        fetchActivityLogs()
       ]).finally(() => {
-        setTimeout(() => stopLoading(), 400);
+        stopLoading();
       });
     }
-  }, [user, fetchDashboardStats, fetchAssignedTasks, fetchActivityLogs, startLoading, stopLoading]);
+  }, [user, fetchDashboardStats, fetchAssignedTasks, stopLoading]);
 
   // Load students/assignments when subject changes
   useEffect(() => {
